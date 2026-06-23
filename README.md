@@ -1,6 +1,6 @@
 # Coding Agent Free
 
-An interactive AI coding agent for Windows PowerShell that uses **free** OpenRouter models with real tool calling — read, write, list, delete files, and execute shell commands.
+An interactive AI coding agent that uses **free** OpenRouter models with real tool calling — read, write, list, delete files, and execute shell commands. Works on Windows, macOS, and Linux.
 
 ## Features
 
@@ -21,7 +21,7 @@ An interactive AI coding agent for Windows PowerShell that uses **free** OpenRou
 
 ```bash
 # Clone
-git clone https://github.com/YOUR_USER/coding-agent-free.git
+git clone https://github.com/maz557/coding-agent-free.git
 cd coding-agent-free
 
 # Install
