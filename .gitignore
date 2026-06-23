@@ -1,0 +1,8 @@
+node_modules
+dist
+.env
+workspace
+presets.json
+*.bak
+*.log
+src/agent - Copy.ts
