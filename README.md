@@ -119,6 +119,22 @@ Set `LOG_LEVEL=debug` or `LOG_LEVEL=warn` in `.env` to control verbosity. Defaul
 | `ALLOWED_DIR` | `./workspace` | Directory for file operations |
 | `LOG_LEVEL` | `info` | Log level: `debug`, `info`, `warn`, `error` |
 
+## OpenRouter Free Tier Limitations
+
+This package relies on OpenRouter's free API tier. These limitations are **not bugs in the package** but constraints of the free tier:
+
+| Limitation | Description |
+|------------|-------------|
+| **Daily rate limit** | Free tier is limited to ~20–200 requests/day depending on model. You'll see `429 Rate limit exceeded: free-models-per-day`. Adding $10+ credits increases this to 1000/day. |
+| **Slow responses** | Free queries are deprioritized. Large models (e.g., Nemotron 550B) and fallback chains can take 30–120s. |
+| **Model availability** | Free models come and go without notice. A model that works today may be gone tomorrow. |
+| **Routing unpredictability** | `openrouter/free` routes to any available free model; not all support tool calling (only ~18 of ~23). |
+| **Tool support gaps** | Some free models returned by the router do not support function calling, causing malformed tool calls or empty arguments. |
+| **Context window limits** | Varies by model. Large file reads may exceed context limits. |
+| **No SLA** | Free models have no guaranteed uptime or performance. |
+
+To reduce issues: use `/add <n> <model-id>` to pin models you've confirmed work, and keep `openrouter/free` as a fallback.
+
 ## Security
 
 - All file operations are restricted to the `ALLOWED_DIR` directory
