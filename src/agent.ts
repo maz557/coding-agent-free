@@ -326,10 +326,6 @@ class CodingAgent {
           };
         }
 
-        if (assistantMessage.content) {
-          logs.push(`  [content] ${assistantMessage.content}`);
-        }
-
         const toolCalls = assistantMessage.tool_calls ?? [];
         if (!isToolCallArray(toolCalls) || toolCalls.length === 0) {
           this.conversation = this.conversation.addAssistantMessage(assistantMessage.content ?? null);
