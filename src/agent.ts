@@ -78,13 +78,19 @@ function isToolCallArray(obj: unknown): obj is ToolCall[] {
 const toolInputSchemas: Record<string, z.ZodTypeAny> = {
   read_file: z.object({ path: z.string().min(1) }),
   write_file: z.object({ path: z.string().min(1), content: z.string() }),
-  run_command: z.object({ command: z.string().min(1) }),
+  list_files: z.object({ directory: z.string().optional() }),
+  create_folder: z.object({ path: z.string().min(1) }),
+  delete_file: z.object({ path: z.string().min(1) }),
+  run_command: z.object({ command: z.string().min(1), timeout: z.number().optional() }),
 };
 
 const toolOutputSchemas: Record<string, z.ZodTypeAny> = {
   read_file: z.string(),
-  write_file: z.void(),
-  run_command: z.object({ stdout: z.string(), stderr: z.string() }),
+  write_file: z.string(),
+  list_files: z.string(),
+  create_folder: z.string(),
+  delete_file: z.string(),
+  run_command: z.string(),
 };
 
 function validateToolInput(toolName: string, args: unknown): unknown {
