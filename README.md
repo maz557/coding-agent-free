@@ -12,7 +12,7 @@ An interactive AI coding agent that uses **free** OpenRouter models with real to
 - **Zod validation** — runtime type-checking of all tool inputs and outputs
 - **Automatic retry** — exponential backoff with timeout for flaky free API endpoints
 - **Immutable conversation state** — prevents accidental mutation bugs in message history
-- **Structured logging** — via `pino`, with pretty-print in development mode
+- **Structured logging** — via `pino` with pretty-print output
 - **File management tools** — `read_file`, `write_file`, `list_files`, `create_folder`, `delete_file`, `run_command`
 - **TypeScript** — clean, class-based architecture
 
@@ -109,7 +109,7 @@ coding-agent-free/
 
 ## Logging
 
-Set `LOG_LEVEL=debug` or `LOG_LEVEL=warn` in `.env` to control verbosity. In development, logs are pretty-printed. Default level is `info`.
+Set `LOG_LEVEL=debug` or `LOG_LEVEL=warn` in `.env` to control verbosity. Default level is `info`.
 
 ## Environment Variables
 
@@ -118,7 +118,6 @@ Set `LOG_LEVEL=debug` or `LOG_LEVEL=warn` in `.env` to control verbosity. In dev
 | `OPENROUTER_API_KEY` | — | Your OpenRouter API key (required) |
 | `ALLOWED_DIR` | `./workspace` | Directory for file operations |
 | `LOG_LEVEL` | `info` | Log level: `debug`, `info`, `warn`, `error` |
-| `NODE_ENV` | — | Set to `development` for pretty-print logs |
 
 ## Security
 

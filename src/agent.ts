@@ -12,7 +12,7 @@ dotenv.config();
 
 const logger = pino({
   level: process.env.LOG_LEVEL || 'info',
-  transport: process.env.NODE_ENV === 'development' ? { target: 'pino-pretty' } : undefined,
+  transport: { target: 'pino-pretty' },
 });
 
 type ToolCallFunction = {
@@ -304,7 +304,7 @@ class CodingAgent {
         const response = await withRetryAndTimeout(
           signal => this.client.chat.completions.create(request, { signal }),
           3,
-          60000
+          120000
         ) as OpenAI.ChatCompletion;
 
         usedModel = response.model || this.modelConfig.primary;
