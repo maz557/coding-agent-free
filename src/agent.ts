@@ -30,7 +30,7 @@ type ChatMessage =
   | { role: 'system'; content: string; name?: string }
   | { role: 'user'; content: string; name?: string }
   | { role: 'assistant'; content: string | null; name?: string; tool_calls?: ToolCall[] }
-  | { role: 'tool'; tool_call_id: string; content: string };
+  | { role: 'tool'; tool_call_id: string; content: string; name?: string };
 
 type OpenAITool = {
   type: 'function';
@@ -81,7 +81,7 @@ const toolInputSchemas: Record<string, z.ZodTypeAny> = {
   list_files: z.object({ directory: z.string().optional() }),
   create_folder: z.object({ path: z.string().min(1) }),
   delete_file: z.object({ path: z.string().min(1) }),
-  run_command: z.object({ command: z.string().min(1), timeout: z.number().optional() }),
+  run_command: z.object({ command: z.string().min(1), timeout: z.number().int().positive().optional() }),
 };
 
 const toolOutputSchemas: Record<string, z.ZodTypeAny> = {
@@ -130,8 +130,8 @@ class ConversationState {
     return new ConversationState([...this.messages, { role: 'assistant', content, tool_calls: toolCalls }]);
   }
 
-  addToolResult(toolCallId: string, content: string): ConversationState {
-    return new ConversationState([...this.messages, { role: 'tool', tool_call_id: toolCallId, content }]);
+  addToolResult(toolCallId: string, content: string, name?: string): ConversationState {
+    return new ConversationState([...this.messages, { role: 'tool', tool_call_id: toolCallId, content, name }]);
   }
 
   getAllMessages(): ReadonlyArray<ChatMessage> {
@@ -142,7 +142,7 @@ class ConversationState {
 async function withRetryAndTimeout<T>(
   fn: (signal: AbortSignal) => Promise<T>,
   maxRetries = 3,
-  timeoutMs = 60000,
+  timeoutMs = 120000,
   baseDelay = 1000
 ): Promise<T> {
   let lastError: unknown;
@@ -304,8 +304,7 @@ class CodingAgent {
       depth++;
 
       try {
-        const messages = this.conversation.getAllMessages();
-        const request = this.buildRequest(messages);
+        const request = this.buildRequest(this.conversation.getAllMessages());
 
         const response = await withRetryAndTimeout(
           signal => this.client.chat.completions.create(request, { signal }),
@@ -348,12 +347,11 @@ class CodingAgent {
 
           let parsedArgs: unknown;
           try {
-            parsedArgs = JSON.parse(toolCall.function.arguments);
-            parsedArgs = validateToolInput(functionName, parsedArgs);
+            parsedArgs = validateToolInput(functionName, JSON.parse(toolCall.function.arguments));
           } catch (err: any) {
             const errorMsg = `Invalid arguments for ${functionName}: ${err?.message || String(err)}`;
             logs.push(`  ⚠️ ${errorMsg}`);
-            this.conversation = this.conversation.addToolResult(toolCall.id, `Error: ${errorMsg}`);
+            this.conversation = this.conversation.addToolResult(toolCall.id, `Error: ${errorMsg}`, functionName);
             continue;
           }
 
@@ -384,11 +382,11 @@ class CodingAgent {
                   ? ''
                   : JSON.stringify(validatedResult);
 
-            this.conversation = this.conversation.addToolResult(toolCall.id, content);
+            this.conversation = this.conversation.addToolResult(toolCall.id, content, functionName);
           } catch (err: any) {
             const msg = err?.message || 'Unknown tool error';
             logs.push(`  ❌ Tool Error: ${msg}`);
-            this.conversation = this.conversation.addToolResult(toolCall.id, `Error executing tool: ${msg}`);
+            this.conversation = this.conversation.addToolResult(toolCall.id, `Error executing tool: ${msg}`, functionName);
           }
         }
       } catch (err: any) {
