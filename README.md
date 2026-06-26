@@ -9,6 +9,10 @@ An interactive AI coding agent that uses **free** OpenRouter models with real to
 - **User-defined presets** — save, add, and remove your own models (`/save`, `/add`, `/remove`)
 - **Persistent presets** — saved to `presets.json` across sessions
 - **Smart loop detection** — detects 3+ identical calls or 5+ same-tool calls and stops
+- **Zod validation** — runtime type-checking of all tool inputs and outputs
+- **Automatic retry** — exponential backoff with timeout for flaky free API endpoints
+- **Immutable conversation state** — prevents accidental mutation bugs in message history
+- **Structured logging** — via `pino`, with pretty-print in development mode
 - **File management tools** — `read_file`, `write_file`, `list_files`, `create_folder`, `delete_file`, `run_command`
 - **TypeScript** — clean, class-based architecture
 
@@ -91,7 +95,7 @@ Agent: Hello, world! — the script runs correctly.
 ```
 coding-agent-free/
 ├── src/
-│   ├── agent.ts           # Main agent: CLI, presets, loop detection
+│   ├── agent.ts           # Main agent: CLI, presets, loop detection, retry logic, validation
 │   └── tools/
 │       └── fileManager.ts # File operations & shell execution
 ├── scripts/
@@ -99,8 +103,22 @@ coding-agent-free/
 ├── workspace/             # Default working directory
 ├── .env                   # API key & config (gitignored)
 ├── presets.json           # User presets (gitignored)
+├── tsconfig.json
 └── run-agent.bat          # Double-click launcher
 ```
+
+## Logging
+
+Set `LOG_LEVEL=debug` or `LOG_LEVEL=warn` in `.env` to control verbosity. In development, logs are pretty-printed. Default level is `info`.
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OPENROUTER_API_KEY` | — | Your OpenRouter API key (required) |
+| `ALLOWED_DIR` | `./workspace` | Directory for file operations |
+| `LOG_LEVEL` | `info` | Log level: `debug`, `info`, `warn`, `error` |
+| `NODE_ENV` | — | Set to `development` for pretty-print logs |
 
 ## Security
 
