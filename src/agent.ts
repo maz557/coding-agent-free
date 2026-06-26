@@ -6,14 +6,15 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { z } from 'zod';
 import pino from 'pino';
+import pinoPretty from 'pino-pretty';
 import { tools, executeTool } from './tools/fileManager';
 
 dotenv.config();
 
-const logger = pino({
-  level: process.env.LOG_LEVEL || 'info',
-  transport: { target: 'pino-pretty' },
-});
+const logger = pino(
+  { level: process.env.LOG_LEVEL || 'info' },
+  pinoPretty({ destination: 2, sync: true })
+);
 
 type ToolCallFunction = {
   name: string;
