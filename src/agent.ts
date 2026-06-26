@@ -327,7 +327,7 @@ class CodingAgent {
         }
 
         if (assistantMessage.content) {
-          logs.push(`\nAgent: ${assistantMessage.content}`);
+          logs.push(`  [content] ${assistantMessage.content}`);
         }
 
         const toolCalls = assistantMessage.tool_calls ?? [];
@@ -541,6 +541,10 @@ async function startChat() {
       const result = await agent.execute(input);
       result.logs.forEach(log => console.log(log));
       lastActualModel = result.model;
+
+      if (result.content) {
+        console.log(`\nAgent: ${result.content}\n`);
+      }
 
       logger.info({ model: result.model, toolCalls: result.toolCallsCount }, 'Agent completed');
     } catch (err: any) {
