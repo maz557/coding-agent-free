@@ -541,10 +541,6 @@ async function startChat() {
       result.logs.forEach(log => console.log(log));
       lastActualModel = result.model;
 
-      if (result.content) {
-        console.log(`\nAgent: ${result.content}\n`);
-      }
-
       logger.info({ model: result.model, toolCalls: result.toolCallsCount }, 'Agent completed');
     } catch (err: any) {
       logger.error({ error: err }, 'Unexpected system error');
