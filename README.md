@@ -58,6 +58,40 @@ Or double-click `run-agent.bat`.
 | `/list-providers` | Show available providers and key status |
 | `/exit` | Quit |
 
+## Multi-Provider Usage
+
+Each preset carries its own `provider` field. Switching presets with `/model <n>` automatically creates a new API client for that provider — no manual steps needed.
+
+```
+You: /add 6 groq:openai/gpt-oss-120b
+✅ Added preset 6: [Groq] openai/gpt-oss-120b
+
+You: /model 6
+✅ Switched to preset 6: [Groq] openai/gpt-oss-120b
+
+You: /model 1
+✅ Switched to preset 1: [OpenRouter] openrouter/free
+```
+
+### Adding a model from another provider
+
+```
+/add <n> <provider>:<model-id>
+```
+
+Examples:
+```
+/add 10 groq:llama-3.3-70b-versatile
+/add 11 google:gemini-2.0-flash-exp
+/add 12 deepseek:deepseek-chat
+```
+
+If you omit the provider (e.g. `/add 10 llama-3.3-70b-versatile`), it defaults to the current preset's provider.
+
+### Checking available providers
+
+Run `/list-providers` to see which providers have valid API keys configured.
+
 ## Built-in Presets
 
 | # | Model | Notes |
@@ -137,7 +171,9 @@ Set `LOG_LEVEL=debug` or `LOG_LEVEL=warn` in `.env` to control verbosity. Defaul
 
 > You only need keys for the providers you want to use. If no keys are found, the agent will show available providers on startup.
 
-## OpenRouter Free Tier Limitations
+## Provider-Specific Notes
+
+### OpenRouter Free Tier Limitations
 
 This package relies on OpenRouter's free API tier. These limitations are **not bugs in the package** but constraints of the free tier:
 
@@ -152,6 +188,15 @@ This package relies on OpenRouter's free API tier. These limitations are **not b
 | **No SLA** | Free models have no guaranteed uptime or performance. |
 
 To reduce issues: use `/add <n> <model-id>` to pin models you've confirmed work, and keep `openrouter/free` as a fallback.
+
+### Other Providers
+
+| Provider | Notes |
+|----------|-------|
+| **Groq** | Ultra-fast inference (LPU hardware). Model IDs differ from OpenRouter (e.g. `openai/gpt-oss-120b`, not `openai/gpt-oss-120b:free`). All models support tool calling. Rate limits: ~30 RPM, 1,000 RPD. |
+| **Google AI Studio** | Gemini models. Model IDs like `gemini-2.0-flash-exp`. Free tier: 5-15 RPM, 100-1K RPD. |
+| **DeepSeek** | `deepseek-chat` and `deepseek-reasoner`. Free tier: ~500 RPM, 500M tokens/day. |
+| **Mistral** | `mistral-large-latest`, `mistral-small-latest`. Free tier: 1 req/s, 1B tokens/month. |
 
 ## Security
 

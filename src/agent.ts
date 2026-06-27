@@ -300,16 +300,19 @@ class CodingAgent {
     return Array.from(new Set([this.modelConfig.primary, ...this.modelConfig.fallbacks].filter(Boolean)));
   }
 
-  private buildRequest(messages: ReadonlyArray<ChatMessage>): OpenRouterCreateParams {
-    return {
+  private buildRequest(messages: ReadonlyArray<ChatMessage>): OpenAI.ChatCompletionCreateParams {
+    const base: OpenAI.ChatCompletionCreateParams = {
       model: this.modelConfig.primary,
       messages: messages as OpenAI.ChatCompletionMessageParam[],
       tools: this.tools as OpenAI.ChatCompletionTool[],
       tool_choice: 'auto',
-      extra_body: {
-        models: this.buildModelList(),
-      },
     };
+    if (this.modelConfig.provider === 'openrouter') {
+      (base as OpenRouterCreateParams).extra_body = {
+        models: this.buildModelList(),
+      };
+    }
+    return base;
   }
 
   async execute(userInput: string): Promise<AgentResult> {
