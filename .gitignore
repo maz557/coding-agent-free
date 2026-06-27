@@ -6,3 +6,4 @@ presets.json
 *.bak
 *.log
 src/agent - Copy.ts
+local/
