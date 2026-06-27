@@ -1,9 +1,10 @@
 # Coding Agent Free
 
-An interactive AI coding agent that uses **free** OpenRouter models with real tool calling — read, write, list, delete files, and execute shell commands. Works on Windows, macOS, and Linux.
+An interactive AI coding agent that uses **free** API models from multiple providers with real tool calling — read, write, list, delete files, and execute shell commands. Works on Windows, macOS, and Linux.
 
 ## Features
 
+- **Multi-provider** — OpenRouter, Google AI Studio, Groq, DeepSeek, Mistral (free tiers)
 - **Multi-model support** with fallback chain — if one model fails, it falls back to another
 - **5 built-in presets** including `openrouter/free` discovery router
 - **User-defined presets** — save, add, and remove your own models (`/save`, `/add`, `/remove`)
@@ -19,7 +20,7 @@ An interactive AI coding agent that uses **free** OpenRouter models with real to
 ## Requirements
 
 - [Node.js](https://nodejs.org/) 18+
-- [OpenRouter](https://openrouter.ai/) API key (free tier)
+- At least one API key from a supported provider
 
 ## Quick Start
 
@@ -31,8 +32,12 @@ cd coding-agent-free
 # Install
 npm install
 
-# Configure
+# Configure — add at least one API key to .env
 echo "OPENROUTER_API_KEY=sk-or-v1-..." > .env
+echo "GROQ_API_KEY=gsk_..." >> .env
+echo "GOOGLE_API_KEY=AIza..." >> .env
+echo "DEEPSEEK_API_KEY=sk-..." >> .env
+echo "MISTRAL_API_KEY=..." >> .env
 echo "ALLOWED_DIR=./workspace" >> .env
 
 # Run
@@ -47,9 +52,10 @@ Or double-click `run-agent.bat`.
 |---------|-------------|
 | `/model <n>` | Switch to preset n |
 | `/save <n>` | Save last used model as preset n |
-| `/add <n> <m>` | Manually add model m as preset n |
+| `/add <n> <m>` | Manually add model m as preset n (`provider:model` or just `model`) |
 | `/remove <n>` | Remove a user preset |
 | `/models` | Show all presets |
+| `/list-providers` | Show available providers and key status |
 | `/exit` | Quit |
 
 ## Built-in Presets
@@ -99,9 +105,15 @@ coding-agent-free/
 │   └── tools/
 │       └── fileManager.ts # File operations & shell execution
 ├── scripts/
-│   └── check_models.js    # Utility to list free OpenRouter models
+│   ├── check_models.js    # Utility to list free OpenRouter models
+│   └── test.js            # Non-interactive test script
+├── local/                  # Local tools & backups (gitignored)
+│   ├── backup/             # Snapshot of last working version
+│   │   └── src/            # Restore with: powershell .\local\restore.ps1
+│   ├── update.ps1          # Pull latest from GitHub
+│   └── restore.ps1         # Restore src/ from local backup
 ├── workspace/             # Default working directory
-├── .env                   # API key & config (gitignored)
+├── .env                   # API keys & config (gitignored)
 ├── presets.json           # User presets (gitignored)
 ├── tsconfig.json
 └── run-agent.bat          # Double-click launcher
@@ -115,9 +127,15 @@ Set `LOG_LEVEL=debug` or `LOG_LEVEL=warn` in `.env` to control verbosity. Defaul
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OPENROUTER_API_KEY` | — | Your OpenRouter API key (required) |
+| `OPENROUTER_API_KEY` | — | OpenRouter API key (https://openrouter.ai/keys) |
+| `GROQ_API_KEY` | — | Groq API key (https://console.groq.com/keys) |
+| `GOOGLE_API_KEY` | — | Google AI Studio key (https://aistudio.google.com/apikey) |
+| `DEEPSEEK_API_KEY` | — | DeepSeek API key (https://platform.deepseek.com) |
+| `MISTRAL_API_KEY` | — | Mistral API key (https://console.mistral.ai) |
 | `ALLOWED_DIR` | `./workspace` | Directory for file operations |
 | `LOG_LEVEL` | `info` | Log level: `debug`, `info`, `warn`, `error` |
+
+> You only need keys for the providers you want to use. If no keys are found, the agent will show available providers on startup.
 
 ## OpenRouter Free Tier Limitations
 

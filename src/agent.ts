@@ -16,6 +16,21 @@ const logger = pino(
   pinoPretty({ destination: 2, sync: true })
 );
 
+// --- Provider Configuration ---
+interface ProviderInfo {
+  name: string;
+  baseURL: string;
+  apiKeyEnv: string;
+}
+
+const PROVIDERS: Record<string, ProviderInfo> = {
+  openrouter: { name: 'OpenRouter', baseURL: 'https://openrouter.ai/api/v1', apiKeyEnv: 'OPENROUTER_API_KEY' },
+  google:     { name: 'Google AI Studio', baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/', apiKeyEnv: 'GOOGLE_API_KEY' },
+  groq:       { name: 'Groq', baseURL: 'https://api.groq.com/openai/v1', apiKeyEnv: 'GROQ_API_KEY' },
+  deepseek:   { name: 'DeepSeek', baseURL: 'https://api.deepseek.com', apiKeyEnv: 'DEEPSEEK_API_KEY' },
+  mistral:    { name: 'Mistral', baseURL: 'https://api.mistral.ai/v1', apiKeyEnv: 'MISTRAL_API_KEY' },
+};
+
 type ToolCallFunction = {
   name: string;
   arguments: string;
@@ -43,6 +58,7 @@ type OpenAITool = {
 };
 
 interface ModelPreset {
+  provider: string;
   primary: string;
   fallbacks: string[];
 }
@@ -175,11 +191,11 @@ async function withRetryAndTimeout<T>(
 }
 
 const FIXED_PRESETS: Record<string, ModelPreset> = {
-  '1': { primary: 'openrouter/free', fallbacks: [] },
-  '2': { primary: 'qwen/qwen3-next-80b-a3b-instruct:free', fallbacks: ['openrouter/free'] },
-  '3': { primary: 'nvidia/nemotron-3-super-120b-a12b:free', fallbacks: ['openrouter/free'] },
-  '4': { primary: 'openai/gpt-oss-120b:free', fallbacks: ['openrouter/free'] },
-  '5': { primary: 'nvidia/nemotron-3-ultra-550b-a55b:free', fallbacks: ['openrouter/free'] },
+  '1': { provider: 'openrouter', primary: 'openrouter/free', fallbacks: [] },
+  '2': { provider: 'openrouter', primary: 'qwen/qwen3-next-80b-a3b-instruct:free', fallbacks: ['openrouter/free'] },
+  '3': { provider: 'openrouter', primary: 'nvidia/nemotron-3-super-120b-a12b:free', fallbacks: ['openrouter/free'] },
+  '4': { provider: 'openrouter', primary: 'openai/gpt-oss-120b:free', fallbacks: ['openrouter/free'] },
+  '5': { provider: 'openrouter', primary: 'nvidia/nemotron-3-ultra-550b-a55b:free', fallbacks: ['openrouter/free'] },
 };
 
 const PRESETS_FILE = path.join(__dirname, '..', 'presets.json');
@@ -202,6 +218,7 @@ async function loadUserPresets(): Promise<Record<string, ModelPreset>> {
     for (const key of Object.keys(parsed)) {
       const item = parsed[key] || {};
       normalized[key] = {
+        provider: String(item.provider ?? 'openrouter'),
         primary: String(item.primary ?? ''),
         fallbacks: Array.isArray(item.fallbacks) ? item.fallbacks.map(String) : [],
       };
@@ -229,8 +246,9 @@ function getAllPresets(userPresets: Record<string, ModelPreset>): Record<string,
 }
 
 function formatPresetLine(key: string, preset: ModelPreset): string {
+  const prov = PROVIDERS[preset.provider]?.name ?? preset.provider;
   const fb = preset.fallbacks.length ? ` → ${preset.fallbacks.join(', ')}` : '';
-  return `  /model ${key}  ${preset.primary}${fb}`;
+  return `  /model ${key}  [${prov}] ${preset.primary}${fb}`;
 }
 
 function showModels(userPresets: Record<string, ModelPreset>, activeModelConfig: ModelPreset) {
@@ -247,7 +265,8 @@ function showModels(userPresets: Record<string, ModelPreset>, activeModelConfig:
   }
 
   console.log('──────────────────────────────────────────');
-  console.log(`  ✅ Active: ${activeModelConfig.primary}${activeModelConfig.fallbacks.length ? ` → ${activeModelConfig.fallbacks.join(', ')}` : ''}`);
+  const prov = PROVIDERS[activeModelConfig.provider]?.name ?? activeModelConfig.provider;
+  console.log(`  ✅ Active: [${prov}] ${activeModelConfig.primary}${activeModelConfig.fallbacks.length ? ` → ${activeModelConfig.fallbacks.join(', ')}` : ''}`);
 }
 
 class CodingAgent {
@@ -409,21 +428,33 @@ class CodingAgent {
 }
 
 async function startChat() {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey || apiKey.trim() === '' || apiKey === 'YOUR_API_KEY_HERE') {
-    console.error('❌ ERROR: Please set a valid OPENROUTER_API_KEY in the .env file.');
+  // Check all provider API keys on startup
+  const missingKeys: string[] = [];
+  for (const [id, info] of Object.entries(PROVIDERS)) {
+    const val = process.env[info.apiKeyEnv];
+    if (!val || val.trim() === '' || val === 'YOUR_API_KEY_HERE') {
+      missingKeys.push(`${info.name} (${info.apiKeyEnv})`);
+    }
+  }
+  if (missingKeys.length === Object.keys(PROVIDERS).length) {
+    console.error('❌ ERROR: No API keys found. Add at least one to .env:');
+    Object.values(PROVIDERS).forEach(p => console.error(`   ${p.apiKeyEnv}=your-key`));
+    console.error('   Get keys: OpenRouter=openrouter.ai/keys, Google=aistudio.google.com/apikey, Groq=console.groq.com/keys, DeepSeek=platform.deepseek.com, Mistral=console.mistral.ai');
     process.exit(1);
   }
 
-  const client = new OpenAI({
-    baseURL: 'https://openrouter.ai/api/v1',
-    apiKey,
-    defaultHeaders: {
-      'HTTP-Referer': 'https://github.com',
-      'X-Title': 'coding-agent-pro',
-    },
-  });
+  function createClient(providerId: string): OpenAI {
+    const info = PROVIDERS[providerId] ?? PROVIDERS.openrouter;
+    const apiKey = process.env[info.apiKeyEnv] || '';
+    const headers: Record<string, string> = {};
+    if (providerId === 'openrouter') {
+      headers['HTTP-Referer'] = 'https://github.com';
+      headers['X-Title'] = 'coding-agent-pro';
+    }
+    return new OpenAI({ baseURL: info.baseURL, apiKey, defaultHeaders: headers });
+  }
 
+  let client = createClient('openrouter');
   let userPresets = await loadUserPresets();
   let activeModelConfig: ModelPreset = { ...FIXED_PRESETS['1'] };
   let lastActualModel = '';
@@ -434,8 +465,9 @@ async function startChat() {
   console.log('  Commands:');
   console.log('    /model <n>   Switch to preset n');
   console.log('    /save <n>    Save last used model as preset n');
-  console.log('    /add <n> <m> Manually add model m as preset n');
+  console.log('    /add <n> <m> Manually add model m as preset n (provider:model)');
   console.log('    /remove <n>  Remove a user preset');
+  console.log('    /list-providers  Show available providers');
   console.log('    /models      Show all presets');
   console.log('    /exit        Quit');
   console.log('═══════════════════════════════════════════════');
@@ -468,13 +500,27 @@ async function startChat() {
       continue;
     }
 
+    if (input.toLowerCase() === '/list-providers') {
+      console.log('\n── Available Providers ────────────────────');
+      for (const [id, info] of Object.entries(PROVIDERS)) {
+        const key = process.env[info.apiKeyEnv] ? '🔑' : '❌';
+        console.log(`  ${key} ${info.name.padEnd(20)} ${info.apiKeyEnv}`);
+      }
+      console.log('──────────────────────────────────────────');
+      console.log('  (❌ = add key to .env)\n');
+      rl.prompt();
+      continue;
+    }
+
     const modelMatch = input.match(/^\/model\s+(\d+)$/i);
     if (modelMatch) {
       const num = modelMatch[1];
       const allPresets = getAllPresets(userPresets);
       if (allPresets[num]) {
         activeModelConfig = { ...allPresets[num] };
-        console.log(`\n✅ Switched to preset ${num}: ${activeModelConfig.primary}\n`);
+        client = createClient(activeModelConfig.provider);
+        const prov = PROVIDERS[activeModelConfig.provider]?.name ?? activeModelConfig.provider;
+        console.log(`\n✅ Switched to preset ${num}: [${prov}] ${activeModelConfig.primary}\n`);
       } else {
         console.log(`\n❌ Preset ${num} not found.\n`);
       }
@@ -490,9 +536,10 @@ async function startChat() {
       } else if (!lastActualModel) {
         console.log(`\n❌ No model to save. Send a message first.\n`);
       } else {
-        userPresets[num] = { primary: lastActualModel, fallbacks: ['openrouter/free'] };
+        const prov = PROVIDERS[activeModelConfig.provider]?.name ?? activeModelConfig.provider;
+        userPresets[num] = { provider: activeModelConfig.provider, primary: lastActualModel, fallbacks: ['openrouter/free'] };
         await saveUserPresets(userPresets);
-        console.log(`\n✅ Saved as preset ${num}: ${lastActualModel}\n`);
+        console.log(`\n✅ Saved as preset ${num}: [${prov}] ${lastActualModel}\n`);
       }
       rl.prompt();
       continue;
@@ -501,13 +548,25 @@ async function startChat() {
     const addMatch = input.match(/^\/add\s+(\d+)\s+(.+)$/i);
     if (addMatch) {
       const num = addMatch[1];
-      const modelId = addMatch[2].trim();
+      const raw = addMatch[2].trim();
       if (FIXED_PRESETS[num]) {
         console.log(`\n❌ Cannot overwrite fixed preset ${num}.\n`);
       } else {
-        userPresets[num] = { primary: modelId, fallbacks: ['openrouter/free'] };
+        // Format: "provider:model" or just "model" (defaults to current provider)
+        const colon = raw.indexOf(':');
+        let providerId: string;
+        let modelId: string;
+        if (colon > 0 && PROVIDERS[raw.slice(0, colon)]) {
+          providerId = raw.slice(0, colon);
+          modelId = raw.slice(colon + 1);
+        } else {
+          providerId = activeModelConfig.provider;
+          modelId = raw;
+        }
+        const prov = PROVIDERS[providerId]?.name ?? providerId;
+        userPresets[num] = { provider: providerId, primary: modelId, fallbacks: ['openrouter/free'] };
         await saveUserPresets(userPresets);
-        console.log(`\n✅ Added preset ${num}: ${modelId}\n`);
+        console.log(`\n✅ Added preset ${num}: [${prov}] ${modelId}\n`);
       }
       rl.prompt();
       continue;
