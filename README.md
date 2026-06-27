@@ -1,66 +1,60 @@
 # Coding Agent Free
 
-An interactive AI coding agent that uses **free** API models from multiple providers with real tool calling — read, write, list, delete files, and execute shell commands. Works on Windows, macOS, and Linux.
-
-## Features
-
-- **Multi-provider** — OpenRouter, Google AI Studio, Groq, DeepSeek, Mistral (free tiers)
-- **Multi-model support** with fallback chain — if one model fails, it falls back to another
-- **5 built-in presets** including `openrouter/free` discovery router
-- **User-defined presets** — save, add, and remove your own models (`/save`, `/add`, `/remove`)
-- **Persistent presets** — saved to `presets.json` across sessions
-- **Smart loop detection** — detects 3+ identical calls or 5+ same-tool calls and stops
-- **Zod validation** — runtime type-checking of all tool inputs and outputs
-- **Automatic retry** — exponential backoff with timeout for flaky free API endpoints
-- **Immutable conversation state** — prevents accidental mutation bugs in message history
-- **Structured logging** — via `pino` with pretty-print output
-- **File management tools** — `read_file`, `write_file`, `list_files`, `create_folder`, `delete_file`, `run_command`
-- **TypeScript** — clean, class-based architecture
-
-## Requirements
-
-- [Node.js](https://nodejs.org/) 18+
-- At least one API key from a supported provider
+An interactive AI coding agent powered by **free** API models from multiple providers — OpenRouter, Groq, Google AI Studio, DeepSeek, Mistral. Reads, writes, lists, and deletes files, and runs shell commands — all through tool calling.
 
 ## Quick Start
 
 ```bash
-# Clone
 git clone https://github.com/maz557/coding-agent-free.git
 cd coding-agent-free
-
-# Install
 npm install
+```
 
-# Configure — add at least one API key to .env
-echo "OPENROUTER_API_KEY=sk-or-v1-..." > .env
-echo "GROQ_API_KEY=gsk_..." >> .env
-echo "GOOGLE_API_KEY=AIza..." >> .env
-echo "DEEPSEEK_API_KEY=sk-..." >> .env
-echo "MISTRAL_API_KEY=..." >> .env
-echo "ALLOWED_DIR=./workspace" >> .env
+Create `.env` (pick at least one provider):
+```bash
+# OpenRouter (easiest — single key for 18+ free tool-calling models)
+echo "OPENROUTER_API_KEY=sk-or-v1-..." >> .env
 
-# Run
+# Optional providers:
+echo "GROQ_API_KEY=gsk_..." >> .env      # Ultra-fast inference
+echo "GOOGLE_API_KEY=AIza..." >> .env     # Gemini models
+echo "DEEPSEEK_API_KEY=sk-..." >> .env    # DeepSeek
+echo "MISTRAL_API_KEY=..." >> .env        # Mistral models
+```
+
+```bash
 npm start
 ```
 
-Or double-click `run-agent.bat`.
+## Features
+
+- **5 providers** — switch between OpenRouter, Groq, Google, DeepSeek, Mistral with one command
+- **5 built-in presets** — start with `openrouter/free` (discovers working free models automatically)
+- **User presets** — save/add/remove your own models with `/save`, `/add`, `/remove`
+- **Fallback chain** — if a model fails, it tries the next in the list
+- **Tool calling** — read, write, delete, list files, and run shell commands
+- **Smart loop detection** — stops if a tool is called 3+ times identically or 5+ times consecutively
+- **Automatic retry** — exponential backoff + 120s timeout for flaky free APIs
+- **Zod validation** — runtime type-checking of every tool input and output
+- **Persistent presets** — saved to `presets.json` and reloaded across sessions
+- **Structured logging** — via `pino` (stderr, doesn't interfere with the prompt)
+- **TypeScript** — clean, class-based architecture
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
 | `/model <n>` | Switch to preset n |
-| `/save <n>` | Save last used model as preset n |
-| `/add <n> <m>` | Manually add model m as preset n (`provider:model` or just `model`) |
+| `/save <n>` | Save current model as preset n |
+| `/add <n> <m>` | Add model m as preset n (`provider:model` or just `model`) |
 | `/remove <n>` | Remove a user preset |
 | `/models` | Show all presets |
-| `/list-providers` | Show available providers and key status |
+| `/list-providers` | Show providers with valid keys |
 | `/exit` | Quit |
 
 ## Multi-Provider Usage
 
-Each preset carries its own `provider` field. Switching presets with `/model <n>` automatically creates a new API client for that provider — no manual steps needed.
+Each preset is tied to a provider. Switching presets with `/model <n>` automatically recreates the API client — zero manual steps.
 
 ```
 You: /add 6 groq:openai/gpt-oss-120b
@@ -68,12 +62,14 @@ You: /add 6 groq:openai/gpt-oss-120b
 
 You: /model 6
 ✅ Switched to preset 6: [Groq] openai/gpt-oss-120b
+   (now using Groq's API with gpt-oss-120b)
 
 You: /model 1
 ✅ Switched to preset 1: [OpenRouter] openrouter/free
+   (back to OpenRouter)
 ```
 
-### Adding a model from another provider
+### Adding models from other providers
 
 ```
 /add <n> <provider>:<model-id>
@@ -84,126 +80,145 @@ Examples:
 /add 10 groq:llama-3.3-70b-versatile
 /add 11 google:gemini-2.0-flash-exp
 /add 12 deepseek:deepseek-chat
+/add 13 mistral:codestral-latest
 ```
 
 If you omit the provider (e.g. `/add 10 llama-3.3-70b-versatile`), it defaults to the current preset's provider.
 
-### Checking available providers
-
-Run `/list-providers` to see which providers have valid API keys configured.
-
 ## Built-in Presets
 
-| # | Model | Notes |
-|---|-------|-------|
-| 1 | `openrouter/free` | Discovery router (default) |
-| 2 | Qwen 3 Next 80B | Good general purpose |
-| 3 | Nemotron 3 Super 120B | 1M context |
-| 4 | OpenAI GPT-OSS 120B | Strong reasoning |
-| 5 | Nemotron 3 Ultra 550B | Largest free model with tools |
+| # | Model | Provider | Speed | Notes |
+|---|-------|----------|-------|-------|
+| 1 | `openrouter/free` | OpenRouter | varies | Auto-routes to available free models |
+| 2 | Qwen 3 Next 80B | OpenRouter | medium | Good general purpose |
+| 3 | Nemotron 3 Super 120B | OpenRouter | medium | 1M context |
+| 4 | OpenAI GPT-OSS 120B | OpenRouter | fast | Strong reasoning |
+| 5 | Nemotron 3 Ultra 550B | OpenRouter | slow | Largest free model with tools |
 
-## Example
+## Recommended Free Coding Models by Provider
+
+### OpenRouter
+Use the `openrouter/free` router, or pin specific models with `/add <n> <model>:free`.
+
+### Groq (fastest — LPU hardware)
+```
+/add 6 groq:openai/gpt-oss-120b       # 120B, 500 t/s — best for coding
+/add 7 groq:llama-3.3-70b-versatile   # 70B, 280 t/s
+/add 8 groq:qwen/qwen3-32b            # 32B, 400 t/s, parallel tool use
+/add 9 groq:meta-llama/llama-4-scout-17b-16e-instruct  # 750 t/s
+```
+Rate limits: 30 RPM, ~1K RPD. All models support tool calling.
+
+### Mistral (EU-hosted, strong coding models)
+```
+/add 10 mistral:codestral-latest       # Dedicated coding model
+/add 11 mistral:mistral-large-latest   # Best quality
+/add 12 mistral:mistral-small-latest   # Lightweight & fast
+/add 13 mistral:open-mistral-nemo      # 128K context, open-weight
+```
+Free tier: ~1 req/s, 1B tokens/month. Phone verification required.
+
+### Google AI Studio (Gemini models)
+```
+/add 14 google:gemini-2.0-flash-exp    # Fast, good coding
+```
+Free tier: 5-15 RPM, 100-1K RPD.
+
+### DeepSeek
+```
+/add 15 deepseek:deepseek-chat         # General purpose
+/add 16 deepseek:deepseek-reasoner     # Strong reasoning
+```
+Free tier: ~500 RPM, 500M tokens/day.
+
+## Example Session
 
 ```
 You: /model 4
-
 ✅ Switched to preset 4: openai/gpt-oss-120b:free
 
-You: create a folder named demo and write a hello.py to it
-
+You: create a folder named demo and write a hello.py
 ⏳ Thinking...
   [Model: openai/gpt-oss-120b:free]
   🔧 create_folder({"path":"demo"})
-  [Model: openai/gpt-oss-120b:free]
   🔧 write_file({"path":"demo/hello.py","content":"print('Hello, world!')\n"})
-  [Model: openai/gpt-oss-120b:free]
-
-Agent: Created demo/hello.py with a Hello World script.
+Agent: Done! Created demo/hello.py with a Hello World script.
 
 You: run the file
-
 ⏳ Thinking...
   [Model: openai/gpt-oss-120b:free]
   🔧 run_command({"command":"python demo/hello.py"})
-  [Model: openai/gpt-oss-120b:free]
-
 Agent: Hello, world! — the script runs correctly.
+
+You: /model 6
+✅ Switched to preset 6: [Groq] openai/gpt-oss-120b
+   (now using Groq — same model, 500 t/s)
+
+You: list files
+⏳ Thinking...
+  [Model: openai/gpt-oss-120b]
+  🔧 run_command({"command":"ls -la"})
+Agent: demo/hello.py  ...
 ```
+
+## Troubleshooting
+
+| Error | Likely Cause | Fix |
+|-------|-------------|-----|
+| `403 Forbidden` | API key missing or invalid | Check `.env` has the right key for that provider |
+| `400 property 'extra_body' is unsupported` | (Should not happen in latest version) | Update to latest code: `git pull && npm install` |
+| `429 Rate limit exceeded` | Free tier daily limit hit | Wait or use a different provider/model |
+| `All 3 attempts failed` | Model unreachable or too slow | Try a different model (e.g. smaller one) |
+| `tool_calls` with empty arguments | Model doesn't support tool calling | Use a different model |
+
+### Quick checks
+- `/list-providers` — shows which API keys are configured
+- Check `.env` exists and keys are correct
+- Run `npm start` after any code update
 
 ## Project Structure
 
 ```
 coding-agent-free/
 ├── src/
-│   ├── agent.ts           # Main agent: CLI, presets, loop detection, retry logic, validation
+│   ├── agent.ts           # Main agent: CLI, presets, loop detection, retry, validation
 │   └── tools/
-│       └── fileManager.ts # File operations & shell execution
+│       └── fileManager.ts # File ops & shell commands (read, write, delete, list, run)
 ├── scripts/
-│   ├── check_models.js    # Utility to list free OpenRouter models
-│   └── test.js            # Non-interactive test script
-├── local/                  # Local tools & backups (gitignored)
-│   ├── backup/             # Snapshot of last working version
-│   │   └── src/            # Restore with: powershell .\local\restore.ps1
-│   ├── update.ps1          # Pull latest from GitHub
-│   └── restore.ps1         # Restore src/ from local backup
+│   ├── check_models.js    # List free OpenRouter models with tool support
+│   └── test.js            # Non-interactive test
+├── local/                  # Local tools (gitignored, not pushed to GitHub)
+│   ├── backup/src/         # Snapshot of src/ for quick rollback
+│   ├── update.ps1          # git pull + npm install
+│   ├── push-to-github.ps1  # git add + commit + push
+│   └── restore.ps1         # Restore src/ from backup
 ├── workspace/             # Default working directory
-├── .env                   # API keys & config (gitignored)
+├── .env                   # API keys (gitignored)
 ├── presets.json           # User presets (gitignored)
 ├── tsconfig.json
-└── run-agent.bat          # Double-click launcher
+└── run-agent.bat          # Double-click launcher (Windows)
 ```
-
-## Logging
-
-Set `LOG_LEVEL=debug` or `LOG_LEVEL=warn` in `.env` to control verbosity. Default level is `info`.
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OPENROUTER_API_KEY` | — | OpenRouter API key (https://openrouter.ai/keys) |
-| `GROQ_API_KEY` | — | Groq API key (https://console.groq.com/keys) |
-| `GOOGLE_API_KEY` | — | Google AI Studio key (https://aistudio.google.com/apikey) |
-| `DEEPSEEK_API_KEY` | — | DeepSeek API key (https://platform.deepseek.com) |
-| `MISTRAL_API_KEY` | — | Mistral API key (https://console.mistral.ai) |
-| `ALLOWED_DIR` | `./workspace` | Directory for file operations |
-| `LOG_LEVEL` | `info` | Log level: `debug`, `info`, `warn`, `error` |
+| Variable | Required? | Description |
+|----------|-----------|-------------|
+| `OPENROUTER_API_KEY` | No* | OpenRouter API key — https://openrouter.ai/keys |
+| `GROQ_API_KEY` | No* | Groq API key — https://console.groq.com/keys |
+| `GOOGLE_API_KEY` | No* | Google AI Studio key — https://aistudio.google.com/apikey |
+| `DEEPSEEK_API_KEY` | No* | DeepSeek API key — https://platform.deepseek.com |
+| `MISTRAL_API_KEY` | No* | Mistral API key — https://console.mistral.ai |
+| `ALLOWED_DIR` | No | Directory for file operations (default: `./workspace`) |
+| `LOG_LEVEL` | No | Log level: `debug`, `info`, `warn`, `error` (default: `info`) |
 
-> You only need keys for the providers you want to use. If no keys are found, the agent will show available providers on startup.
-
-## Provider-Specific Notes
-
-### OpenRouter Free Tier Limitations
-
-This package relies on OpenRouter's free API tier. These limitations are **not bugs in the package** but constraints of the free tier:
-
-| Limitation | Description |
-|------------|-------------|
-| **Daily rate limit** | Free tier is limited to ~20–200 requests/day depending on model. You'll see `429 Rate limit exceeded: free-models-per-day`. Adding $10+ credits increases this to 1000/day. |
-| **Slow responses** | Free queries are deprioritized. Large models (e.g., Nemotron 550B) and fallback chains can take 30–120s. |
-| **Model availability** | Free models come and go without notice. A model that works today may be gone tomorrow. |
-| **Routing unpredictability** | `openrouter/free` routes to any available free model; not all support tool calling (only ~18 of ~23). |
-| **Tool support gaps** | Some free models returned by the router do not support function calling, causing malformed tool calls or empty arguments. |
-| **Context window limits** | Varies by model. Large file reads may exceed context limits. |
-| **No SLA** | Free models have no guaranteed uptime or performance. |
-
-To reduce issues: use `/add <n> <model-id>` to pin models you've confirmed work, and keep `openrouter/free` as a fallback.
-
-### Other Providers
-
-| Provider | Notes |
-|----------|-------|
-| **Groq** | Ultra-fast inference (LPU hardware). Model IDs differ from OpenRouter (e.g. `openai/gpt-oss-120b`, not `openai/gpt-oss-120b:free`). All models support tool calling. Rate limits: ~30 RPM, 1,000 RPD. |
-| **Google AI Studio** | Gemini models. Model IDs like `gemini-2.0-flash-exp`. Free tier: 5-15 RPM, 100-1K RPD. |
-| **DeepSeek** | `deepseek-chat` and `deepseek-reasoner`. Free tier: ~500 RPM, 500M tokens/day. |
-| **Mistral** | `mistral-large-latest`, `mistral-small-latest`. Free tier: 1 req/s, 1B tokens/month. |
+\* At least one API key is required. You only need keys for the providers you want to use.
 
 ## Security
 
-- All file operations are restricted to the `ALLOWED_DIR` directory
-- Path traversal attacks are prevented by `sanitizePath`
+- All file operations restricted to `ALLOWED_DIR` — `sanitizePath` prevents traversal attacks
 - Shell commands run inside the workspace directory
-- API key is stored in `.env` (gitignored)
+- API keys are stored in `.env` (listed in `.gitignore`, never committed)
+- Use `local/` scripts for backup/restore — they're gitignored
 
 ## License
 
