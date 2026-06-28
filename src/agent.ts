@@ -281,8 +281,7 @@ class CodingAgent {
     private readonly client: OpenAI,
     private readonly tools: OpenAITool[],
     private readonly modelConfig: ModelPreset,
-    systemPrompt: string,
-    private readonly onAccessDenied?: (path: string) => Promise<boolean>
+    systemPrompt: string
   ) {
     this.conversation = ConversationState.withSystemPrompt(systemPrompt);
   }
@@ -317,15 +316,6 @@ class CodingAgent {
       };
     }
     return base;
-  }
-
-  private processToolResult(functionName: string, rawResult: string): string {
-    const validatedResult = validateToolOutput(functionName, rawResult);
-    return typeof validatedResult === 'string'
-      ? validatedResult
-      : validatedResult === undefined
-        ? ''
-        : JSON.stringify(validatedResult);
   }
 
   async execute(userInput: string): Promise<AgentResult> {
@@ -405,33 +395,18 @@ class CodingAgent {
           }
 
           try {
-            let rawResult = await executeTool(functionName, functionArgs);
-            const content = this.processToolResult(functionName, rawResult);
+            const rawResult = await executeTool(functionName, functionArgs);
+            const validatedResult = validateToolOutput(functionName, rawResult);
+            const content =
+              typeof validatedResult === 'string'
+                ? validatedResult
+                : validatedResult === undefined
+                  ? ''
+                  : JSON.stringify(validatedResult);
+
             this.conversation = this.conversation.addToolResult(toolCall.id, content, functionName);
           } catch (err: any) {
             const msg = err?.message || 'Unknown tool error';
-
-            // Interactive permission: if access denied, ask user
-            const accessMatch = msg.match(/^Access denied: "(.+)" is outside/);
-            if (accessMatch && this.onAccessDenied) {
-              const requestedPath = accessMatch[1];
-              const allowed = await this.onAccessDenied(requestedPath);
-              if (allowed) {
-                allowExtraPath(requestedPath);
-                try {
-                  const retryResult = await executeTool(functionName, functionArgs);
-                  const retryContent = this.processToolResult(functionName, retryResult);
-                  this.conversation = this.conversation.addToolResult(toolCall.id, retryContent, functionName);
-                  continue;
-                } catch (retryErr: any) {
-                  const retryMsg = retryErr?.message || 'Error after allowing path';
-                  logs.push(`  ❌ Tool Error: ${retryMsg}`);
-                  this.conversation = this.conversation.addToolResult(toolCall.id, `Error executing tool: ${retryMsg}`, functionName);
-                  continue;
-                }
-              }
-            }
-
             logs.push(`  ❌ Tool Error: ${msg}`);
             this.conversation = this.conversation.addToolResult(toolCall.id, `Error executing tool: ${msg}`, functionName);
           }
@@ -501,6 +476,7 @@ async function startChat() {
   console.log('    /save <n>    Save last used model as preset n');
   console.log('    /add <n> <m> Manually add model m as preset n (provider:model)');
   console.log('    /remove <n>  Remove a user preset');
+  console.log('    /allow <p>   Allow model to access path outside workspace');
   console.log('    /list-providers  Show available providers');
   console.log('    /models      Show all presets');
   console.log('    /exit        Quit');
@@ -624,15 +600,18 @@ async function startChat() {
       continue;
     }
 
+    const allowMatch = input.match(/^\/allow\s+(.+)$/i);
+    if (allowMatch) {
+      const p = allowMatch[1].trim().replace(/^"(.*)"$/, '$1');
+      allowExtraPath(p);
+      console.log(`\n✅ Allowed: ${path.resolve(p)}\n`);
+      rl.prompt();
+      continue;
+    }
+
     console.log('\n⏳ Thinking...\n');
 
-    const onAccessDenied = async (requestedPath: string): Promise<boolean> => {
-      console.log(`\n🔒 Model wants to access: ${requestedPath}`);
-      const answer = await rl.question('  Allow this path? (y/N) ');
-      return answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes';
-    };
-
-    const agent = new CodingAgent(client, typedTools, activeModelConfig, systemPrompt, onAccessDenied);
+    const agent = new CodingAgent(client, typedTools, activeModelConfig, systemPrompt);
 
     try {
       const result = await agent.execute(input);

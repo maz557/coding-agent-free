@@ -60,7 +60,7 @@ class WorkspaceManager {
           return resolvedPath;
         }
       }
-      throw new Error(`Access denied: "${inputPath}" is outside the allowed directory "${this.allowedDir}". You can allow it during the session if prompted.`);
+      throw new Error(`Access denied: "${inputPath}" is outside the allowed directory "${this.allowedDir}". Use command: /allow "${inputPath}"`);
     }
     
     return resolvedPath;
