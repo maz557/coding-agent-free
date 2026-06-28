@@ -465,9 +465,12 @@ async function startChat() {
   let activeModelConfig: ModelPreset = { ...FIXED_PRESETS['1'] };
   let lastActualModel = '';
 
+  const allowedDir = path.resolve(process.env.ALLOWED_DIR || './workspace');
+
   console.log('═══════════════════════════════════════════════');
-  console.log('  Interactive Coding Agent (OpenRouter) [Pro]');
+  console.log('  Coding Agent Free');
   console.log('═══════════════════════════════════════════════');
+  console.log(`  Workspace: ${allowedDir}`);
   console.log('  Commands:');
   console.log('    /model <n>   Switch to preset n');
   console.log('    /save <n>    Save last used model as preset n');
@@ -477,6 +480,8 @@ async function startChat() {
   console.log('    /models      Show all presets');
   console.log('    /exit        Quit');
   console.log('═══════════════════════════════════════════════');
+  console.log(`  💡 Tip: Set ALLOWED_DIR=. in .env to access the project root.`);
+  console.log('');
 
   showModels(userPresets, activeModelConfig);
   console.log('');
