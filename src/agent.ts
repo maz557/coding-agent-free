@@ -61,6 +61,7 @@ interface ModelPreset {
   provider: string;
   primary: string;
   fallbacks: string[];
+  contextWindow?: number;
 }
 
 interface AgentResult {
@@ -128,6 +129,28 @@ function validateToolOutput(toolName: string, output: unknown): unknown {
   return schema.parse(output);
 }
 
+// --- Context Management ---
+const DEFAULT_CONTEXT_WINDOW = 128_000;
+const CONTEXT_USAGE_TARGET = 0.7; // keep messages within 70% of context window (leave 30% for response)
+
+function estimateMessageTokens(msg: ChatMessage): number {
+  let tokens = 4;
+  if (msg.content) {
+    tokens += Math.ceil(msg.content.length / 4);
+  }
+  if ('tool_calls' in msg && msg.tool_calls) {
+    for (const tc of msg.tool_calls) {
+      tokens += Math.ceil(tc.function.name.length / 4);
+      tokens += Math.ceil(tc.function.arguments.length / 4);
+    }
+  }
+  return tokens;
+}
+
+function estimateTotalTokens(messages: ReadonlyArray<ChatMessage>): number {
+  return messages.reduce((sum, msg) => sum + estimateMessageTokens(msg), 0);
+}
+
 class ConversationState {
   private readonly messages: ReadonlyArray<ChatMessage>;
 
@@ -153,6 +176,33 @@ class ConversationState {
 
   getAllMessages(): ReadonlyArray<ChatMessage> {
     return this.messages;
+  }
+
+  trimToContextWindow(maxTokens: number): ConversationState {
+    const safeMax = Math.floor(maxTokens * CONTEXT_USAGE_TARGET);
+    const currentTokens = estimateTotalTokens(this.messages);
+    if (currentTokens <= safeMax) return this;
+
+    const systemMsgs = this.messages.filter(m => m.role === 'system');
+    const otherMsgs = this.messages.filter(m => m.role !== 'system');
+
+    let tokens = estimateTotalTokens(systemMsgs);
+    const kept: ChatMessage[] = [];
+
+    for (let i = otherMsgs.length - 1; i >= 0; i--) {
+      const msgTokens = estimateMessageTokens(otherMsgs[i]);
+      if (tokens + msgTokens <= safeMax) {
+        tokens += msgTokens;
+        kept.unshift(otherMsgs[i]);
+      }
+    }
+
+    const dropped = otherMsgs.length - kept.length;
+    if (dropped > 0) {
+      logger.warn({ dropped, remaining: kept.length, tokens }, 'Conversation trimmed');
+    }
+
+    return new ConversationState([...systemMsgs, ...kept]);
   }
 }
 
@@ -193,9 +243,9 @@ async function withRetryAndTimeout<T>(
 const FIXED_PRESETS: Record<string, ModelPreset> = {
   '1': { provider: 'openrouter', primary: 'openrouter/free', fallbacks: [] },
   '2': { provider: 'openrouter', primary: 'qwen/qwen3-next-80b-a3b-instruct:free', fallbacks: ['openrouter/free'] },
-  '3': { provider: 'openrouter', primary: 'nvidia/nemotron-3-super-120b-a12b:free', fallbacks: ['openrouter/free'] },
+  '3': { provider: 'openrouter', primary: 'nvidia/nemotron-3-super-120b-a12b:free', fallbacks: ['openrouter/free'], contextWindow: 1_048_576 },
   '4': { provider: 'openrouter', primary: 'openai/gpt-oss-120b:free', fallbacks: ['openrouter/free'] },
-  '5': { provider: 'openrouter', primary: 'nvidia/nemotron-3-ultra-550b-a55b:free', fallbacks: ['openrouter/free'] },
+  '5': { provider: 'openrouter', primary: 'nvidia/nemotron-3-ultra-550b-a55b:free', fallbacks: ['openrouter/free'], contextWindow: 1_048_576 },
 };
 
 const PRESETS_FILE = path.join(__dirname, '..', 'presets.json');
@@ -330,6 +380,8 @@ class CodingAgent {
       depth++;
 
       try {
+        const contextWindow = this.modelConfig.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
+        this.conversation = this.conversation.trimToContextWindow(contextWindow);
         const request = this.buildRequest(this.conversation.getAllMessages());
 
         const response = await withRetryAndTimeout(
