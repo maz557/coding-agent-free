@@ -485,11 +485,11 @@ class CodingAgent {
 
         const { content, toolCalls, model } = await processStreamResponse(stream);
         usedModel = model || this.modelConfig.primary;
+        console.log();
         console.log(`  [Model: ${usedModel}]`);
 
         if (!isToolCallArray(toolCalls) || toolCalls.length === 0) {
           this.conversation = this.conversation.addAssistantMessage(content || null);
-          console.log();
           return {
             model: usedModel,
             content: null,
