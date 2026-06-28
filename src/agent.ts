@@ -151,6 +151,55 @@ function estimateTotalTokens(messages: ReadonlyArray<ChatMessage>): number {
   return messages.reduce((sum, msg) => sum + estimateMessageTokens(msg), 0);
 }
 
+async function processStreamResponse(
+  stream: AsyncIterable<any>,
+): Promise<{ content: string; toolCalls: ToolCall[]; model: string }> {
+  let content = '';
+  const toolCallAccumulators = new Map<number, { id: string; name: string; arguments: string }>();
+  let model = '';
+
+  for await (const chunk of stream) {
+    if (chunk.model) model = chunk.model;
+
+    const choice = chunk.choices?.[0];
+    if (!choice) continue;
+
+    const delta = choice.delta;
+    if (!delta) continue;
+
+    if (delta.content) {
+      content += delta.content;
+      process.stdout.write(delta.content);
+    }
+
+    if (delta.tool_calls) {
+      for (const tc of delta.tool_calls) {
+        const index = tc.index ?? 0;
+        if (!toolCallAccumulators.has(index)) {
+          toolCallAccumulators.set(index, { id: '', name: '', arguments: '' });
+        }
+        const acc = toolCallAccumulators.get(index)!;
+        if (tc.id) acc.id += tc.id;
+        if (tc.function?.name) acc.name += tc.function.name;
+        if (tc.function?.arguments) acc.arguments += tc.function.arguments;
+      }
+    }
+  }
+
+  const toolCalls: ToolCall[] = [];
+  for (const [, acc] of toolCallAccumulators) {
+    if (acc.name) {
+      toolCalls.push({
+        id: acc.id,
+        type: 'function',
+        function: { name: acc.name, arguments: acc.arguments },
+      });
+    }
+  }
+
+  return { content, toolCalls, model };
+}
+
 class ConversationState {
   private readonly messages: ReadonlyArray<ChatMessage>;
 
@@ -371,7 +420,6 @@ class CodingAgent {
   async execute(userInput: string): Promise<AgentResult> {
     this.conversation = this.conversation.addUserMessage(userInput);
 
-    const logs: string[] = [];
     let depth = 0;
     let usedModel = this.modelConfig.primary;
     let totalToolCalls = 0;
@@ -384,37 +432,32 @@ class CodingAgent {
         this.conversation = this.conversation.trimToContextWindow(contextWindow);
         const request = this.buildRequest(this.conversation.getAllMessages());
 
-        const response = await withRetryAndTimeout(
-          signal => this.client.chat.completions.create(request, { signal }),
+        const stream = await withRetryAndTimeout(
+          signal => this.client.chat.completions.create(
+            { ...request, stream: true },
+            { signal }
+          ),
           3,
           120000
-        ) as OpenAI.ChatCompletion;
+        );
 
-        usedModel = response.model || this.modelConfig.primary;
-        logs.push(`  [Model: ${usedModel}]`);
+        const { content, toolCalls, model } = await processStreamResponse(stream);
+        usedModel = model || this.modelConfig.primary;
+        console.log(`  [Model: ${usedModel}]`);
 
-        const assistantMessage = response.choices?.[0]?.message;
-        if (!assistantMessage) {
-          return {
-            model: usedModel,
-            content: 'No assistant message was returned by the API.',
-            logs,
-            toolCallsCount: totalToolCalls,
-          };
-        }
-
-        const toolCalls = assistantMessage.tool_calls ?? [];
         if (!isToolCallArray(toolCalls) || toolCalls.length === 0) {
-          this.conversation = this.conversation.addAssistantMessage(assistantMessage.content ?? null);
+          this.conversation = this.conversation.addAssistantMessage(content || null);
+          console.log();
           return {
             model: usedModel,
-            content: assistantMessage.content ?? null,
-            logs,
+            content: null,
+            logs: [],
             toolCallsCount: totalToolCalls,
           };
         }
 
-        this.conversation = this.conversation.addAssistantMessage(assistantMessage.content ?? null, toolCalls);
+        this.conversation = this.conversation.addAssistantMessage(content || null, toolCalls);
+        console.log();
 
         for (const toolCall of toolCalls) {
           const functionName = toolCall.function.name;
@@ -424,7 +467,7 @@ class CodingAgent {
             parsedArgs = validateToolInput(functionName, JSON.parse(toolCall.function.arguments));
           } catch (err: any) {
             const errorMsg = `Invalid arguments for ${functionName}: ${err?.message || String(err)}`;
-            logs.push(`  ⚠️ ${errorMsg}`);
+            console.log(`  ⚠️ ${errorMsg}`);
             this.conversation = this.conversation.addToolResult(toolCall.id, `Error: ${errorMsg}`, functionName);
             continue;
           }
@@ -432,16 +475,16 @@ class CodingAgent {
           const functionArgs = parsedArgs as Record<string, unknown>;
           const callKey = `${functionName}(${JSON.stringify(functionArgs)})`;
           this.toolHistory.push(callKey);
-          logs.push(`  🔧 ${callKey}`);
+          console.log(`  🔧 ${callKey}`);
           totalToolCalls++;
 
           const stuckError = this.detectStuckState();
           if (stuckError) {
-            logs.push(`  ⛔ Stuck detected: ${stuckError}`);
+            console.log(`  ⛔ Stuck detected: ${stuckError}`);
             return {
               model: usedModel,
               content: 'I seem to be stuck in a repetitive loop. I will stop here to prevent unnecessary usage.',
-              logs,
+              logs: [],
               toolCallsCount: totalToolCalls,
             };
           }
@@ -459,18 +502,18 @@ class CodingAgent {
             this.conversation = this.conversation.addToolResult(toolCall.id, content, functionName);
           } catch (err: any) {
             const msg = err?.message || 'Unknown tool error';
-            logs.push(`  ❌ Tool Error: ${msg}`);
+            console.log(`  ❌ Tool Error: ${msg}`);
             this.conversation = this.conversation.addToolResult(toolCall.id, `Error executing tool: ${msg}`, functionName);
           }
         }
       } catch (err: any) {
         const msg = err?.message || 'Unknown API error';
-        logs.push(`  🚨 API Error: ${msg}`);
+        console.log(`  🚨 API Error: ${msg}`);
         logger.error({ error: err, depth }, 'Agent execution failed');
         return {
           model: usedModel,
           content: `An error occurred while communicating with the AI model: ${msg}`,
-          logs,
+          logs: [],
           toolCallsCount: totalToolCalls,
         };
       }
@@ -479,7 +522,7 @@ class CodingAgent {
     return {
       model: usedModel,
       content: `I have reached the maximum number of steps (${this.MAX_DEPTH}).`,
-      logs,
+      logs: [],
       toolCallsCount: totalToolCalls,
     };
   }
