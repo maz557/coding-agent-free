@@ -48,6 +48,7 @@ npm start
 | `/save <n>` | Save current model as preset n |
 | `/add <n> <m>` | Add model m as preset n (`provider:model` or just `model`) |
 | `/remove <n>` | Remove a user preset |
+| `/allow <p>` | Allow model to access a path outside workspace |
 | `/models` | Show all presets |
 | `/list-providers` | Show providers with valid keys |
 | `/exit` | Quit |
@@ -84,6 +85,34 @@ Examples:
 ```
 
 If you omit the provider (e.g. `/add 10 llama-3.3-70b-versatile`), it defaults to the current preset's provider.
+
+## Workspace & Permissions
+
+By default, the agent can only access files inside `./workspace`. To access other paths:
+
+### Option 1: Change default workspace (permanent)
+
+Set `ALLOWED_DIR` in `.env`:
+```
+ALLOWED_DIR=.          # project root — access everything
+ALLOWED_DIR=C:\path    # any absolute path
+```
+
+### Option 2: Allow paths on-demand (per session)
+
+When the model tries to access a path outside the workspace, it shows an error like:
+```
+❌ Tool Error: Access denied: "C:\path" is outside the allowed directory.
+   Use command: /allow "C:\path"
+```
+
+Grant access with:
+```
+You: /allow "C:\path"
+✅ Allowed: C:\path
+```
+
+The model can then retry the same request. Permissions last for the current session only.
 
 ## Built-in Presets
 
