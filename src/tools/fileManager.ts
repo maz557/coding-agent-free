@@ -28,10 +28,18 @@ export type ToolArguments =
 // --- 2. Workspace Manager Class (Encapsulation) ---
 class WorkspaceManager {
   private readonly allowedDir: string;
+  private extraAllowedPaths: string[] = [];
 
   constructor() {
     // Resolve and normalize the base directory once
     this.allowedDir = path.resolve(process.env.ALLOWED_DIR || './workspace');
+  }
+
+  allowExtraPath(p: string): void {
+    const resolved = path.resolve(p);
+    if (!this.extraAllowedPaths.includes(resolved)) {
+      this.extraAllowedPaths.push(resolved);
+    }
   }
 
   /**
@@ -45,7 +53,14 @@ class WorkspaceManager {
     
     // Check if the resolved path is strictly inside the allowed directory
     if (resolvedPath !== this.allowedDir && !resolvedPath.startsWith(normalizedAllowed)) {
-      throw new Error(`Access denied: "${inputPath}" is outside the allowed directory "${this.allowedDir}". Set ALLOWED_DIR in .env to expand access (e.g. ALLOWED_DIR=.).`);
+      // Check user-approved extra paths
+      for (const extra of this.extraAllowedPaths) {
+        const normalizedExtra = extra + path.sep;
+        if (resolvedPath === extra || resolvedPath.startsWith(normalizedExtra)) {
+          return resolvedPath;
+        }
+      }
+      throw new Error(`Access denied: "${inputPath}" is outside the allowed directory "${this.allowedDir}". You can allow it during the session if prompted.`);
     }
     
     return resolvedPath;
@@ -237,4 +252,8 @@ export async function executeTool(name: string, args: ToolArguments): Promise<st
     default:
       return `Error: Unknown tool "${name}"`;
   }
+}
+
+export function allowExtraPath(p: string): void {
+  workspace.allowExtraPath(p);
 }

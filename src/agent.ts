@@ -7,7 +7,7 @@ import * as path from 'path';
 import { z } from 'zod';
 import pino from 'pino';
 import pinoPretty from 'pino-pretty';
-import { tools, executeTool } from './tools/fileManager';
+import { tools, executeTool, allowExtraPath } from './tools/fileManager';
 
 dotenv.config();
 
@@ -281,7 +281,8 @@ class CodingAgent {
     private readonly client: OpenAI,
     private readonly tools: OpenAITool[],
     private readonly modelConfig: ModelPreset,
-    systemPrompt: string
+    systemPrompt: string,
+    private readonly onAccessDenied?: (path: string) => Promise<boolean>
   ) {
     this.conversation = ConversationState.withSystemPrompt(systemPrompt);
   }
@@ -316,6 +317,15 @@ class CodingAgent {
       };
     }
     return base;
+  }
+
+  private processToolResult(functionName: string, rawResult: string): string {
+    const validatedResult = validateToolOutput(functionName, rawResult);
+    return typeof validatedResult === 'string'
+      ? validatedResult
+      : validatedResult === undefined
+        ? ''
+        : JSON.stringify(validatedResult);
   }
 
   async execute(userInput: string): Promise<AgentResult> {
@@ -395,18 +405,33 @@ class CodingAgent {
           }
 
           try {
-            const rawResult = await executeTool(functionName, functionArgs);
-            const validatedResult = validateToolOutput(functionName, rawResult);
-            const content =
-              typeof validatedResult === 'string'
-                ? validatedResult
-                : validatedResult === undefined
-                  ? ''
-                  : JSON.stringify(validatedResult);
-
+            let rawResult = await executeTool(functionName, functionArgs);
+            const content = this.processToolResult(functionName, rawResult);
             this.conversation = this.conversation.addToolResult(toolCall.id, content, functionName);
           } catch (err: any) {
             const msg = err?.message || 'Unknown tool error';
+
+            // Interactive permission: if access denied, ask user
+            const accessMatch = msg.match(/^Access denied: "(.+)" is outside/);
+            if (accessMatch && this.onAccessDenied) {
+              const requestedPath = accessMatch[1];
+              const allowed = await this.onAccessDenied(requestedPath);
+              if (allowed) {
+                allowExtraPath(requestedPath);
+                try {
+                  const retryResult = await executeTool(functionName, functionArgs);
+                  const retryContent = this.processToolResult(functionName, retryResult);
+                  this.conversation = this.conversation.addToolResult(toolCall.id, retryContent, functionName);
+                  continue;
+                } catch (retryErr: any) {
+                  const retryMsg = retryErr?.message || 'Error after allowing path';
+                  logs.push(`  ❌ Tool Error: ${retryMsg}`);
+                  this.conversation = this.conversation.addToolResult(toolCall.id, `Error executing tool: ${retryMsg}`, functionName);
+                  continue;
+                }
+              }
+            }
+
             logs.push(`  ❌ Tool Error: ${msg}`);
             this.conversation = this.conversation.addToolResult(toolCall.id, `Error executing tool: ${msg}`, functionName);
           }
@@ -601,7 +626,13 @@ async function startChat() {
 
     console.log('\n⏳ Thinking...\n');
 
-    const agent = new CodingAgent(client, typedTools, activeModelConfig, systemPrompt);
+    const onAccessDenied = async (requestedPath: string): Promise<boolean> => {
+      console.log(`\n🔒 Model wants to access: ${requestedPath}`);
+      const answer = await rl.question('  Allow this path? (y/N) ');
+      return answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes';
+    };
+
+    const agent = new CodingAgent(client, typedTools, activeModelConfig, systemPrompt, onAccessDenied);
 
     try {
       const result = await agent.execute(input);
