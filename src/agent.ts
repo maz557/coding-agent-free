@@ -317,18 +317,34 @@ Rules:
 
 const CONVERSATION_FILE = path.join(__dirname, '..', 'conversation.json');
 
-async function saveConversation(messages: ReadonlyArray<ChatMessage>): Promise<void> {
+interface SavedSession {
+  messages: ChatMessage[];
+  modelPreset: {
+    provider: string;
+    primary: string;
+    fallbacks: string[];
+    contextWindow?: number;
+  } | null;
+}
+
+async function saveConversation(messages: ReadonlyArray<ChatMessage>, modelPreset?: ModelPreset): Promise<void> {
   try {
-    await fs.writeFile(CONVERSATION_FILE, JSON.stringify(messages, null, 2), 'utf-8');
+    const session: SavedSession = { messages: messages as ChatMessage[], modelPreset: modelPreset ?? null };
+    await fs.writeFile(CONVERSATION_FILE, JSON.stringify(session, null, 2), 'utf-8');
   } catch (err) {
     logger.error({ err }, 'Failed to save conversation');
   }
 }
 
-async function loadConversation(): Promise<ChatMessage[] | null> {
+async function loadConversation(): Promise<SavedSession | null> {
   try {
     const data = await fs.readFile(CONVERSATION_FILE, 'utf-8');
-    return JSON.parse(data) as ChatMessage[];
+    const parsed = JSON.parse(data);
+    // Support both legacy (array) and new (object with messages) formats
+    if (Array.isArray(parsed)) {
+      return { messages: parsed as ChatMessage[], modelPreset: null };
+    }
+    return parsed as SavedSession;
   } catch (err: any) {
     if (err?.code !== 'ENOENT') {
       logger.warn({ err }, 'conversation.json corrupted, starting fresh');
@@ -644,14 +660,23 @@ async function startChat() {
 
   // Session restore prompt
   let savedMessages: ChatMessage[] | null = null;
-  const savedData = await loadConversation();
-  if (savedData && savedData.length > 0) {
+  const savedSession = await loadConversation();
+  if (savedSession && savedSession.messages.length > 0) {
     const resumeRl = readline.createInterface({ input: stdin, output: stdout });
     const answer = (await resumeRl.question('A previous conversation was found. Resume it? (y/n): ')).trim().toLowerCase();
     resumeRl.close();
     if (answer === 'y' || answer === 'yes') {
-      savedMessages = savedData;
-      console.log('✅ Conversation restored.\n');
+      savedMessages = savedSession.messages;
+      if (savedSession.modelPreset) {
+        // Restore the active model from the saved session
+        const savedPreset: ModelPreset = { ...savedSession.modelPreset, fallbacks: savedSession.modelPreset.fallbacks ?? [] };
+        activeModelConfig = savedPreset;
+        client = createClient(savedPreset.provider);
+        const prov = PROVIDERS[savedPreset.provider]?.name ?? savedPreset.provider;
+        console.log(`✅ Conversation restored with [${prov}] ${savedPreset.primary}\n`);
+      } else {
+        console.log('✅ Conversation restored.\n');
+      }
     } else {
       await clearConversation();
     }
@@ -788,9 +813,9 @@ async function startChat() {
       const result = await agent.execute(input);
       lastActualModel = result.model;
 
-      // Save session after each turn
+      // Save session after each turn (model + messages)
       const conversationMessages = agent.getConversationMessages();
-      await saveConversation(conversationMessages as ChatMessage[]);
+      await saveConversation(conversationMessages as ChatMessage[], activeModelConfig);
 
       // Show estimated token usage
       const tokens = estimateTotalTokens(conversationMessages);
