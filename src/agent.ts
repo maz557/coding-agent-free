@@ -211,6 +211,10 @@ class ConversationState {
     return new ConversationState([{ role: 'system', content: prompt }]);
   }
 
+  static fromMessages(messages: ReadonlyArray<ChatMessage>): ConversationState {
+    return new ConversationState(messages);
+  }
+
   addUserMessage(content: string): ConversationState {
     return new ConversationState([...this.messages, { role: 'user', content }]);
   }
@@ -311,6 +315,34 @@ Rules:
 - If a tool returns an error (e.g. access denied), tell the user and stop — do NOT retry with different paths.
 - When done, summarize what you did and the results.`;
 
+const CONVERSATION_FILE = path.join(__dirname, '..', 'conversation.json');
+
+async function saveConversation(messages: ReadonlyArray<ChatMessage>): Promise<void> {
+  try {
+    await fs.writeFile(CONVERSATION_FILE, JSON.stringify(messages, null, 2), 'utf-8');
+  } catch (err) {
+    logger.error({ err }, 'Failed to save conversation');
+  }
+}
+
+async function loadConversation(): Promise<ChatMessage[] | null> {
+  try {
+    const data = await fs.readFile(CONVERSATION_FILE, 'utf-8');
+    return JSON.parse(data) as ChatMessage[];
+  } catch (err: any) {
+    if (err?.code !== 'ENOENT') {
+      logger.warn({ err }, 'conversation.json corrupted, starting fresh');
+    }
+    return null;
+  }
+}
+
+async function clearConversation(): Promise<void> {
+  try {
+    await fs.unlink(CONVERSATION_FILE);
+  } catch { }
+}
+
 async function loadUserPresets(): Promise<Record<string, ModelPreset>> {
   try {
     const data = await fs.readFile(PRESETS_FILE, 'utf-8');
@@ -380,9 +412,18 @@ class CodingAgent {
     private readonly client: OpenAI,
     private readonly tools: OpenAITool[],
     private readonly modelConfig: ModelPreset,
-    systemPrompt: string
+    systemPrompt: string,
+    savedMessages?: ReadonlyArray<ChatMessage>,
   ) {
-    this.conversation = ConversationState.withSystemPrompt(systemPrompt);
+    if (savedMessages && savedMessages.length > 0) {
+      this.conversation = ConversationState.fromMessages(savedMessages);
+    } else {
+      this.conversation = ConversationState.withSystemPrompt(systemPrompt);
+    }
+  }
+
+  getConversationMessages(): ReadonlyArray<ChatMessage> {
+    return this.conversation.getAllMessages();
   }
 
   private detectStuckState(): string | null {
@@ -418,6 +459,7 @@ class CodingAgent {
   }
 
   async execute(userInput: string): Promise<AgentResult> {
+    this.toolHistory = [];
     this.conversation = this.conversation.addUserMessage(userInput);
 
     let depth = 0;
@@ -459,12 +501,24 @@ class CodingAgent {
         this.conversation = this.conversation.addAssistantMessage(content || null, toolCalls);
         console.log();
 
+        const seenCalls = new Set<string>();
+
         for (const toolCall of toolCalls) {
           const functionName = toolCall.function.name;
 
+          const knownToolNames = this.tools.map(t => t.function.name);
+          if (!knownToolNames.includes(functionName)) {
+            const errorMsg = `Unknown tool "${functionName}". Available: ${knownToolNames.join(', ')}`;
+            console.log(`  ⚠️ ${errorMsg}`);
+            this.conversation = this.conversation.addToolResult(toolCall.id, `Error: ${errorMsg}`, functionName);
+            continue;
+          }
+
           let parsedArgs: unknown;
+          let callKey: string;
           try {
             parsedArgs = validateToolInput(functionName, JSON.parse(toolCall.function.arguments));
+            callKey = `${functionName}(${JSON.stringify(parsedArgs)})`;
           } catch (err: any) {
             const errorMsg = `Invalid arguments for ${functionName}: ${err?.message || String(err)}`;
             console.log(`  ⚠️ ${errorMsg}`);
@@ -472,8 +526,14 @@ class CodingAgent {
             continue;
           }
 
+          if (seenCalls.has(callKey)) {
+            console.log(`  ⚠️ Duplicate skipped: ${callKey}`);
+            this.conversation = this.conversation.addToolResult(toolCall.id, `Warning: Duplicate skipped. Already called: ${callKey}`, functionName);
+            continue;
+          }
+          seenCalls.add(callKey);
+
           const functionArgs = parsedArgs as Record<string, unknown>;
-          const callKey = `${functionName}(${JSON.stringify(functionArgs)})`;
           this.toolHistory.push(callKey);
           console.log(`  🔧 ${callKey}`);
           totalToolCalls++;
@@ -582,9 +642,26 @@ async function startChat() {
   showModels(userPresets, activeModelConfig);
   console.log('');
 
+  // Session restore prompt
+  let savedMessages: ChatMessage[] | null = null;
+  const savedData = await loadConversation();
+  if (savedData && savedData.length > 0) {
+    const resumeRl = readline.createInterface({ input: stdin, output: stdout });
+    const answer = (await resumeRl.question('A previous conversation was found. Resume it? (y/n): ')).trim().toLowerCase();
+    resumeRl.close();
+    if (answer === 'y' || answer === 'yes') {
+      savedMessages = savedData;
+      console.log('✅ Conversation restored.\n');
+    } else {
+      await clearConversation();
+    }
+  }
+
   const rl = readline.createInterface({ input: stdin, output: stdout, prompt: 'You: ' });
   const typedTools = tools as OpenAITool[];
   const systemPrompt = SYSTEM_PROMPT;
+
+  let agent = new CodingAgent(client, typedTools, activeModelConfig, systemPrompt, savedMessages ?? undefined);
 
   rl.prompt();
 
@@ -627,6 +704,7 @@ async function startChat() {
         activeModelConfig = { ...allPresets[num] };
         client = createClient(activeModelConfig.provider);
         const prov = PROVIDERS[activeModelConfig.provider]?.name ?? activeModelConfig.provider;
+        agent = new CodingAgent(client, typedTools, activeModelConfig, systemPrompt);
         console.log(`\n✅ Switched to preset ${num}: [${prov}] ${activeModelConfig.primary}\n`);
       } else {
         console.log(`\n❌ Preset ${num} not found.\n`);
@@ -706,12 +784,18 @@ async function startChat() {
 
     console.log('\n⏳ Thinking...\n');
 
-    const agent = new CodingAgent(client, typedTools, activeModelConfig, systemPrompt);
-
     try {
       const result = await agent.execute(input);
-      result.logs.forEach(log => console.log(log));
       lastActualModel = result.model;
+
+      // Save session after each turn
+      const conversationMessages = agent.getConversationMessages();
+      await saveConversation(conversationMessages as ChatMessage[]);
+
+      // Show estimated token usage
+      const tokens = estimateTotalTokens(conversationMessages);
+      const maxCtx = activeModelConfig.contextWindow ?? DEFAULT_CONTEXT_WINDOW;
+      console.log(`  📊 ~${tokens}/${(maxCtx / 1000).toFixed(0)}K tokens`);
 
       if (result.content) {
         console.log(`\nAgent: ${result.content}\n`);

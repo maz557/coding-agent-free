@@ -3,6 +3,7 @@ dist
 .env
 workspace
 presets.json
+conversation.json
 *.bak
 *.log
 src/agent - Copy.ts
