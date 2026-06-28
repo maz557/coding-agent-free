@@ -203,11 +203,14 @@ const PRESETS_FILE = path.join(__dirname, '..', 'presets.json');
 const SYSTEM_PROMPT = `You are a coding assistant that completes tasks step by step using tools.
 
 Rules:
+- Focus strictly on the user's request. Do NOT explore random directories or files.
+- Read only the files the user asks about. If you need more context, read the most important files first.
 - After writing files, ALWAYS run tests/commands to verify they work.
 - If a test fails, fix the source code and re-run until it passes.
 - Use run_command to execute shell commands.
-- Keep tool calls to a minimum.
-- When done, summarize what you did and the results were.`;
+- Keep tool calls to a minimum. Plan before you act.
+- If a tool returns an error (e.g. access denied), tell the user and stop — do NOT retry with different paths.
+- When done, summarize what you did and the results.`;
 
 async function loadUserPresets(): Promise<Record<string, ModelPreset>> {
   try {
@@ -271,7 +274,7 @@ function showModels(userPresets: Record<string, ModelPreset>, activeModelConfig:
 
 class CodingAgent {
   private toolHistory: string[] = [];
-  private readonly MAX_DEPTH = 12;
+  private readonly MAX_DEPTH = 15;
   private conversation: ConversationState;
 
   constructor(

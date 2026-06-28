@@ -45,7 +45,7 @@ class WorkspaceManager {
     
     // Check if the resolved path is strictly inside the allowed directory
     if (resolvedPath !== this.allowedDir && !resolvedPath.startsWith(normalizedAllowed)) {
-      throw new Error(`Access denied: Path traversal detected. You can only access files within "${this.allowedDir}".`);
+      throw new Error(`Access denied: "${inputPath}" is outside the allowed directory "${this.allowedDir}". Set ALLOWED_DIR in .env to expand access (e.g. ALLOWED_DIR=.).`);
     }
     
     return resolvedPath;
