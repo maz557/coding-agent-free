@@ -729,7 +729,8 @@ async function startChat() {
         activeModelConfig = { ...allPresets[num] };
         client = createClient(activeModelConfig.provider);
         const prov = PROVIDERS[activeModelConfig.provider]?.name ?? activeModelConfig.provider;
-        agent = new CodingAgent(client, typedTools, activeModelConfig, systemPrompt);
+        const prevMessages = agent.getConversationMessages();
+        agent = new CodingAgent(client, typedTools, activeModelConfig, systemPrompt, prevMessages as ChatMessage[]);
         console.log(`\n✅ Switched to preset ${num}: [${prov}] ${activeModelConfig.primary}\n`);
       } else {
         console.log(`\n❌ Preset ${num} not found.\n`);

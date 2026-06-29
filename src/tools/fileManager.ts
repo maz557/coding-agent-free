@@ -8,6 +8,59 @@ const execAsync = promisify(exec);
 
 dotenv.config();
 
+// --- Structured Error Classes ---
+export class FileNotFoundError extends Error {
+  constructor(filePath: string) {
+    super(`File not found: ${filePath}`);
+    this.name = 'FileNotFoundError';
+  }
+}
+
+export class PermissionError extends Error {
+  constructor(filePath: string) {
+    super(`Permission denied: ${filePath}`);
+    this.name = 'PermissionError';
+  }
+}
+
+export class CommandExecutionError extends Error {
+  constructor(command: string, exitCode: number | string, stderr: string) {
+    super(`Command failed: ${command}\nExit code: ${exitCode}\nStderr: ${stderr}`);
+    this.name = 'CommandExecutionError';
+  }
+}
+
+export class DangerousCommandError extends Error {
+  constructor(command: string) {
+    super(`Dangerous command blocked: ${command}`);
+    this.name = 'DangerousCommandError';
+  }
+}
+
+// --- Dangerous Command Denylist ---
+const DENYLISTED_COMMANDS = [
+  'rm -rf',
+  'rm -fr',
+  'dd',
+  'mkfs',
+  'chmod -R',
+  'mv /',
+  'cp -r /',
+  'wget',
+  'curl -o',
+  '> /dev/',
+  ':(){ :|:& };:',
+  'shutdown',
+  'reboot',
+  'halt',
+  'init 0',
+  'init 6',
+];
+
+function isCommandDangerous(command: string): boolean {
+  return DENYLISTED_COMMANDS.some((denied) => command.includes(denied));
+}
+
 // --- 1. Strict Type Definitions for Tool Arguments ---
 interface ReadFileArgs { path: string; }
 interface WriteFileArgs { path: string; content: string; }
@@ -15,6 +68,9 @@ interface ListFilesArgs { directory?: string; }
 interface CreateFolderArgs { path: string; }
 interface DeleteFileArgs { path: string; }
 interface RunCommandArgs { command: string; timeout?: number; }
+interface AppendFileArgs { path: string; content: string; }
+interface CopyFileArgs { source: string; destination: string; }
+interface MoveFileArgs { source: string; destination: string; }
 
 // Union type to strictly type the execute function
 export type ToolArguments = 
@@ -23,7 +79,10 @@ export type ToolArguments =
   | ListFilesArgs 
   | CreateFolderArgs 
   | DeleteFileArgs 
-  | RunCommandArgs;
+  | RunCommandArgs
+  | AppendFileArgs
+  | CopyFileArgs
+  | MoveFileArgs;
 
 // --- 2. Workspace Manager Class (Encapsulation) ---
 class WorkspaceManager {
@@ -116,12 +175,56 @@ class WorkspaceManager {
       await fs.unlink(fullPath);
       return `File deleted successfully: ${args.path}`;
     } catch (err: any) {
+      if (err.code === 'ENOENT') throw new FileNotFoundError(args.path);
+      if (err.code === 'EACCES') throw new PermissionError(args.path);
       return `Error deleting file: ${err.message}`;
     }
   }
 
+  async appendFile(args: AppendFileArgs): Promise<string> {
+    try {
+      const fullPath = this.sanitizePath(args.path);
+      await fs.mkdir(path.dirname(fullPath), { recursive: true });
+      await fs.appendFile(fullPath, args.content, 'utf-8');
+      return `Content appended successfully to: ${args.path}`;
+    } catch (err: any) {
+      return `Error appending to file: ${err.message}`;
+    }
+  }
+
+  async copyFile(args: CopyFileArgs): Promise<string> {
+    try {
+      const sourcePath = this.sanitizePath(args.source);
+      const destPath = this.sanitizePath(args.destination);
+      await fs.mkdir(path.dirname(destPath), { recursive: true });
+      await fs.copyFile(sourcePath, destPath);
+      return `File copied from ${args.source} to ${args.destination}`;
+    } catch (err: any) {
+      if (err.code === 'ENOENT') throw new FileNotFoundError(args.source);
+      if (err.code === 'EACCES') throw new PermissionError(args.source);
+      return `Error copying file: ${err.message}`;
+    }
+  }
+
+  async moveFile(args: MoveFileArgs): Promise<string> {
+    try {
+      const sourcePath = this.sanitizePath(args.source);
+      const destPath = this.sanitizePath(args.destination);
+      await fs.mkdir(path.dirname(destPath), { recursive: true });
+      await fs.rename(sourcePath, destPath);
+      return `File moved from ${args.source} to ${args.destination}`;
+    } catch (err: any) {
+      if (err.code === 'ENOENT') throw new FileNotFoundError(args.source);
+      if (err.code === 'EACCES') throw new PermissionError(args.source);
+      return `Error moving file: ${err.message}`;
+    }
+  }
+
   async runCommand(args: RunCommandArgs): Promise<string> {
-    const timeout = args.timeout ?? 30000; // Default 30 seconds
+    const timeout = args.timeout ?? 30000;
+    if (isCommandDangerous(args.command)) {
+      throw new DangerousCommandError(args.command);
+    }
     try {
       const { stdout, stderr } = await execAsync(args.command, { 
         cwd: this.allowedDir, 
@@ -231,6 +334,51 @@ export const tools = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'append_file',
+      description: 'Appends content to a file. Creates the file if it does not exist.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Relative path to the file within the workspace.' },
+          content: { type: 'string', description: 'The text content to append to the file.' },
+        },
+        required: ['path', 'content'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'copy_file',
+      description: 'Copies a file from one location to another within the workspace.',
+      parameters: {
+        type: 'object',
+        properties: {
+          source: { type: 'string', description: 'Relative path to the source file.' },
+          destination: { type: 'string', description: 'Relative path to the destination file.' },
+        },
+        required: ['source', 'destination'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'move_file',
+      description: 'Moves or renames a file within the workspace.',
+      parameters: {
+        type: 'object',
+        properties: {
+          source: { type: 'string', description: 'Relative path to the source file.' },
+          destination: { type: 'string', description: 'Relative path to the destination file.' },
+        },
+        required: ['source', 'destination'],
+      },
+    },
+  },
 ];
 
 // --- 4. Instantiation & Executor Export ---
@@ -248,6 +396,9 @@ export async function executeTool(name: string, args: ToolArguments): Promise<st
     case 'list_files':   return workspace.listFiles(args as ListFilesArgs);
     case 'create_folder':return workspace.createFolder(args as CreateFolderArgs);
     case 'delete_file':  return workspace.deleteFile(args as DeleteFileArgs);
+    case 'append_file':  return workspace.appendFile(args as AppendFileArgs);
+    case 'copy_file':    return workspace.copyFile(args as CopyFileArgs);
+    case 'move_file':    return workspace.moveFile(args as MoveFileArgs);
     case 'run_command':  return workspace.runCommand(args as RunCommandArgs);
     default:
       return `Error: Unknown tool "${name}"`;
