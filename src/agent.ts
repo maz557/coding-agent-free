@@ -426,7 +426,7 @@ async function detectLocalModel(providerId: string): Promise<string> {
   if (!info) throw new Error(`Unknown local provider: "${providerId}"`);
 
   try {
-    const tempClient = new OpenAI({ baseURL: info.baseURL, apiKey: '' });
+    const tempClient = new OpenAI({ baseURL: info.baseURL, apiKey: 'local' });
     const models = await tempClient.models.list();
     if (!models.data || models.data.length === 0) {
       throw new Error(`No models found on ${info.name}`);
@@ -650,7 +650,7 @@ async function startChat() {
 
   function createClient(providerId: string): OpenAI {
     const info = PROVIDERS[providerId] ?? PROVIDERS.openrouter;
-    const apiKey = process.env[info.apiKeyEnv] || '';
+    const apiKey = info.apiKeyEnv ? (process.env[info.apiKeyEnv] || '') : 'local';
     const headers: Record<string, string> = {};
     if (providerId === 'openrouter') {
       headers['HTTP-Referer'] = 'https://github.com';
