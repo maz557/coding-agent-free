@@ -421,7 +421,7 @@ function showModels(userPresets: Record<string, ModelPreset>, activeModelConfig:
 
 class CodingAgent {
   private toolHistory: string[] = [];
-  private readonly MAX_DEPTH = 15;
+  private readonly MAX_DEPTH = 20;
   private conversation: ConversationState;
 
   constructor(
