@@ -1,6 +1,6 @@
 # Coding Agent Free
 
-An interactive AI coding agent powered by **free** API models from multiple providers — OpenRouter, Groq, Google AI Studio, DeepSeek, Mistral. Reads, writes, lists, and deletes files, and runs shell commands — all through tool calling.
+An interactive AI coding agent powered by **free** API models (OpenRouter, Groq, Google, DeepSeek, Mistral) and **local** models (Ollama, LM Studio). Reads, writes, lists, appends, copies, moves, and deletes files, and runs shell commands — all through tool calling.
 
 ## Quick Start
 
