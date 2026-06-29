@@ -2,7 +2,7 @@
 
 An interactive AI coding agent powered by **free** API models (OpenRouter, Groq, Google, DeepSeek, Mistral) and **local** models (Ollama, LM Studio). Reads, writes, lists, appends, copies, moves, and deletes files, and runs shell commands — all through tool calling.
 
-> 💡 **Offline-ready**: With a local server (Ollama / LM Studio), the agent works fully offline — no international internet required. Ideal for users in Iran or other regions with restricted access.
+> 💡 **Offline-ready**: With a local server (Ollama / LM Studio), the agent works fully offline — no international internet required. Ideal for users in regions with restricted access.
 
 ## Quick Start
 
@@ -249,12 +249,12 @@ Agent: demo/hello.py  ...
 | Error | Likely Cause | Fix |
 |-------|-------------|-----|
 | `403 Forbidden` | API key missing or invalid | Check `.env` has the right key for that provider |
-| `403 Forbidden` | Iran sanctions blocking API host (even with valid key) | Enable VPN/proxy, set `HTTPS_PROXY`, or use local models: `/add 6 ollama:auto` |
+| `403 Forbidden` | Internet restrictions blocking API host (even with valid key) | Enable VPN/proxy, set `HTTPS_PROXY`, or use local models: `/add 6 ollama:auto` |
 | `400 property 'extra_body' is unsupported` | (Should not happen in latest version) | Update to latest code: `git pull && npm install` |
 | `429 Rate limit exceeded` | Free tier daily limit hit | Wait, use a different provider/model, or switch to local models |
 | `All 3 attempts failed` | Model unreachable or too slow | Try a different model (e.g. smaller one) or use local models |
 | `tool_calls` with empty arguments | Model doesn't support tool calling | Use a different model |
-| `ENOTFOUND` / `ECONNREFUSED` / timeout | Iran sanctions blocking API host | Enable VPN/proxy, set `HTTPS_PROXY`, or use local models: `/add 6 ollama:auto` |
+| `ENOTFOUND` / `ECONNREFUSED` / timeout | Internet restrictions blocking API host | Enable VPN/proxy, set `HTTPS_PROXY`, or use local models: `/add 6 ollama:auto` |
 
 ### Quick checks
 - `/list-providers` — shows which API keys are configured
