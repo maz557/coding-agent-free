@@ -513,13 +513,17 @@ class CodingAgent {
         this.conversation = this.conversation.trimToContextWindow(contextWindow);
         const request = this.buildRequest(this.conversation.getAllMessages());
 
+        const provInfo = PROVIDERS[this.modelConfig.provider];
+        const isLocal = provInfo && !provInfo.apiKeyEnv;
+        const timeoutMs = isLocal ? (Number(process.env.LOCAL_TIMEOUT) || 300000) : 120000;
+
         const stream = await withRetryAndTimeout(
           signal => this.client.chat.completions.create(
             { ...request, stream: true },
             { signal }
           ),
           3,
-          120000
+          timeoutMs
         );
 
         const { content, toolCalls, model } = await processStreamResponse(stream);

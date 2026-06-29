@@ -296,6 +296,7 @@ coding-agent-free/
 | `OLLAMA_HOST` | No | Ollama server URL (default: `http://localhost:11434/v1`) |
 | `LMSTUDIO_HOST` | No | LM Studio server URL (default: `http://localhost:1234/v1`) |
 | `ALLOWED_DIR` | No | Directory for file operations (default: `./workspace`) |
+| `LOCAL_TIMEOUT` | No | Timeout (ms) for local model requests (default: 300000 — 5 min) |
 | `LOG_LEVEL` | No | Log level: `debug`, `info`, `warn`, `error` (default: `info`) |
 
 \* At least one API key is required (not needed for local providers). You only need keys for the providers you want to use.
