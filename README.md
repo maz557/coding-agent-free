@@ -195,11 +195,12 @@ Agent: demo/hello.py  ...
 | Error | Likely Cause | Fix |
 |-------|-------------|-----|
 | `403 Forbidden` | API key missing or invalid | Check `.env` has the right key for that provider |
+| `403 Forbidden` | Iran sanctions blocking API host (even with valid key) | Enable VPN/proxy, or set `HTTPS_PROXY` env var |
 | `400 property 'extra_body' is unsupported` | (Should not happen in latest version) | Update to latest code: `git pull && npm install` |
 | `429 Rate limit exceeded` | Free tier daily limit hit | Wait or use a different provider/model |
 | `All 3 attempts failed` | Model unreachable or too slow | Try a different model (e.g. smaller one) |
 | `tool_calls` with empty arguments | Model doesn't support tool calling | Use a different model |
-| `ENOTFOUND` / `ECONNREFUSED` / timeout | Iran sanctions blocking API host | Use a proxy/VPN: set `HTTPS_PROXY` or `HTTP_PROXY` env var |
+| `ENOTFOUND` / `ECONNREFUSED` / timeout | Iran sanctions blocking API host | Enable VPN/proxy: set `HTTPS_PROXY` or `HTTP_PROXY` env var |
 
 ### Quick checks
 - `/list-providers` — shows which API keys are configured
