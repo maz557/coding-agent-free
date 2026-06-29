@@ -29,6 +29,8 @@ const PROVIDERS: Record<string, ProviderInfo> = {
   groq:       { name: 'Groq', baseURL: 'https://api.groq.com/openai/v1', apiKeyEnv: 'GROQ_API_KEY' },
   deepseek:   { name: 'DeepSeek', baseURL: 'https://api.deepseek.com', apiKeyEnv: 'DEEPSEEK_API_KEY' },
   mistral:    { name: 'Mistral', baseURL: 'https://api.mistral.ai/v1', apiKeyEnv: 'MISTRAL_API_KEY' },
+  ollama:     { name: 'Ollama', baseURL: process.env.OLLAMA_HOST || 'http://localhost:11434/v1', apiKeyEnv: '' },
+  lmstudio:   { name: 'LM Studio', baseURL: process.env.LMSTUDIO_HOST || 'http://localhost:1234/v1', apiKeyEnv: '' },
 };
 
 type ToolCallFunction = {
@@ -419,6 +421,27 @@ function showModels(userPresets: Record<string, ModelPreset>, activeModelConfig:
   console.log(`  ✅ Active: [${prov}] ${activeModelConfig.primary}${activeModelConfig.fallbacks.length ? ` → ${activeModelConfig.fallbacks.join(', ')}` : ''}`);
 }
 
+async function detectLocalModel(providerId: string): Promise<string> {
+  const info = PROVIDERS[providerId];
+  if (!info) throw new Error(`Unknown local provider: "${providerId}"`);
+
+  try {
+    const tempClient = new OpenAI({ baseURL: info.baseURL, apiKey: '' });
+    const models = await tempClient.models.list();
+    if (!models.data || models.data.length === 0) {
+      throw new Error(`No models found on ${info.name}`);
+    }
+    const modelId = models.data[0].id;
+    if (!modelId) throw new Error(`Could not parse model list response`);
+    console.log(`  ✅ Auto-detected model: ${modelId}`);
+    return String(modelId);
+  } catch (err: any) {
+    throw new Error(
+      `Cannot connect to ${info.name} at ${info.baseURL}. Is the server running? ${err.message}`
+    );
+  }
+}
+
 class CodingAgent {
   private toolHistory: string[] = [];
   private readonly MAX_DEPTH = 20;
@@ -607,15 +630,20 @@ class CodingAgent {
 async function startChat() {
   // Check all provider API keys on startup
   const missingKeys: string[] = [];
+  const localProviders: string[] = [];
   for (const [id, info] of Object.entries(PROVIDERS)) {
+    if (!info.apiKeyEnv) {
+      localProviders.push(info.name);
+      continue;
+    }
     const val = process.env[info.apiKeyEnv];
     if (!val || val.trim() === '' || val === 'YOUR_API_KEY_HERE') {
       missingKeys.push(`${info.name} (${info.apiKeyEnv})`);
     }
   }
-  if (missingKeys.length === Object.keys(PROVIDERS).length) {
+  if (missingKeys.length === Object.keys(PROVIDERS).length - localProviders.length) {
     console.error('❌ ERROR: No API keys found. Add at least one to .env:');
-    Object.values(PROVIDERS).forEach(p => console.error(`   ${p.apiKeyEnv}=your-key`));
+    Object.values(PROVIDERS).filter(p => p.apiKeyEnv).forEach(p => console.error(`   ${p.apiKeyEnv}=your-key`));
     console.error('   Get keys: OpenRouter=openrouter.ai/keys, Google=aistudio.google.com/apikey, Groq=console.groq.com/keys, DeepSeek=platform.deepseek.com, Mistral=console.mistral.ai');
     process.exit(1);
   }
@@ -712,11 +740,15 @@ async function startChat() {
     if (input.toLowerCase() === '/list-providers') {
       console.log('\n── Available Providers ────────────────────');
       for (const [id, info] of Object.entries(PROVIDERS)) {
-        const key = process.env[info.apiKeyEnv] ? '🔑' : '❌';
-        console.log(`  ${key} ${info.name.padEnd(20)} ${info.apiKeyEnv}`);
+        if (info.apiKeyEnv) {
+          const key = process.env[info.apiKeyEnv] ? '🔑' : '❌';
+          console.log(`  ${key} ${info.name.padEnd(20)} ${info.apiKeyEnv}`);
+        } else {
+          console.log(`  ✅ ${info.name.padEnd(20)} (local, no key needed)`);
+        }
       }
       console.log('──────────────────────────────────────────');
-      console.log('  (❌ = add key to .env)\n');
+      console.log('  (❌ = add key to .env; ✅ = ready)\n');
       rl.prompt();
       continue;
     }
@@ -774,6 +806,19 @@ async function startChat() {
           providerId = activeModelConfig.provider;
           modelId = raw;
         }
+
+        // Auto-detect local model if modelId is 'auto'
+        const provInfo = PROVIDERS[providerId];
+        if (provInfo && !provInfo.apiKeyEnv && modelId.toLowerCase() === 'auto') {
+          try {
+            modelId = await detectLocalModel(providerId);
+          } catch (err: any) {
+            console.log(`\n❌ ${err.message}\n`);
+            rl.prompt();
+            continue;
+          }
+        }
+
         const prov = PROVIDERS[providerId]?.name ?? providerId;
         userPresets[num] = { provider: providerId, primary: modelId, fallbacks: ['openrouter/free'] };
         await saveUserPresets(userPresets);

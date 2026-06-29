@@ -50,7 +50,7 @@ npm start
 | `/remove <n>` | Remove a user preset |
 | `/allow <p>` | Allow model to access a path outside workspace |
 | `/models` | Show all presets |
-| `/list-providers` | Show providers with valid keys |
+| `/list-providers` | Show providers with valid keys (and local providers) |
 | `/exit` | Quit |
 
 ## Multi-Provider Usage
@@ -85,6 +85,58 @@ Examples:
 ```
 
 If you omit the provider (e.g. `/add 10 llama-3.3-70b-versatile`), it defaults to the current preset's provider.
+
+## Local Models (Ollama, LM Studio, etc.)
+
+The agent supports any OpenAI-compatible local server with zero configuration:
+
+### Quick start
+
+Make sure your local server is running, then:
+
+```
+You: /add 6 ollama:auto
+✅ Auto-detected model: llama3.2:latest
+✅ Added preset 6: [Ollama] llama3.2:latest
+
+You: /model 6
+✅ Switched to preset 6: [Ollama] llama3.2:latest
+```
+
+Or for LM Studio:
+
+```
+You: /add 7 lmstudio:auto
+✅ Added preset 7: [LM Studio] qwen2.5-coder-7b-instruct
+```
+
+The `:auto` keyword tells the agent to connect to the local server and detect the loaded model automatically.
+
+### Custom ports
+
+Set environment variables in `.env` to change the default port:
+
+```bash
+OLLAMA_HOST=http://localhost:11434/v1
+LMSTUDIO_HOST=http://localhost:1234/v1
+```
+
+### Manual model selection
+
+You can also specify the model name directly (no auto-detection):
+
+```
+You: /add 6 ollama:llama3.2:latest
+You: /add 7 ollama:mistral
+```
+
+### Requirements
+
+- **Ollama**: [Download](https://ollama.ai) → `ollama pull llama3.2` → `ollama serve`
+- **LM Studio**: [Download](https://lmstudio.ai) → Load a model → Start server (Settings → Local Server → Start)
+- The model must support **tool calling** (function calling) for full agent functionality.
+- No API key required — local providers are skipped during startup key validation.
+- Both providers use the OpenAI-compatible API, so no additional packages are needed.
 
 ## Workspace & Permissions
 
@@ -239,10 +291,12 @@ coding-agent-free/
 | `GOOGLE_API_KEY` | No* | Google AI Studio key — https://aistudio.google.com/apikey |
 | `DEEPSEEK_API_KEY` | No* | DeepSeek API key — https://platform.deepseek.com |
 | `MISTRAL_API_KEY` | No* | Mistral API key — https://console.mistral.ai |
+| `OLLAMA_HOST` | No | Ollama server URL (default: `http://localhost:11434/v1`) |
+| `LMSTUDIO_HOST` | No | LM Studio server URL (default: `http://localhost:1234/v1`) |
 | `ALLOWED_DIR` | No | Directory for file operations (default: `./workspace`) |
 | `LOG_LEVEL` | No | Log level: `debug`, `info`, `warn`, `error` (default: `info`) |
 
-\* At least one API key is required. You only need keys for the providers you want to use.
+\* At least one API key is required (not needed for local providers). You only need keys for the providers you want to use.
 
 ## Security
 
