@@ -34,13 +34,31 @@ npm start
 - **5 built-in presets** — start with `openrouter/free` (discovers working free models automatically)
 - **User presets** — save/add/remove your own models with `/save`, `/add`, `/remove`
 - **Fallback chain** — if a model fails, it tries the next in the list
-- **Tool calling** — read, write, delete, list files, and run shell commands
+- **13 tools** — read, write, list (with details), create_folder, delete_file, delete_folder (recursive), append_file, copy_file, move_file, file_info, search_content, replace_in_file, and run_command
 - **Smart loop detection** — stops if a tool is called 3+ times identically or 5+ times consecutively
-- **Automatic retry** — exponential backoff + 120s timeout for flaky free APIs
+- **Automatic retry** — exponential backoff + 120s timeout for flaky free APIs (300s for local models)
 - **Zod validation** — runtime type-checking of every tool input and output
 - **Persistent presets** — saved to `presets.json` and reloaded across sessions
 - **Structured logging** — via `pino` (stderr, doesn't interfere with the prompt)
 - **TypeScript** — clean, class-based architecture
+
+## Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `read_file` | Read the contents of a file |
+| `write_file` | Write content to a file (creates/overwrites) |
+| `list_files` | List files and folders in a directory. Use `details:true` for size + timestamps |
+| `create_folder` | Create a new folder |
+| `delete_file` | Delete a single file |
+| `delete_folder` | Delete a folder. Set `recursive:true` for non‑empty folders |
+| `append_file` | Append content to an existing file |
+| `copy_file` | Copy a file from source to destination |
+| `move_file` | Move or rename a file |
+| `file_info` | Get detailed metadata (size, permissions, modified/created timestamps) |
+| `search_content` | Search for exact text in files. Supports `filePattern` (e.g. `*.ts`) and `maxResults` (default 50). Skips files >1MB |
+| `replace_in_file` | Replace the first occurrence of exact text (case‑sensitive) |
+| `run_command` | Run a shell command in the workspace (dangerous commands blocked by denylist)
 
 ## Commands
 
@@ -268,7 +286,9 @@ coding-agent-free/
 ├── src/
 │   ├── agent.ts           # Main agent: CLI, presets, loop detection, retry, validation
 │   └── tools/
-│       └── fileManager.ts # File ops & shell commands (read, write, delete, list, run)
+│       └── fileManager.ts # 13 tools: read/write files, list dir (with details), create/delete dirs,
+│       │                   #   delete/append/copy/move files, file info, search content, replace text,
+│       │                   #   run shell commands + dangerous command denylist
 ├── scripts/
 │   ├── check_models.js    # List free OpenRouter models with tool support
 │   └── test.js            # Non-interactive test
