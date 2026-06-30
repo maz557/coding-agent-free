@@ -151,6 +151,29 @@ You: /add 6 ollama:llama3.2:latest
 You: /add 7 ollama:mistral
 ```
 
+### Quick start — specific local model
+
+```bash
+# Ollama — pull and serve a tool-calling model
+ollama pull llama3.2          # 3B, fast, good tool support
+ollama serve                  # starts on port 11434
+
+# Llama.cpp — serve a GGUF model directly
+llama-server -m qwen2.5-coder-1.5b-instruct-q4_k_m.gguf --port 8080
+
+# LM Studio — no CLI command; use the GUI:
+# Load a model → Start Server (Settings → Local Server → Start) — port 1234
+```
+
+Then add the local model to the agent:
+```
+/add 6 ollama:auto
+/add 7 lmstudio:auto
+/add 8 llamacpp:auto
+```
+
+> `:auto` connects to the local server and detects the loaded model automatically.
+
 ### Requirements
 
 - **Ollama**: [Download](https://ollama.ai) → `ollama pull llama3.2` → `ollama serve`
