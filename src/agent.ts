@@ -252,6 +252,30 @@ class ConversationState {
     return new ConversationState([...this.messages, { role: 'tool', tool_call_id: toolCallId, content, name }]);
   }
 
+  removeLastToolResults(count: number): ConversationState {
+    let removed = 0;
+    const kept: ChatMessage[] = [];
+    for (let i = this.messages.length - 1; i >= 0; i--) {
+      if (this.messages[i].role === 'tool' && removed < count) {
+        removed++;
+      } else {
+        kept.unshift(this.messages[i]);
+      }
+    }
+    return new ConversationState(kept);
+  }
+
+  addSystemMessage(content: string): ConversationState {
+    // Insert right after the first system message, or at the beginning
+    const idx = this.messages.findIndex(m => m.role === 'system');
+    if (idx >= 0) {
+      const copy = [...this.messages];
+      copy.splice(idx + 1, 0, { role: 'system', content });
+      return new ConversationState(copy);
+    }
+    return new ConversationState([{ role: 'system', content }, ...this.messages]);
+  }
+
   getAllMessages(): ReadonlyArray<ChatMessage> {
     return this.messages;
   }
@@ -647,12 +671,14 @@ class CodingAgent {
           const stuckError = this.detectStuckState();
           if (stuckError) {
             console.log(`  ⛔ Stuck detected: ${stuckError}`);
-            return {
-              model: usedModel,
-              content: 'I seem to be stuck in a repetitive loop. I will stop here to prevent unnecessary usage.',
-              logs: [],
-              toolCallsCount: totalToolCalls,
-            };
+            this.conversation = this.conversation
+              .removeLastToolResults(3)
+              .addSystemMessage(
+                `[RECOVERY] You were stuck: ${stuckError}. The previous repetitive calls have been undone. ` +
+                `Think carefully about what went wrong and try a COMPLETELY DIFFERENT approach. ` +
+                `Do NOT repeat the same tool call with identical arguments.`
+              );
+            break;
           }
 
           try {
