@@ -336,7 +336,12 @@ Rules:
 - Use run_command to execute shell commands.
 - Keep tool calls to a minimum. Plan before you act.
 - If a tool returns an error (e.g. access denied), tell the user and stop — do NOT retry with different paths.
-- When done, summarize what you did and the results.`;
+- When done, summarize what you did and the results.
+
+Clarifying questions:
+- Only ask if the request is truly ambiguous (e.g. "delete something" without specifying what).
+- If you understand 80%+ of the request, make reasonable assumptions and proceed. For example, if asked to "copy text files in a folder", just find .txt files and copy them — don't ask about naming convention or location.
+- Prefer taking small actions first and adjust based on feedback, rather than asking multiple questions upfront.`;
 
 const CONVERSATION_FILE = path.join(__dirname, '..', 'conversation.json');
 
