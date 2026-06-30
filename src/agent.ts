@@ -101,6 +101,9 @@ const toolInputSchemas: Record<string, z.ZodTypeAny> = {
   list_files: z.object({ directory: z.string().optional() }),
   create_folder: z.object({ path: z.string().min(1) }),
   delete_file: z.object({ path: z.string().min(1) }),
+  append_file: z.object({ path: z.string().min(1), content: z.string() }),
+  copy_file: z.object({ source: z.string().min(1), destination: z.string().min(1) }),
+  move_file: z.object({ source: z.string().min(1), destination: z.string().min(1) }),
   run_command: z.object({ command: z.string().min(1), timeout: z.number().int().positive().optional() }),
 };
 
@@ -110,6 +113,9 @@ const toolOutputSchemas: Record<string, z.ZodTypeAny> = {
   list_files: z.string(),
   create_folder: z.string(),
   delete_file: z.string(),
+  append_file: z.string(),
+  copy_file: z.string(),
+  move_file: z.string(),
   run_command: z.string(),
 };
 
