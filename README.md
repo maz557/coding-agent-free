@@ -43,9 +43,14 @@ npm run setup
 
 Or create `.env` manually (pick at least one provider):
 ```bash
+# OpenRouter (easiest — single key for 18+ free tool-calling models)
 echo "OPENROUTER_API_KEY=sk-or-v1-..." >> .env
-echo "GROQ_API_KEY=gsk_..." >> .env
-echo "GOOGLE_API_KEY=AIza..." >> .env
+
+# Optional providers:
+echo "GROQ_API_KEY=gsk_..." >> .env      # Ultra-fast inference
+echo "GOOGLE_API_KEY=AIza..." >> .env     # Gemini models
+echo "DEEPSEEK_API_KEY=sk-..." >> .env    # DeepSeek
+echo "MISTRAL_API_KEY=..." >> .env        # Mistral models
 ```
 
 ```bash
@@ -376,11 +381,11 @@ coding-agent-free/
 
 | Variable | Required? | Description |
 |----------|-----------|-------------|
-| `OPENROUTER_API_KEY` | No* | OpenRouter API key |
-| `GROQ_API_KEY` | No* | Groq API key |
-| `GOOGLE_API_KEY` | No* | Google AI Studio key |
-| `DEEPSEEK_API_KEY` | No* | DeepSeek API key |
-| `MISTRAL_API_KEY` | No* | Mistral API key |
+| `OPENROUTER_API_KEY` | No* | OpenRouter API key — https://openrouter.ai/keys |
+| `GROQ_API_KEY` | No* | Groq API key — https://console.groq.com/keys |
+| `GOOGLE_API_KEY` | No* | Google AI Studio key — https://aistudio.google.com/apikey |
+| `DEEPSEEK_API_KEY` | No* | DeepSeek API key — https://platform.deepseek.com |
+| `MISTRAL_API_KEY` | No* | Mistral API key — https://console.mistral.ai |
 | `OLLAMA_HOST` | No | Ollama server URL (default: `http://localhost:11434/v1`) |
 | `LMSTUDIO_HOST` | No | LM Studio server URL (default: `http://localhost:1234/v1`) |
 | `LLAMACPP_HOST` | No | Llama.cpp server URL (default: `http://localhost:8080/v1`) |
