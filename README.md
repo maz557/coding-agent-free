@@ -161,8 +161,10 @@ ollama serve                  # starts on port 11434
 # Llama.cpp — serve a GGUF model directly
 llama-server -m qwen2.5-coder-1.5b-instruct-q4_k_m.gguf --port 8080
 
-# LM Studio — no CLI command; use the GUI:
-# Load a model → Start Server (Settings → Local Server → Start) — port 1234
+# LM Studio (Windows/macOS/Linux) — uses the built-in `lms` CLI
+lms get llama-3.2-3b-instruct   # download a model
+lms load llama-3.2-3b-instruct  # load into memory
+lms server start --port 1234    # start the API server
 ```
 
 Then add the local model to the agent:
@@ -177,7 +179,7 @@ Then add the local model to the agent:
 ### Requirements
 
 - **Ollama**: [Download](https://ollama.ai) → `ollama pull llama3.2` → `ollama serve`
-- **LM Studio**: [Download](https://lmstudio.ai) → Load a model → Start server (Settings → Local Server → Start)
+- **LM Studio**: [Download](https://lmstudio.ai) → `lms get llama-3.2-3b-instruct` → `lms server start --port 1234`
 - **Llama.cpp**: [Download](https://github.com/ggerganov/llama.cpp) → Build or get a binary → `llama-server -m model.gguf --port 8080`
 - The model must support **tool calling** (function calling) for full agent functionality.
 - No API key required — local providers are skipped during startup key validation.
