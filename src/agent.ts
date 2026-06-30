@@ -153,7 +153,9 @@ function validateToolOutput(toolName: string, output: unknown): unknown {
 
 // --- Context Management ---
 const DEFAULT_CONTEXT_WINDOW = 128_000;
-const CONTEXT_USAGE_TARGET = 0.7; // keep messages within 70% of context window (leave 30% for response)
+const CONTEXT_USAGE_TARGET = 0.6; // keep messages within 60% of context window
+const MAX_EXCHANGES = Number(process.env.MAX_EXCHANGES) || 20; // sliding window: keep at most N user ↔ assistant exchanges
+const MAX_TOOL_RESULT_LENGTH = Number(process.env.MAX_TOOL_RESULT_LENGTH) || 5000; // truncate tool results longer than this
 
 function estimateMessageTokens(msg: ChatMessage): number {
   let tokens = 4;
@@ -254,14 +256,49 @@ class ConversationState {
     return this.messages;
   }
 
+  private truncateLongResults(messages: ChatMessage[]): ChatMessage[] {
+    return messages.map(msg => {
+      if (msg.role === 'tool' && msg.content && msg.content.length > MAX_TOOL_RESULT_LENGTH) {
+        const truncated = msg.content.slice(0, MAX_TOOL_RESULT_LENGTH) +
+          `\n... [truncated ${msg.content.length - MAX_TOOL_RESULT_LENGTH} more chars]`;
+        return { ...msg, content: truncated };
+      }
+      return msg;
+    });
+  }
+
   trimToContextWindow(maxTokens: number): ConversationState {
+    // 1. Truncate long tool results
+    let messages = this.truncateLongResults([...this.messages]);
+
+    // 2. Sliding window: keep system + last N exchanges
+    const systemMsgs = messages.filter(m => m.role === 'system');
+    const nonSystem = messages.filter(m => m.role !== 'system');
+
+    // An "exchange" = [user] + [assistant + tool_calls + tool results]
+    // We estimate by counting user messages
+    const userCount = nonSystem.filter(m => m.role === 'user').length;
+    if (userCount > MAX_EXCHANGES) {
+      const toDrop = userCount - MAX_EXCHANGES;
+      let dropped = 0;
+      const kept: ChatMessage[] = [];
+      for (const msg of nonSystem) {
+        if (msg.role === 'user' && dropped < toDrop) {
+          dropped++;
+          continue;
+        }
+        kept.push(msg);
+      }
+      messages = [...systemMsgs, ...kept];
+      logger.warn({ dropped: toDrop, remaining: userCount - toDrop }, 'Sliding window trimmed');
+    }
+
+    // 3. Token budget trim (only if still over limit)
     const safeMax = Math.floor(maxTokens * CONTEXT_USAGE_TARGET);
-    const currentTokens = estimateTotalTokens(this.messages);
-    if (currentTokens <= safeMax) return this;
+    const currentTokens = estimateTotalTokens(messages);
+    if (currentTokens <= safeMax) return new ConversationState(messages);
 
-    const systemMsgs = this.messages.filter(m => m.role === 'system');
-    const otherMsgs = this.messages.filter(m => m.role !== 'system');
-
+    const otherMsgs = messages.filter(m => m.role !== 'system');
     let tokens = estimateTotalTokens(systemMsgs);
     const kept: ChatMessage[] = [];
 
@@ -275,7 +312,7 @@ class ConversationState {
 
     const dropped = otherMsgs.length - kept.length;
     if (dropped > 0) {
-      logger.warn({ dropped, remaining: kept.length, tokens }, 'Conversation trimmed');
+      logger.warn({ dropped, remaining: kept.length, tokens }, 'Token budget trim');
     }
 
     return new ConversationState([...systemMsgs, ...kept]);
