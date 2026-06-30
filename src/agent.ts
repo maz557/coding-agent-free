@@ -98,9 +98,18 @@ function isToolCallArray(obj: unknown): obj is ToolCall[] {
 const toolInputSchemas: Record<string, z.ZodTypeAny> = {
   read_file: z.object({ path: z.string().min(1) }),
   write_file: z.object({ path: z.string().min(1), content: z.string() }),
-  list_files: z.object({ directory: z.string().optional() }),
+  list_files: z.object({ directory: z.string().optional(), details: z.boolean().optional() }),
   create_folder: z.object({ path: z.string().min(1) }),
   delete_file: z.object({ path: z.string().min(1) }),
+  delete_folder: z.object({ path: z.string().min(1), recursive: z.boolean().optional() }),
+  file_info: z.object({ path: z.string().min(1) }),
+  search_content: z.object({
+    pattern: z.string().min(1),
+    directory: z.string().optional(),
+    filePattern: z.string().optional(),
+    maxResults: z.number().int().positive().optional(),
+  }),
+  replace_in_file: z.object({ path: z.string().min(1), old_str: z.string(), new_str: z.string() }),
   append_file: z.object({ path: z.string().min(1), content: z.string() }),
   copy_file: z.object({ source: z.string().min(1), destination: z.string().min(1) }),
   move_file: z.object({ source: z.string().min(1), destination: z.string().min(1) }),
@@ -113,6 +122,10 @@ const toolOutputSchemas: Record<string, z.ZodTypeAny> = {
   list_files: z.string(),
   create_folder: z.string(),
   delete_file: z.string(),
+  delete_folder: z.string(),
+  file_info: z.string(),
+  search_content: z.string(),
+  replace_in_file: z.string(),
   append_file: z.string(),
   copy_file: z.string(),
   move_file: z.string(),
@@ -143,6 +156,7 @@ const CONTEXT_USAGE_TARGET = 0.7; // keep messages within 70% of context window 
 
 function estimateMessageTokens(msg: ChatMessage): number {
   let tokens = 4;
+  if (msg.name) tokens += Math.ceil(msg.name.length / 4);
   if (msg.content) {
     tokens += Math.ceil(msg.content.length / 4);
   }

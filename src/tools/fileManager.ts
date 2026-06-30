@@ -37,6 +37,13 @@ export class DangerousCommandError extends Error {
   }
 }
 
+export class ReplaceContentError extends Error {
+  constructor(filePath: string) {
+    super(`Could not find the specified text to replace in: ${filePath}`);
+    this.name = 'ReplaceContentError';
+  }
+}
+
 // --- Dangerous Command Denylist ---
 const DENYLISTED_COMMANDS = [
   'rm -rf',
@@ -64,21 +71,28 @@ function isCommandDangerous(command: string): boolean {
 // --- 1. Strict Type Definitions for Tool Arguments ---
 interface ReadFileArgs { path: string; }
 interface WriteFileArgs { path: string; content: string; }
-interface ListFilesArgs { directory?: string; }
+interface ListFilesArgs { directory?: string; details?: boolean; }
 interface CreateFolderArgs { path: string; }
 interface DeleteFileArgs { path: string; }
+interface DeleteFolderArgs { path: string; recursive?: boolean; }
+interface FileInfoArgs { path: string; }
+interface SearchContentArgs { pattern: string; directory?: string; filePattern?: string; maxResults?: number; }
+interface ReplaceInFileArgs { path: string; old_str: string; new_str: string; }
 interface RunCommandArgs { command: string; timeout?: number; }
 interface AppendFileArgs { path: string; content: string; }
 interface CopyFileArgs { source: string; destination: string; }
 interface MoveFileArgs { source: string; destination: string; }
 
-// Union type to strictly type the execute function
 export type ToolArguments = 
   | ReadFileArgs 
   | WriteFileArgs 
   | ListFilesArgs 
   | CreateFolderArgs 
   | DeleteFileArgs 
+  | DeleteFolderArgs
+  | FileInfoArgs
+  | SearchContentArgs
+  | ReplaceInFileArgs
   | RunCommandArgs
   | AppendFileArgs
   | CopyFileArgs
@@ -151,9 +165,27 @@ class WorkspaceManager {
     try {
       const dirPath = this.sanitizePath(args.directory || '.');
       const entries = await fs.readdir(dirPath, { withFileTypes: true });
+      if (entries.length === 0) return '(empty directory)';
+
+      if (args.details) {
+        const detailed = await Promise.all(
+          entries.map(async (e) => {
+            const entryPath = path.join(dirPath, e.name);
+            const stat = await fs.stat(entryPath);
+            const size = stat.size < 1024 ? `${stat.size} B` :
+                         stat.size < 1024 * 1024 ? `${(stat.size / 1024).toFixed(1)} KB` :
+                         `${(stat.size / (1024 * 1024)).toFixed(1)} MB`;
+            const mtime = stat.mtime.toISOString().substring(0, 19);
+            const type = e.isDirectory() ? '[DIR]' : '[FILE]';
+            return `${type} ${e.name} (${size}, ${mtime})`;
+          })
+        );
+        return detailed.join('\n');
+      }
+
       return entries
         .map((e) => `${e.isDirectory() ? '[DIR]' : '[FILE]'} ${e.name}`)
-        .join('\n') || '(empty directory)';
+        .join('\n');
     } catch (err: any) {
       return `Error listing directory: ${err.message}`;
     }
@@ -220,6 +252,111 @@ class WorkspaceManager {
     }
   }
 
+  // --- New enhanced tools ---
+
+  async deleteFolder(args: DeleteFolderArgs): Promise<string> {
+    try {
+      const fullPath = this.sanitizePath(args.path);
+      await fs.rm(fullPath, { recursive: args.recursive ?? false, force: false });
+      return `Folder deleted successfully: ${args.path}${args.recursive ? ' (recursively)' : ''}`;
+    } catch (err: any) {
+      if (err.code === 'ENOENT') throw new FileNotFoundError(args.path);
+      if (err.code === 'ENOTEMPTY') return `Error: folder is not empty. Use recursive:true to delete it.`;
+      return `Error deleting folder: ${err.message}`;
+    }
+  }
+
+  async fileInfo(args: FileInfoArgs): Promise<string> {
+    try {
+      const fullPath = this.sanitizePath(args.path);
+      const stat = await fs.stat(fullPath);
+      return JSON.stringify({
+        path: args.path,
+        size: stat.size,
+        sizeFormatted: stat.size < 1024 ? `${stat.size} B` :
+                       stat.size < 1024 * 1024 ? `${(stat.size / 1024).toFixed(1)} KB` :
+                       `${(stat.size / (1024 * 1024)).toFixed(1)} MB`,
+        isDirectory: stat.isDirectory(),
+        isFile: stat.isFile(),
+        permissions: stat.mode.toString(8).slice(-3),
+        modified: stat.mtime.toISOString(),
+        created: stat.birthtime.toISOString(),
+      }, null, 2);
+    } catch (err: any) {
+      if (err.code === 'ENOENT') throw new FileNotFoundError(args.path);
+      return `Error getting file info: ${err.message}`;
+    }
+  }
+
+  async searchContent(args: SearchContentArgs): Promise<string> {
+    const directory = args.directory || '.';
+    const maxResults = args.maxResults ?? 50;
+    const filePattern = args.filePattern;
+    let results: string[] = [];
+
+    const dirPath = this.sanitizePath(directory);
+
+    const matchesPattern = (fileName: string): boolean => {
+      if (!filePattern) return true;
+      if (filePattern.startsWith('*.')) return fileName.endsWith(filePattern.slice(1));
+      return fileName.includes(filePattern);
+    };
+
+    const walk = async (currentDir: string): Promise<void> => {
+      if (results.length >= maxResults) return;
+      let entries;
+      try {
+        entries = await fs.readdir(currentDir, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const entry of entries) {
+        if (results.length >= maxResults) break;
+        const full = path.join(currentDir, entry.name);
+        if (entry.isDirectory()) {
+          await walk(full);
+        } else if (entry.isFile() && matchesPattern(entry.name)) {
+          try {
+            const stat = await fs.stat(full);
+            if (stat.size > 1024 * 1024) continue;
+            const content = await fs.readFile(full, 'utf-8');
+            const lines = content.split('\n');
+            for (let i = 0; i < lines.length; i++) {
+              if (results.length >= maxResults) break;
+              if (lines[i].includes(args.pattern)) {
+                results.push(`${path.relative(this.allowedDir, full)}:${i + 1}: ${lines[i].trim()}`);
+              }
+            }
+          } catch {
+            // skip unreadable files
+          }
+        }
+      }
+    };
+
+    await walk(dirPath);
+    if (results.length === 0) return 'No matches found.';
+    return results.join('\n');
+  }
+
+  async replaceInFile(args: ReplaceInFileArgs): Promise<string> {
+    try {
+      const fullPath = this.sanitizePath(args.path);
+      const content = await fs.readFile(fullPath, 'utf-8');
+      const index = content.indexOf(args.old_str);
+      if (index === -1) {
+        throw new ReplaceContentError(args.path);
+      }
+      const newContent = content.slice(0, index) + args.new_str + content.slice(index + args.old_str.length);
+      await fs.writeFile(fullPath, newContent, 'utf-8');
+      return `Successfully replaced text in: ${args.path}`;
+    } catch (err: any) {
+      if (err instanceof ReplaceContentError) throw err;
+      if (err.code === 'ENOENT') throw new FileNotFoundError(args.path);
+      return `Error replacing text: ${err.message}`;
+    }
+  }
+
   async runCommand(args: RunCommandArgs): Promise<string> {
     const timeout = args.timeout ?? 30000;
     if (isCommandDangerous(args.command)) {
@@ -281,11 +418,12 @@ export const tools = [
     type: 'function',
     function: {
       name: 'list_files',
-      description: 'Lists files and folders in a directory within the workspace.',
+      description: 'Lists files and folders in a directory within the workspace. Use details:true to include size and modification time.',
       parameters: {
         type: 'object',
         properties: {
           directory: { type: 'string', description: 'Relative path to the directory. Defaults to root workspace (".").' },
+          details: { type: 'boolean', description: 'If true, show size and modification date for each entry.' },
         },
         required: [],
       },
@@ -316,6 +454,68 @@ export const tools = [
           path: { type: 'string', description: 'Relative path to the file to delete.' },
         },
         required: ['path'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_folder',
+      description: 'Deletes a folder. Set recursive:true to delete non‑empty folders.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Relative path to the folder to delete.' },
+          recursive: { type: 'boolean', description: 'Whether to delete contents recursively (default false).' },
+        },
+        required: ['path'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'file_info',
+      description: 'Returns detailed information about a file or folder (size, permissions, timestamps).',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Relative path to the file/folder.' },
+        },
+        required: ['path'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'search_content',
+      description: 'Searches for a text pattern in files under a directory. Supports filtering by file extension (e.g. "*.ts"). Returns line:content results.',
+      parameters: {
+        type: 'object',
+        properties: {
+          pattern: { type: 'string', description: 'The exact string to search for (case‑sensitive).' },
+          directory: { type: 'string', description: 'Directory to search in (default ".").' },
+          filePattern: { type: 'string', description: 'Optional file pattern like "*.js" or "*.json".' },
+          maxResults: { type: 'number', description: 'Maximum number of results (default 50).' },
+        },
+        required: ['pattern'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'replace_in_file',
+      description: 'Replaces the first occurrence of old_str with new_str inside a file. The text must match exactly, including whitespace.',
+      parameters: {
+        type: 'object',
+        properties: {
+          path: { type: 'string', description: 'Relative path to the file to modify.' },
+          old_str: { type: 'string', description: 'The exact text to replace.' },
+          new_str: { type: 'string', description: 'The text to replace it with.' },
+        },
+        required: ['path', 'old_str', 'new_str'],
       },
     },
   },
@@ -391,15 +591,19 @@ const workspace = new WorkspaceManager();
  */
 export async function executeTool(name: string, args: ToolArguments): Promise<string> {
   switch (name) {
-    case 'read_file':    return workspace.readFile(args as ReadFileArgs);
-    case 'write_file':   return workspace.writeFile(args as WriteFileArgs);
-    case 'list_files':   return workspace.listFiles(args as ListFilesArgs);
-    case 'create_folder':return workspace.createFolder(args as CreateFolderArgs);
-    case 'delete_file':  return workspace.deleteFile(args as DeleteFileArgs);
-    case 'append_file':  return workspace.appendFile(args as AppendFileArgs);
-    case 'copy_file':    return workspace.copyFile(args as CopyFileArgs);
-    case 'move_file':    return workspace.moveFile(args as MoveFileArgs);
-    case 'run_command':  return workspace.runCommand(args as RunCommandArgs);
+    case 'read_file':       return workspace.readFile(args as ReadFileArgs);
+    case 'write_file':      return workspace.writeFile(args as WriteFileArgs);
+    case 'list_files':      return workspace.listFiles(args as ListFilesArgs);
+    case 'create_folder':   return workspace.createFolder(args as CreateFolderArgs);
+    case 'delete_file':     return workspace.deleteFile(args as DeleteFileArgs);
+    case 'delete_folder':   return workspace.deleteFolder(args as DeleteFolderArgs);
+    case 'file_info':       return workspace.fileInfo(args as FileInfoArgs);
+    case 'search_content':  return workspace.searchContent(args as SearchContentArgs);
+    case 'replace_in_file': return workspace.replaceInFile(args as ReplaceInFileArgs);
+    case 'append_file':     return workspace.appendFile(args as AppendFileArgs);
+    case 'copy_file':       return workspace.copyFile(args as CopyFileArgs);
+    case 'move_file':       return workspace.moveFile(args as MoveFileArgs);
+    case 'run_command':     return workspace.runCommand(args as RunCommandArgs);
     default:
       return `Error: Unknown tool "${name}"`;
   }
