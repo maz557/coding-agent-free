@@ -68,6 +68,33 @@ function isCommandDangerous(command: string): boolean {
   return DENYLISTED_COMMANDS.some((denied) => command.includes(denied));
 }
 
+// --- Safe Mode Whitelist ---
+const WHITELISTED_COMMANDS = [
+  'ls', 'dir', 'cat', 'type', 'head', 'tail', 'grep', 'findstr',
+  'echo', 'pwd', 'cd',
+  'node', 'npm', 'npx', 'python', 'python3', 'pip', 'pip3',
+  'git status', 'git log', 'git diff', 'git show',
+  'npx tsc', 'npx ts-node',
+  'cargo', 'rustc',
+  'dotnet',
+  'go', 'go run', 'go build', 'go test',
+  'mkdir', 'copy',
+];
+
+function isCommandWhitelisted(command: string): boolean {
+  return WHITELISTED_COMMANDS.some((allowed) => command.startsWith(allowed));
+}
+
+let safeModeEnabled = false;
+
+export function setSafeMode(enabled: boolean): void {
+  safeModeEnabled = enabled;
+}
+
+export function isSafeModeEnabled(): boolean {
+  return safeModeEnabled;
+}
+
 // --- 1. Strict Type Definitions for Tool Arguments ---
 interface ReadFileArgs { path: string; }
 interface WriteFileArgs { path: string; content: string; }
@@ -358,6 +385,9 @@ class WorkspaceManager {
   }
 
   async runCommand(args: RunCommandArgs): Promise<string> {
+    if (safeModeEnabled && !isCommandWhitelisted(args.command)) {
+      return `[Safe Mode] Command not in whitelist: ${args.command}\nAllowed commands: ls, cat, grep, node, npm, python, git status/log/diff, npx tsc, and similar safe operations.`;
+    }
     const timeout = args.timeout ?? 30000;
     if (isCommandDangerous(args.command)) {
       throw new DangerousCommandError(args.command);

@@ -7,7 +7,7 @@ import * as path from 'path';
 import { z } from 'zod';
 import pino from 'pino';
 import pinoPretty from 'pino-pretty';
-import { tools, executeTool, allowExtraPath } from './tools/fileManager';
+import { tools, executeTool, allowExtraPath, setSafeMode, isSafeModeEnabled } from './tools/fileManager';
 
 dotenv.config();
 
@@ -653,6 +653,11 @@ class CodingAgent {
 }
 
 async function startChat() {
+  // Parse --safe flag
+  if (process.argv.includes('--safe')) {
+    setSafeMode(true);
+  }
+
   // Check all provider API keys on startup
   const missingKeys: string[] = [];
   const localProviders: string[] = [];
@@ -695,12 +700,16 @@ async function startChat() {
   console.log('  Coding Agent Free');
   console.log('═══════════════════════════════════════════════');
   console.log(`  Workspace: ${allowedDir}`);
+  if (isSafeModeEnabled()) {
+    console.log('  🛡️  Safe mode: ON (whitelist-only shell commands)');
+  }
   console.log('  Commands:');
   console.log('    /model <n>   Switch to preset n');
   console.log('    /save <n>    Save last used model as preset n');
   console.log('    /add <n> <m> Manually add model m as preset n (provider:model)');
   console.log('    /remove <n>  Remove a user preset');
   console.log('    /allow <p>   Allow model to access path outside workspace');
+  console.log('    /safe        Toggle safe mode (whitelist-only shell commands)');
   console.log('    /list-providers  Show available providers');
   console.log('    /models      Show all presets');
   console.log('    /exit        Quit');
@@ -874,6 +883,14 @@ async function startChat() {
       const p = allowMatch[1].trim().replace(/^"(.*)"$/, '$1');
       allowExtraPath(p);
       console.log(`\n✅ Allowed: ${path.resolve(p)}\n`);
+      rl.prompt();
+      continue;
+    }
+
+    if (input.toLowerCase() === '/safe') {
+      const now = !isSafeModeEnabled();
+      setSafeMode(now);
+      console.log(`\n🛡️  Safe mode ${now ? 'ENABLED' : 'DISABLED'} — only whitelisted shell commands are allowed.\n`);
       rl.prompt();
       continue;
     }

@@ -5,6 +5,7 @@
   "main": "src/agent.ts",
   "scripts": {
     "start": "node node_modules/ts-node/dist/bin.js src/agent.ts",
+    "setup": "node scripts/setup.js",
     "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

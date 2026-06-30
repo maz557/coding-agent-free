@@ -12,7 +12,12 @@ cd coding-agent-free
 npm install
 ```
 
-Create `.env` (pick at least one provider):
+Run the interactive setup wizard (recommended):
+```bash
+npm run setup
+```
+
+Or create `.env` manually (pick at least one provider):
 ```bash
 # OpenRouter (easiest — single key for 18+ free tool-calling models)
 echo "OPENROUTER_API_KEY=sk-or-v1-..." >> .env
@@ -36,6 +41,8 @@ npm start
 - **Fallback chain** — if a model fails, it tries the next in the list
 - **13 tools** — read, write, list (with details), create_folder, delete_file, delete_folder (recursive), append_file, copy_file, move_file, file_info, search_content, replace_in_file, and run_command
 - **Smart loop detection** — stops if a tool is called 3+ times identically or 5+ times consecutively
+- **Safe mode** (`--safe` / `/safe`) — whitelist-only shell commands, blocks all unapproved operations
+- **Setup wizard** — `npm run setup` interactively configures .env with no manual editing
 - **Automatic retry** — exponential backoff + 120s timeout for flaky free APIs (300s for local models)
 - **Zod validation** — runtime type-checking of every tool input and output
 - **Persistent presets** — saved to `presets.json` and reloaded across sessions
@@ -69,6 +76,7 @@ npm start
 | `/add <n> <m>` | Add model m as preset n (`provider:model` or just `model`) |
 | `/remove <n>` | Remove a user preset |
 | `/allow <p>` | Allow model to access a path outside workspace |
+| `/safe` | Toggle safe mode (whitelist-only shell commands) |
 | `/models` | Show all presets |
 | `/list-providers` | Show providers with valid keys (and local providers) |
 | `/exit` | Quit |
@@ -303,6 +311,7 @@ Agent: demo/hello.py  ...
 
 ### Quick checks
 - `/list-providers` — shows which API keys are configured
+- `/safe` — toggle safe mode status
 - Check `.env` exists and keys are correct
 - Run `npm start` after any code update
 
@@ -313,11 +322,10 @@ coding-agent-free/
 ├── src/
 │   ├── agent.ts           # Main agent: CLI, presets, loop detection, retry, validation
 │   └── tools/
-│       └── fileManager.ts # 13 tools: read/write files, list dir (with details), create/delete dirs,
-│       │                   #   delete/append/copy/move files, file info, search content, replace text,
-│       │                   #   run shell commands + dangerous command denylist
+│       └── fileManager.ts # 13 tools + dangerous command denylist + safe mode whitelist
 ├── scripts/
 │   ├── check_models.js    # List free OpenRouter models with tool support
+│   ├── setup.js           # Interactive setup wizard (npm run setup)
 │   └── test.js            # Non-interactive test
 ├── local/                  # Local tools (gitignored, not pushed to GitHub)
 │   ├── backup/src/         # Snapshot of src/ for quick rollback
