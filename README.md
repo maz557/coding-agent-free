@@ -1,6 +1,6 @@
 # Coding Agent Free
 
-An interactive AI coding agent powered by **free** API models (OpenRouter, Groq, Google, DeepSeek, Mistral) and **local** models (Ollama, LM Studio). Reads, writes, lists, appends, copies, moves, and deletes files, and runs shell commands — all through tool calling.
+An interactive AI coding agent powered by **free** API models (OpenRouter, Groq, Google, DeepSeek, Mistral) and **local** models (Ollama, LM Studio, Llama.cpp). Reads, writes, lists, appends, copies, moves, and deletes files, and runs shell commands — all through tool calling.
 
 > 💡 **Offline-ready**: With a local server (Ollama / LM Studio), the agent works fully offline — no international internet required. Ideal for users in regions with restricted access.
 
@@ -106,7 +106,7 @@ Examples:
 
 If you omit the provider (e.g. `/add 10 llama-3.3-70b-versatile`), it defaults to the current preset's provider.
 
-## Local Models (Ollama, LM Studio, etc.)
+## Local Models (Ollama, LM Studio, Llama.cpp, etc.)
 
 The agent supports any OpenAI-compatible local server with zero configuration:
 
@@ -139,6 +139,7 @@ Set environment variables in `.env` to change the default port:
 ```bash
 OLLAMA_HOST=http://localhost:11434/v1
 LMSTUDIO_HOST=http://localhost:1234/v1
+LLAMACPP_HOST=http://localhost:8080/v1
 ```
 
 ### Manual model selection
@@ -154,9 +155,10 @@ You: /add 7 ollama:mistral
 
 - **Ollama**: [Download](https://ollama.ai) → `ollama pull llama3.2` → `ollama serve`
 - **LM Studio**: [Download](https://lmstudio.ai) → Load a model → Start server (Settings → Local Server → Start)
+- **Llama.cpp**: [Download](https://github.com/ggerganov/llama.cpp) → Build or get a binary → `llama-server -m model.gguf --port 8080`
 - The model must support **tool calling** (function calling) for full agent functionality.
 - No API key required — local providers are skipped during startup key validation.
-- Both providers use the OpenAI-compatible API, so no additional packages are needed.
+- All local providers use the OpenAI-compatible API, so no additional packages are needed.
 
 ## Workspace & Permissions
 
@@ -315,6 +317,7 @@ coding-agent-free/
 | `MISTRAL_API_KEY` | No* | Mistral API key — https://console.mistral.ai |
 | `OLLAMA_HOST` | No | Ollama server URL (default: `http://localhost:11434/v1`) |
 | `LMSTUDIO_HOST` | No | LM Studio server URL (default: `http://localhost:1234/v1`) |
+| `LLAMACPP_HOST` | No | Llama.cpp server URL (default: `http://localhost:8080/v1`) |
 | `ALLOWED_DIR` | No | Directory for file operations (default: `./workspace`) |
 | `LOCAL_TIMEOUT` | No | Timeout (ms) for local model requests (default: 300000 — 5 min) |
 | `LOG_LEVEL` | No | Log level: `debug`, `info`, `warn`, `error` (default: `info`) |
