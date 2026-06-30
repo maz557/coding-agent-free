@@ -1,8 +1,31 @@
 # Coding Agent Free
 
+<p align="center">
+  <img src="https://img.shields.io/github/stars/maz557/coding-agent-free?style=for-the-badge&logo=github" alt="Stars"/>
+  <img src="https://img.shields.io/github/license/maz557/coding-agent-free?style=for-the-badge" alt="License"/>
+  <img src="https://img.shields.io/github/last-commit/maz557/coding-agent-free?style=for-the-badge&logo=git" alt="Last Commit"/>
+  <img src="https://img.shields.io/badge/TypeScript-6.x-3178C6?style=for-the-badge&logo=typescript" alt="TypeScript"/>
+  <br/>
+  <a href="#-why-this-agent"><strong>Why this agent?</strong></a> •
+  <a href="#quick-start"><strong>Quick Start</strong></a> •
+  <a href="#local-models-ollama-lm-studio-llamacpp-etc"><strong>Local Models</strong></a>
+</p>
+
 An interactive AI coding agent powered by **free** API models (OpenRouter, Groq, Google, DeepSeek, Mistral) and **local** models (Ollama, LM Studio, Llama.cpp). Reads, writes, lists, appends, copies, moves, and deletes files, and runs shell commands — all through tool calling.
 
 > 💡 **Offline-ready**: With a local server (Ollama / LM Studio), the agent works fully offline — no international internet required. Ideal for users in regions with restricted access.
+
+## 🧠 Why This Agent?
+
+| Problem | How This Agent Solves It |
+|---------|--------------------------|
+| Coding assistants cost $20/month (ChatGPT+, Claude Pro) | **100% free** — uses free-tier OpenRouter, Groq, Google, DeepSeek, Mistral + local models |
+| One provider goes down / rate-limited | **5 cloud + 3 local providers** — switch instantly with `/model <n>` |
+| No internet access / restricted region | **Local models** (Ollama, LM Studio, Llama.cpp) — fully offline |
+| Privacy concerns with cloud APIs | Run **local models only** — zero data leaves your machine |
+| Setup is too complex | **`npm run setup`** — interactive wizard, no manual `.env` editing |
+| AI runs dangerous commands | **Safe mode** (`/safe`) — whitelist-only shell commands |
+| Agent gets stuck in loops | **Smart detection** — stops after 3× identical tool calls |
 
 ## Quick Start
 
