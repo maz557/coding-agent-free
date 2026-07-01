@@ -55,7 +55,7 @@ echo "MISTRAL_API_KEY=..." >> .env        # Mistral models
 
 **Fully offline (no API keys needed):**
 ```bash
-# 1. Install
+# 1. Install (requires internet once for npm dependencies)
 npm install
 
 # 2. Start your local model server (pick one):
