@@ -151,6 +151,7 @@ The agent reads the relevant file, analyzes the code, suggests and applies a fix
 | `/allow <p>` | Allow model to access a path outside workspace |
 | `/safe` | Toggle safe mode (whitelist-only shell commands) |
 | `/models` | Show all presets |
+| `/active` | Show current active model |
 | `/reset` | Clear conversation history (start fresh) |
 | `/list-providers` | Show providers with valid keys (and local providers) |
 | `/exit` | Quit |
