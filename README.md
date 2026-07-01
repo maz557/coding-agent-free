@@ -94,6 +94,7 @@ The agent reads the relevant file, analyzes the code, suggests and applies a fix
 - **User presets** — save/add/remove your own models with `/save`, `/add`, `/remove`
 - **Fallback chain** — if a model fails, it tries the next in the list
 - **13 tools** — read, write, list (with details), create_folder, delete_file, delete_folder (recursive), append_file, copy_file, move_file, file_info, search_content, replace_in_file, and run_command
+- **Sliding window context** — keeps the last 20 exchanges by default, truncates large tool results, auto-trims to avoid token limit errors (configurable via `MAX_EXCHANGES` / `MAX_TOOL_RESULT_LENGTH`)
 - **Smart loop detection** — stops if a tool is called 3+ times identically or 5+ times consecutively
 - **Safe mode** (`--safe` / `/safe`) — whitelist-only shell commands
 - **Setup wizard** — `npm run setup` interactively configures .env
@@ -131,6 +132,7 @@ The agent reads the relevant file, analyzes the code, suggests and applies a fix
 | `/allow <p>` | Allow model to access a path outside workspace |
 | `/safe` | Toggle safe mode (whitelist-only shell commands) |
 | `/models` | Show all presets |
+| `/reset` | Clear conversation history (start fresh) |
 | `/list-providers` | Show providers with valid keys (and local providers) |
 | `/exit` | Quit |
 
@@ -392,8 +394,24 @@ coding-agent-free/
 | `ALLOWED_DIR` | No | Directory for file operations (default: `./workspace`) |
 | `LOCAL_TIMEOUT` | No | Timeout (ms) for local model requests (default: 300000) |
 | `LOG_LEVEL` | No | Log level: `debug`, `info`, `warn`, `error` (default: `info`) |
+| `MAX_EXCHANGES` | No | Max user ↔ assistant exchanges kept in sliding window (default: `20`) |
+| `MAX_TOOL_RESULT_LENGTH` | No | Max chars before tool results are truncated (default: `5000`) |
 
 \* At least one API key is required (not needed for local providers).
+
+## Large Projects
+
+For medium-to-large projects, the default sliding window (20 exchanges) may drop older context. Increase these values in `.env`:
+
+```env
+# Keep up to 50 user-assistant exchanges
+MAX_EXCHANGES=50
+
+# Allow tool results up to 20,000 characters
+MAX_TOOL_RESULT_LENGTH=20000
+```
+
+You can also reset the conversation mid-session with `/reset` if the model gets confused by stale context.
 
 ## Security
 
