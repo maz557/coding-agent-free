@@ -265,6 +265,25 @@ class ConversationState {
     return new ConversationState(kept);
   }
 
+  /** Remove the last assistant message (with tool_calls) and all tool results that follow it */
+  removeLastAssistantTurn(): ConversationState {
+    let found = false;
+    const kept: ChatMessage[] = [];
+    for (let i = this.messages.length - 1; i >= 0; i--) {
+      const m = this.messages[i];
+      if (!found && m.role === 'assistant' && m.tool_calls && m.tool_calls.length > 0) {
+        found = true;
+        // skip this message and everything after it (tool results)
+        continue;
+      }
+      if (found && m.role === 'tool') {
+        continue; // skip tool results that belong to the removed assistant
+      }
+      kept.unshift(m);
+    }
+    return new ConversationState(kept);
+  }
+
   addSystemMessage(content: string): ConversationState {
     // Insert right after the first system message, or at the beginning
     const idx = this.messages.findIndex(m => m.role === 'system');
@@ -672,9 +691,9 @@ class CodingAgent {
           if (stuckError) {
             console.log(`  ⛔ Stuck detected: ${stuckError}`);
             this.conversation = this.conversation
-              .removeLastToolResults(3)
+              .removeLastAssistantTurn()
               .addSystemMessage(
-                `[RECOVERY] You were stuck: ${stuckError}. The previous repetitive calls have been undone. ` +
+                `[RECOVERY] You were stuck: ${stuckError}. The last assistant turn has been undone. ` +
                 `Think carefully about what went wrong and try a COMPLETELY DIFFERENT approach. ` +
                 `Do NOT repeat the same tool call with identical arguments.`
               );
@@ -778,6 +797,7 @@ async function startChat() {
   console.log('    /remove <n>  Remove a user preset');
   console.log('    /allow <p>   Allow model to access path outside workspace');
   console.log('    /safe        Toggle safe mode (whitelist-only shell commands)');
+  console.log('    /reset       Clear conversation history (start fresh)');
   console.log('    /list-providers  Show available providers');
   console.log('    /models      Show all presets');
   console.log('    /exit        Quit');
@@ -959,6 +979,14 @@ async function startChat() {
       const now = !isSafeModeEnabled();
       setSafeMode(now);
       console.log(`\n🛡️  Safe mode ${now ? 'ENABLED' : 'DISABLED'} — only whitelisted shell commands are allowed.\n`);
+      rl.prompt();
+      continue;
+    }
+
+    if (input.toLowerCase() === '/reset') {
+      agent = new CodingAgent(client, typedTools, activeModelConfig, systemPrompt);
+      await clearConversation();
+      console.log('\n🧹 Conversation cleared. Starting fresh.\n');
       rl.prompt();
       continue;
     }
