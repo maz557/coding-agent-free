@@ -53,6 +53,23 @@ echo "DEEPSEEK_API_KEY=sk-..." >> .env    # DeepSeek
 echo "MISTRAL_API_KEY=..." >> .env        # Mistral models
 ```
 
+**Fully offline (no API keys needed):**
+```bash
+# 1. Install
+npm install
+
+# 2. Start your local model server (pick one):
+#    ollama run qwen3:14b           # Ollama
+#    # or run LM Studio / llama-server
+
+# 3. Launch the agent:
+npm start
+
+# 4. Inside the agent, add your local model:
+#    You: /add 6 ollama:auto
+#    You: /model 6
+```
+
 ```bash
 npm start
 ```
