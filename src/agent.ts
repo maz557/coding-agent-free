@@ -267,21 +267,15 @@ class ConversationState {
 
   /** Remove the last assistant message (with tool_calls) and all tool results that follow it */
   removeLastAssistantTurn(): ConversationState {
-    let found = false;
-    const kept: ChatMessage[] = [];
+    let idx = -1;
     for (let i = this.messages.length - 1; i >= 0; i--) {
-      const m = this.messages[i];
-      if (!found && m.role === 'assistant' && m.tool_calls && m.tool_calls.length > 0) {
-        found = true;
-        // skip this message and everything after it (tool results)
-        continue;
+      if (this.messages[i].role === 'assistant' && (this.messages[i] as any).tool_calls?.length > 0) {
+        idx = i;
+        break;
       }
-      if (found && m.role === 'tool') {
-        continue; // skip tool results that belong to the removed assistant
-      }
-      kept.unshift(m);
     }
-    return new ConversationState(kept);
+    if (idx === -1) return this;
+    return new ConversationState(this.messages.slice(0, idx));
   }
 
   addSystemMessage(content: string): ConversationState {

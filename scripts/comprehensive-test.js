@@ -81,6 +81,17 @@ class ConversationState {
     }
     return new ConversationState(kept);
   }
+  removeLastAssistantTurn() {
+    let idx = -1;
+    for (let i = this.messages.length - 1; i >= 0; i--) {
+      if (this.messages[i].role === 'assistant' && this.messages[i].tool_calls?.length > 0) {
+        idx = i;
+        break;
+      }
+    }
+    if (idx === -1) return this;
+    return new ConversationState(this.messages.slice(0, idx));
+  }
   getAllMessages() { return this.messages; }
   withSystemPrompt(prompt) { return new ConversationState([{ role: 'system', content: prompt }]); }
 
@@ -241,6 +252,35 @@ function detectStuck(toolHistory) {
   const sysMsgs = afterMsgs.filter(m => m.role === 'system');
   assert(sysMsgs.length === 2, 'Recovery system message added');
   assert(sysMsgs[1].content.includes('RECOVERY'), 'Recovery message content correct');
+}
+
+// Test: removeLastAssistantTurn removes assistant msg + its tool results
+{
+  let conv = (new ConversationState([])).withSystemPrompt('test');
+  conv = conv.addUserMessage('step 1');
+  conv = conv.addAssistantMessage(null, [makeToolCall('read_file', { path: 'a.ts' })]);
+  conv = conv.addToolResult('c1', 'content of a.ts');
+  conv = conv.addAssistantMessage(null, [makeToolCall('write_file', { path: 'a.ts' })]);
+  conv = conv.addToolResult('c2', 'written');
+
+  conv = conv.removeLastAssistantTurn();
+  const msgs = conv.getAllMessages();
+  assert(msgs.length === 4, `removeLastAssistantTurn: kept ${msgs.length} msgs`);
+  assert(msgs[0].role === 'system', 'System preserved');
+  assert(msgs[1].role === 'user' && msgs[1].content === 'step 1', 'User message preserved');
+  assert(msgs[2].role === 'assistant' && msgs[2].tool_calls.length === 1, 'First assistant turn preserved');
+  assert(msgs[2].tool_calls[0].function.name === 'read_file', 'First tool call preserved');
+  assert(msgs[3].role === 'tool' && msgs[3].content === 'content of a.ts', 'First tool result preserved');
+  // write_file and its result should be gone
+  assert(msgs.filter(m => m.tool_call_id === 'c2').length === 0, 'Removed assistant turn tool results gone');
+}
+
+// Test: removeLastAssistantTurn on empty should be safe
+{
+  let conv = (new ConversationState([])).withSystemPrompt('test');
+  conv = conv.addUserMessage('hi');
+  conv = conv.removeLastAssistantTurn();
+  assert(conv.getAllMessages().length === 2, 'removeLastAssistantTurn on no-turn: kept 2');
 }
 
 // ═══════════════════════════════════════════
