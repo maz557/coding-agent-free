@@ -53,14 +53,13 @@ async function main() {
     }
   }
 
-  console.log('── Local Providers (optional) ───────────\n');
+  console.log('── Local Providers ─────────────────────────\n');
+  console.log('  Local providers are pre-configured with default URLs.');
+  console.log('  Edit .env later if you need to change ports.\n');
 
-  const useLocal = await rl.question('Configure local providers (Ollama, LM Studio, Llama.cpp)? (y/N): ');
-  if (useLocal.toLowerCase() === 'y' || useLocal.toLowerCase() === 'yes') {
-    for (const p of LOCAL_PROVIDERS) {
-      const url = await rl.question(`  ${p.name} URL (default: ${p.defaultUrl}): `);
-      envLines.push(`${p.keyEnv}=${url.trim() || p.defaultUrl}`);
-    }
+  for (const p of LOCAL_PROVIDERS) {
+    envLines.push(`${p.keyEnv}=${p.defaultUrl}`);
+    console.log(`  ✅ ${p.name} → ${p.defaultUrl}`);
   }
 
   // ALLOWED_DIR
