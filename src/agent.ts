@@ -752,11 +752,20 @@ async function startChat() {
       missingKeys.push(`${info.name} (${info.apiKeyEnv})`);
     }
   }
-  if (missingKeys.length === Object.keys(PROVIDERS).length - localProviders.length) {
-    console.error('❌ ERROR: No API keys found. Add at least one to .env:');
+  const allCloudMissing = missingKeys.length === Object.keys(PROVIDERS).length - localProviders.length;
+  if (allCloudMissing && localProviders.length === 0) {
+    console.error('❌ ERROR: No API keys found and no local providers available. Add at least one to .env:');
     Object.values(PROVIDERS).filter(p => p.apiKeyEnv).forEach(p => console.error(`   ${p.apiKeyEnv}=your-key`));
     console.error('   Get keys: OpenRouter=openrouter.ai/keys, Google=aistudio.google.com/apikey, Groq=console.groq.com/keys, DeepSeek=platform.deepseek.com, Mistral=console.mistral.ai');
     process.exit(1);
+  }
+  if (allCloudMissing && localProviders.length > 0) {
+    console.log('ℹ️  No cloud API keys found. Local-only mode.');
+    console.log(`   Available local providers: ${localProviders.join(', ')}`);
+    console.log('   Run the local server first, then use /add to configure:');
+    console.log('     /add 6 ollama:auto        (Ollama)');
+    console.log('     /add 7 lmstudio:auto      (LM Studio)');
+    console.log('     /add 8 llamacpp:auto      (Llama.cpp)');
   }
 
   function createClient(providerId: string): OpenAI {
