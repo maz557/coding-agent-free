@@ -803,6 +803,7 @@ async function startChat() {
   console.log('    /reset       Clear conversation history (start fresh)');
   console.log('    /list-providers  Show available providers');
   console.log('    /models      Show all presets');
+  console.log('    /active      Show current active model');
   console.log('    /exit        Quit');
   console.log('═══════════════════════════════════════════════');
   console.log(`  💡 Tip: Set ALLOWED_DIR=. in .env to access the project root.`);
@@ -858,6 +859,13 @@ async function startChat() {
 
     if (input.toLowerCase() === '/models') {
       showModels(userPresets, activeModelConfig);
+      rl.prompt();
+      continue;
+    }
+
+    if (input.toLowerCase() === '/active') {
+      const prov = PROVIDERS[activeModelConfig.provider]?.name ?? activeModelConfig.provider;
+      console.log(`\n  ✅ Active: [${prov}] ${activeModelConfig.primary}${activeModelConfig.fallbacks.length ? ` → ${activeModelConfig.fallbacks.join(', ')}` : ''}\n`);
       rl.prompt();
       continue;
     }
