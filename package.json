@@ -8,7 +8,8 @@
     "setup": "node scripts/setup.js",
     "build": "tsc",
     "test": "node scripts/comprehensive-test.js",
-    "test:quick": "node scripts/test-improvements.js"
+    "test:quick": "node scripts/test-improvements.js",
+    "test:tools": "node node_modules/ts-node/dist/bin.js scripts/tool-integration-test.ts"
   },
   "keywords": [
     "openrouter",
