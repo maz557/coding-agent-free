@@ -88,6 +88,32 @@ npm run web
 
 > The web UI supports the same features as the terminal — streaming responses, tool calls, model switching (all 8 providers + user presets), safe mode toggle, allow path, and conversation reset. Multiple browser tabs are supported with independent sessions. CLI and Web share the same model configuration (`src/config/models.ts`) and tool engine (`fileManager.ts`).
 
+**Web interface — example session:**
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  💬 Coding Agent                       [🔒 Safe] [🌐 P] │
+│  ──────────────────────────────────────────────────────── │
+│                                                          │
+│  You: create a hello.py that prints "Hello from Web UI"  │
+│                                                          │
+│  ⏳ Thinking... [Model: openrouter/free]                 │
+│                                                          │
+│  🛠  write_file(path="hello.py", content="...")          │
+│  ✔  File written (25 bytes)                              │
+│                                                          │
+│  🛠  run_command(command="python hello.py")              │
+│  ✔  Hello from Web UI                                    │
+│                                                          │
+│  Done! Created hello.py and verified it prints:          │
+│  Hello from Web UI                                       │
+│  ──────────────────────────────────────────────────────── │
+│  [Message input...                        ] [Send]       │
+└──────────────────────────────────────────────────────────┘
+```
+
+> The model dropdown lets you switch between all 8 providers and your saved presets mid-session. Streaming responses appear token-by-token in real time.
+
 ## Example Interactions
 
 **"Create a Python script that prints Fibonacci numbers"**
