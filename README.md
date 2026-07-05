@@ -114,6 +114,8 @@ npm run web
 
 > The model dropdown lets you switch between all 8 providers and your saved presets mid-session. Streaming responses appear token-by-token in real time.
 
+> Click the **`?`** button in the header to open a help modal with usage guide, model switching instructions, and CLI command equivalents.
+
 ## Example Interactions
 
 **"Create a Python script that prints Fibonacci numbers"**
