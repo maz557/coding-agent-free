@@ -225,6 +225,7 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
       if (res.destroyed) break;
 
       const model = usedModel || s.modelConfig.primary;
+      send('model', { model: `${PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider} — ${model}` });
       s.messages.push({ role: 'assistant', content: content || null });
 
       if (tcs.size === 0) {
