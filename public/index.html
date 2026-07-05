@@ -33,9 +33,13 @@
   #send-btn:hover { background: #2ea043; }
   #send-btn:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
   #status { font-size: 12px; color: #8b949e; padding: 4px 16px 8px; flex-shrink: 0; }
-  pre { background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 12px; overflow-x: auto; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 13px; direction: ltr; text-align: left; margin: 8px 0; }
-  code { font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 13px; background: #21262d; padding: 2px 6px; border-radius: 4px; }
-  pre code { background: none; padding: 0; }
+   pre { background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 12px; overflow-x: auto; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 13px; direction: ltr; text-align: left; margin: 8px 0; position: relative; }
+   code { font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 13px; background: #21262d; padding: 2px 6px; border-radius: 4px; }
+   pre code { background: none; padding: 0; }
+   .code-block { position: relative; margin: 8px 0; }
+   .code-block .copy-btn { position: absolute; top: 4px; right: 4px; background: #21262d; color: #8b949e; border: 1px solid #30363d; border-radius: 4px; padding: 2px 8px; font-size: 11px; cursor: pointer; font-family: inherit; }
+   .code-block .copy-btn:hover { background: #30363d; color: #c9d1d9; }
+   .code-block .copy-btn.copied { color: #7ee787; border-color: #7ee787; }
   .cmd { color: #ffa657; }
   .output { color: #7ee787; }
 </style>
@@ -183,6 +187,7 @@ function addMessage(role, html) {
   const div = document.createElement('div');
   div.className = `msg ${role}`;
   div.innerHTML = html;
+  if (role === 'assistant' || role === 'user') div.dir = 'auto';
   chat.appendChild(div);
   chat.scrollTop = chat.scrollHeight;
   return div;
@@ -247,7 +252,7 @@ async function sendMessage() {
           switch (event) {
             case 'token':
               assistantContent += parsed.token;
-              msgDiv.innerHTML = escapeHtml(assistantContent) + '<span class="streaming-cursor"></span>';
+              msgDiv.innerHTML = renderContent(assistantContent) + '<span class="streaming-cursor"></span>';
               break;
             case 'tool_call':
               addMessage('tool', `<span class="tool-name">🔧 ${escapeHtml(parsed.name)}</span><br><span class="cmd">${escapeHtml(parsed.args)}</span>`);
@@ -269,7 +274,7 @@ async function sendMessage() {
               clearTimeout(timeoutId);
               const modelName = parsed.model || '';
               const modelLine = modelName ? `<div class="timestamp" style="color:#58a6ff;font-size:11px;margin-top:6px">🤖 ${escapeHtml(modelName)}</div>` : '';
-              msgDiv.innerHTML = escapeHtml(assistantContent) || '✅ Done';
+              msgDiv.innerHTML = renderContent(assistantContent) || '✅ Done';
               if (parsed.toolCallsCount > 0)
                 msgDiv.innerHTML += `<div class="timestamp">${parsed.toolCallsCount} tool call(s)</div>`;
               if (modelLine) msgDiv.innerHTML += modelLine;
@@ -296,6 +301,28 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+function renderContent(text) {
+  const escaped = escapeHtml(text);
+  // Replace ```lang ... ``` blocks with styled pre + copy button
+  return escaped.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+    const langClass = lang ? ` class="language-${escapeHtml(lang)}"` : '';
+    const trimmedCode = code.replace(/^\n/, '');
+    const id = 'code-' + Math.random().toString(36).slice(2, 8);
+    return `<div class="code-block"><button class="copy-btn" onclick="copyCode(this,'${id}')">Copy</button><pre><code${langClass} id="${id}">${escapeHtml(trimmedCode)}</code></pre></div>`;
+  });
+}
+
+function copyCode(btn, id) {
+  const code = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(code).then(() => {
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  }).catch(() => {
+    btn.textContent = 'Failed';
+  });
 }
 
   // Help modal
