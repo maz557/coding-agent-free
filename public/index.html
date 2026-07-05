@@ -9,7 +9,7 @@
   body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; height: 100vh; display: flex; flex-direction: column; }
   #header { background: #161b22; border-bottom: 1px solid #30363d; padding: 8px 16px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
   #header h1 { font-size: 16px; font-weight: 600; color: #f0f6fc; }
-  #model-info { font-size: 12px; color: #8b949e; margin-left: auto; }
+  #model-info { font-size: 12px; color: #8b949e; margin-left: auto; cursor: default; padding: 2px 8px; background: #0d1117; border-radius: 4px; border: 1px solid #21262d; }
   #model-select { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; padding: 4px 8px; font-size: 13px; }
   #reset-btn { background: #21262d; color: #f85149; border: 1px solid #30363d; border-radius: 6px; padding: 4px 12px; font-size: 12px; cursor: pointer; }
   #reset-btn:hover { background: #30363d; }
@@ -55,6 +55,7 @@
   <span id="safe-status" style="color:#8b949e">Safe: OFF</span>
   <input id="allow-input" type="text" placeholder="/allow path..." style="background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:4px;padding:2px 6px;font-size:11px;width:200px;direction:ltr">
   <button id="allow-btn" style="background:#21262d;color:#58a6ff;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer">Allow</button>
+  <span id="model-badge" style="margin-left:auto;font-size:11px;color:#58a6ff;background:#0d1117;padding:2px 8px;border-radius:4px;border:1px solid #21262d;direction:ltr"></span>
 </div>
 <div id="chat"></div>
 <div id="status">Ready</div>
@@ -165,7 +166,9 @@ async function init() {
   const safe = await safeRes.json();
   safeModeOn = safe.enabled;
   updateSafeUI();
-  modelInfo.textContent = `${active.provider} / ${active.model}`;
+  const modelText = `${active.provider} / ${active.model}`;
+  modelInfo.textContent = modelText;
+  document.getElementById('model-badge').textContent = `🧠 ${modelText}`;
   // select matching preset
   for (const opt of modelSelect.options)
     if (opt.value === 'preset:1') { opt.selected = true; break; }
@@ -254,6 +257,7 @@ async function sendMessage() {
               break;
             case 'model':
               modelInfo.textContent = parsed.model;
+              document.getElementById('model-badge').textContent = `🧠 ${parsed.model}`;
               break;
             case 'status':
               status.textContent = parsed.text;
@@ -331,7 +335,9 @@ async function switchModel(payload) {
   });
   const activeRes = await fetch(`/api/active/${sessionId}`);
   const active = await activeRes.json();
-  modelInfo.textContent = `${active.provider} / ${active.model}`;
+  const modelText = `${active.provider} / ${active.model}`;
+  modelInfo.textContent = modelText;
+  document.getElementById('model-badge').textContent = `🧠 ${modelText}`;
   addMessage('assistant', `🔄 Switched to <strong>${active.provider} — ${active.model}</strong>`);
 }
 

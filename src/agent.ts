@@ -550,6 +550,24 @@ class CodingAgent {
 
   async execute(userInput: string): Promise<AgentResult> {
     this.toolHistory = [];
+
+    const trimmed = userInput.trim();
+    const lower = trimmed.toLowerCase();
+
+    // Handle /active command
+    if (lower === '/active') {
+      const prov = PROVIDERS[this.modelConfig.provider]?.name ?? this.modelConfig.provider;
+      const msg = `✅ Active: [${prov}] ${this.modelConfig.primary}${this.modelConfig.fallbacks.length ? ` → ${this.modelConfig.fallbacks.join(', ')}` : ''}`;
+      return { model: this.modelConfig.primary, content: msg, logs: [], toolCallsCount: 0 };
+    }
+
+    // Handle /models command
+    if (lower === '/models') {
+      const prov = PROVIDERS[this.modelConfig.provider]?.name ?? this.modelConfig.provider;
+      const msg = `✅ Active: [${prov}] ${this.modelConfig.primary}`;
+      return { model: this.modelConfig.primary, content: msg, logs: [], toolCallsCount: 0 };
+    }
+
     this.conversation = this.conversation.addUserMessage(userInput);
 
     let depth = 0;
