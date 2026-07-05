@@ -44,8 +44,16 @@
 <div id="header">
   <h1>Coding Agent</h1>
   <select id="model-select"></select>
+  <input id="model-name-input" type="text" placeholder="model name..." style="display:none;background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:4px;padding:4px 8px;font-size:12px;width:180px;direction:ltr">
+  <button id="apply-model-btn" style="display:none;background:#21262d;color:#58a6ff;border:1px solid #30363d;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer">Apply</button>
   <span id="model-info"></span>
-  <button id="reset-btn">Reset</button>
+  <button id="safe-mode-btn" style="background:#21262d;color:#ffa657;border:1px solid #30363d;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer" title="Toggle safe mode (restrict shell commands)">🛡️</button>
+  <button id="reset-btn" style="background:#21262d;color:#f85149;border:1px solid #30363d;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer">Reset</button>
+</div>
+<div id="toolbar" style="background:#0d1117;border-bottom:1px solid #30363d;padding:4px 16px;display:flex;align-items:center;gap:8px;font-size:11px;flex-shrink:0">
+  <span id="safe-status" style="color:#8b949e">Safe: OFF</span>
+  <input id="allow-input" type="text" placeholder="/allow path..." style="background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:4px;padding:2px 6px;font-size:11px;width:200px;direction:ltr">
+  <button id="allow-btn" style="background:#21262d;color:#58a6ff;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer">Allow</button>
 </div>
 <div id="chat"></div>
 <div id="status">Ready</div>
@@ -57,26 +65,61 @@
 <script>
 let sessionId = null;
 let isStreaming = false;
+let safeModeOn = false;
 const chat = document.getElementById('chat');
 const input = document.getElementById('input');
 const sendBtn = document.getElementById('send-btn');
 const resetBtn = document.getElementById('reset-btn');
 const modelSelect = document.getElementById('model-select');
+const modelNameInput = document.getElementById('model-name-input');
+const applyModelBtn = document.getElementById('apply-model-btn');
 const modelInfo = document.getElementById('model-info');
 const status = document.getElementById('status');
+const safeModeBtn = document.getElementById('safe-mode-btn');
+const safeStatus = document.getElementById('safe-status');
+const allowInput = document.getElementById('allow-input');
+const allowBtn = document.getElementById('allow-btn');
+
+async function populateModels() {
+  const res = await fetch('/api/models');
+  const items = await res.json();
+  let html = '<optgroup label="— Presets —">';
+  for (const m of items) {
+    if (m.type === 'preset')
+      html += `<option value="preset:${m.id}">${m.provider} — ${m.model}</option>`;
+  }
+  html += '</optgroup><optgroup label="— Providers (custom model) —">';
+  for (const m of items) {
+    if (m.type === 'provider')
+      html += `<option value="provider:${m.id}" data-default-model="${m.defaultModel}">${m.label}</option>`;
+  }
+  html += '</optgroup>';
+  modelSelect.innerHTML = html;
+}
 
 async function init() {
   const res = await fetch('/api/session', { method: 'POST' });
   const data = await res.json();
   sessionId = data.sessionId;
+  await populateModels();
 
-  const modelsRes = await fetch('/api/models');
-  const models = await modelsRes.json();
-  modelSelect.innerHTML = models.map(m => `<option value="${m.id}">${m.provider} — ${m.model}</option>`).join('');
-
-  const activeRes = await fetch(`/api/active/${sessionId}`);
+  const [activeRes, safeRes] = await Promise.all([
+    fetch(`/api/active/${sessionId}`),
+    fetch('/api/safe-mode'),
+  ]);
   const active = await activeRes.json();
+  const safe = await safeRes.json();
+  safeModeOn = safe.enabled;
+  updateSafeUI();
   modelInfo.textContent = `${active.provider} / ${active.model}`;
+  // select matching preset
+  for (const opt of modelSelect.options)
+    if (opt.value === 'preset:1') { opt.selected = true; break; }
+}
+
+function updateSafeUI() {
+  safeStatus.textContent = safeModeOn ? '🛡️ Safe: ON' : 'Safe: OFF';
+  safeModeBtn.style.color = safeModeOn ? '#7ee787' : '#ffa657';
 }
 
 function addMessage(role, html) {
@@ -212,16 +255,76 @@ resetBtn.addEventListener('click', async () => {
   addMessage('assistant', '🔄 Conversation cleared. Start fresh!');
 });
 
-modelSelect.addEventListener('change', async (e) => {
+function showModelInput(show, defaultModel) {
+  modelNameInput.style.display = show ? 'inline' : 'none';
+  applyModelBtn.style.display = show ? 'inline' : 'none';
+  if (show) { modelNameInput.value = defaultModel || ''; modelNameInput.focus(); }
+}
+
+async function switchModel(payload) {
   await fetch(`/api/model/${sessionId}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ presetId: e.target.value }),
+    body: JSON.stringify(payload),
   });
   const activeRes = await fetch(`/api/active/${sessionId}`);
   const active = await activeRes.json();
   modelInfo.textContent = `${active.provider} / ${active.model}`;
   addMessage('assistant', `🔄 Switched to <strong>${active.provider} — ${active.model}</strong>`);
+}
+
+modelSelect.addEventListener('change', async (e) => {
+  const val = e.target.value;
+  if (val.startsWith('preset:')) {
+    showModelInput(false);
+    await switchModel({ presetId: val.slice(7) });
+  } else if (val.startsWith('provider:')) {
+    const provId = val.slice(9);
+    const opt = e.target.selectedOptions[0];
+    const defaultModel = opt.getAttribute('data-default-model') || '';
+    showModelInput(true, defaultModel);
+  }
+});
+
+applyModelBtn.addEventListener('click', async () => {
+  const val = modelSelect.value;
+  if (!val.startsWith('provider:')) return;
+  const provId = val.slice(9);
+  const modelName = modelNameInput.value.trim();
+  if (!modelName) { status.textContent = 'Please enter a model name'; return; }
+  await switchModel({ provider: provId, model: modelName });
+  showModelInput(false);
+});
+
+modelNameInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') applyModelBtn.click();
+});
+
+safeModeBtn.addEventListener('click', async () => {
+  safeModeOn = !safeModeOn;
+  await fetch('/api/safe-mode', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled: safeModeOn }),
+  });
+  updateSafeUI();
+  addMessage('assistant', `🛡️ Safe mode ${safeModeOn ? 'enabled' : 'disabled'}`);
+});
+
+allowBtn.addEventListener('click', async () => {
+  const p = allowInput.value.trim();
+  if (!p) return;
+  await fetch('/api/allow', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: p }),
+  });
+  addMessage('assistant', `📁 Path allowed: <code>${escapeHtml(p)}</code>`);
+  allowInput.value = '';
+});
+
+allowInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') allowBtn.click();
 });
 
 init();

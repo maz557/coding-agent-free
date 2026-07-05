@@ -1,7 +1,7 @@
 @echo off
 cd /d "%~dp0"
 echo =====================================================
-echo          Coding Agent Free — Web Interface
+echo          Coding Agent Free — CLI Mode
 echo =====================================================
 echo.
 
@@ -16,12 +16,12 @@ for /f "tokens=2 delims=," %%a in ('tasklist /fi "imagename eq node.exe" /fo csv
 )
 echo.
 
-echo  Open http://localhost:3000 in your browser.
-echo  Press Ctrl+C in this window to stop the server.
+echo  Type /help for available commands.
+echo  Press Ctrl+C to exit.
 echo.
 echo =====================================================
 echo.
-node node_modules/ts-node/dist/bin.js src/server.ts
+node node_modules/ts-node/dist/bin.js src/agent.ts
 echo.
-echo  Server stopped. Close this window or press any key.
+echo  CLI stopped. Close this window or press any key.
 pause >nul

@@ -46,43 +46,54 @@ export class ReplaceContentError extends Error {
 
 // --- Dangerous Command Denylist ---
 const DENYLISTED_COMMANDS = [
-  'rm -rf',
-  'rm -fr',
+  'rm -rf', 'rm -fr',
   'dd',
-  'mkfs',
-  'chmod -R',
-  'mv /',
-  'cp -r /',
-  'wget',
-  'curl -o',
-  '> /dev/',
+  'mkfs', 'mkfs.ext', 'mkfs.ntfs', 'mkfs.fat', 'format',
+  'fdisk', 'parted', 'mkswap',
+  'chmod -R 0',
+  'chown -R 0:0',
+  'mv / ', 'mv /* ',
+  'cp -r / ', 'cp -rf / ',
+  '> /dev/sd', '> /dev/nvme',
+  'wget -O /', 'curl -o /',
   ':(){ :|:& };:',
-  'shutdown',
-  'reboot',
-  'halt',
-  'init 0',
-  'init 6',
+  'shutdown', 'reboot', 'halt', 'poweroff',
+  'init 0', 'init 6',
+  'sudo rm', 'sudo dd', 'sudo mkfs', 'sudo fdisk', 'sudo shutdown',
+  'reg delete', 'reg add',
+  'diskpart',
+  'Stop-Computer', 'Restart-Computer',
+  'Remove-Item -Recurse -Force',
 ];
 
 function isCommandDangerous(command: string): boolean {
-  return DENYLISTED_COMMANDS.some((denied) => command.includes(denied));
+  return DENYLISTED_COMMANDS.some((denied) => command.toLowerCase().includes(denied));
 }
 
 // --- Safe Mode Whitelist ---
 const WHITELISTED_COMMANDS = [
-  'ls', 'dir', 'cat', 'type', 'head', 'tail', 'grep', 'findstr',
-  'echo', 'pwd', 'cd',
-  'node', 'npm', 'npx', 'python', 'python3', 'pip', 'pip3',
-  'git status', 'git log', 'git diff', 'git show',
-  'npx tsc', 'npx ts-node',
-  'cargo', 'rustc',
-  'dotnet',
-  'go', 'go run', 'go build', 'go test',
-  'mkdir', 'copy',
+  'ls', 'dir', 'cat', 'type', 'head', 'tail', 'grep', 'findstr', 'rg', 'find', 'where',
+  'echo', 'printf', 'pwd', 'cd',
+  'node', 'npm', 'npx', 'python', 'python3', 'pip', 'pip3', 'deno', 'bun', 'yarn', 'pnpm',
+  'tsc', 'ts-node',
+  'git', 'cargo', 'rustc', 'go', 'dotnet', 'java', 'mvn', 'gradle',
+  'docker', 'docker-compose',
+  'mkdir', 'copy', 'xcopy', 'robocopy', 'move', 'ren', 'del', 'erase', 'attrib',
+  'curl', 'wget', 'ping', 'ipconfig', 'netstat', 'nslookup', 'tracert',
+  'tar', 'gzip', 'gunzip', 'zip', 'unzip',
+  'chmod', 'chown',
+  'date', 'time', 'ver', 'whoami', 'hostname', 'systeminfo', 'tasklist', 'taskkill',
+  'sort', 'uniq', 'wc', 'cut', 'tee', 'awk', 'sed',
+  'powershell', 'pwsh',
+  'Get-', 'Set-', 'Write-', 'Read-', 'New-', 'Remove-', 'Copy-', 'Move-', 'Rename-',
+  'Invoke-', 'Test-', 'Join-', 'Split-', 'Resolve-', 'ConvertTo-', 'ConvertFrom-',
+  'Format-', 'Out-', 'Clear-', 'Select-', 'Sort-', 'Group-', 'Measure-', 'Where-',
+  'ForEach-', 'Add-', 'Start-Process',
 ];
 
 function isCommandWhitelisted(command: string): boolean {
-  return WHITELISTED_COMMANDS.some((allowed) => command.startsWith(allowed));
+  const lower = command.toLowerCase().trimStart();
+  return WHITELISTED_COMMANDS.some((allowed) => lower.startsWith(allowed.toLowerCase()));
 }
 
 let safeModeEnabled = false;
@@ -619,24 +630,33 @@ const workspace = new WorkspaceManager();
 /**
  * Routes the tool call to the appropriate method in the WorkspaceManager
  */
+const MAX_RESULT = Number(process.env.MAX_TOOL_RESULT_LENGTH) || 5000;
+
+function truncate(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  return text.slice(0, maxLen) + `\n\n...(output truncated, ${text.length - maxLen} more chars)`;
+}
+
 export async function executeTool(name: string, args: ToolArguments): Promise<string> {
+  let result: string;
   switch (name) {
-    case 'read_file':       return workspace.readFile(args as ReadFileArgs);
-    case 'write_file':      return workspace.writeFile(args as WriteFileArgs);
-    case 'list_files':      return workspace.listFiles(args as ListFilesArgs);
-    case 'create_folder':   return workspace.createFolder(args as CreateFolderArgs);
-    case 'delete_file':     return workspace.deleteFile(args as DeleteFileArgs);
-    case 'delete_folder':   return workspace.deleteFolder(args as DeleteFolderArgs);
-    case 'file_info':       return workspace.fileInfo(args as FileInfoArgs);
-    case 'search_content':  return workspace.searchContent(args as SearchContentArgs);
-    case 'replace_in_file': return workspace.replaceInFile(args as ReplaceInFileArgs);
-    case 'append_file':     return workspace.appendFile(args as AppendFileArgs);
-    case 'copy_file':       return workspace.copyFile(args as CopyFileArgs);
-    case 'move_file':       return workspace.moveFile(args as MoveFileArgs);
-    case 'run_command':     return workspace.runCommand(args as RunCommandArgs);
+    case 'read_file':       result = await workspace.readFile(args as ReadFileArgs); break;
+    case 'write_file':      result = await workspace.writeFile(args as WriteFileArgs); break;
+    case 'list_files':      result = await workspace.listFiles(args as ListFilesArgs); break;
+    case 'create_folder':   result = await workspace.createFolder(args as CreateFolderArgs); break;
+    case 'delete_file':     result = await workspace.deleteFile(args as DeleteFileArgs); break;
+    case 'delete_folder':   result = await workspace.deleteFolder(args as DeleteFolderArgs); break;
+    case 'file_info':       result = await workspace.fileInfo(args as FileInfoArgs); break;
+    case 'search_content':  result = await workspace.searchContent(args as SearchContentArgs); break;
+    case 'replace_in_file': result = await workspace.replaceInFile(args as ReplaceInFileArgs); break;
+    case 'append_file':     result = await workspace.appendFile(args as AppendFileArgs); break;
+    case 'copy_file':       result = await workspace.copyFile(args as CopyFileArgs); break;
+    case 'move_file':       result = await workspace.moveFile(args as MoveFileArgs); break;
+    case 'run_command':     result = await workspace.runCommand(args as RunCommandArgs); break;
     default:
       return `Error: Unknown tool "${name}"`;
   }
+  return truncate(result, MAX_RESULT);
 }
 
 export function allowExtraPath(p: string): void {

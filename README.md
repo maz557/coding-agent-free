@@ -76,7 +76,7 @@ npm start
 npm start
 ```
 
-> On Windows, you can also double-click `run-agent.bat`.
+> On Windows, you can also double-click `run-cli.bat`.
 
 **Web interface:**
 ```bash
@@ -84,7 +84,9 @@ npm run web
 # Open http://localhost:3000 in your browser
 ```
 
-> The web UI supports the same features as the terminal — streaming responses, tool calls, model switching, and conversation reset. Multiple browser tabs are supported with independent sessions.
+> On Windows, you can also double-click `run-web.bat`.
+
+> The web UI supports the same features as the terminal — streaming responses, tool calls, model switching (all 8 providers + user presets), safe mode toggle, allow path, and conversation reset. Multiple browser tabs are supported with independent sessions. CLI and Web share the same model configuration (`src/config/models.ts`) and tool engine (`fileManager.ts`).
 
 ## Example Interactions
 
@@ -127,6 +129,9 @@ The agent reads the relevant file, analyzes the code, suggests and applies a fix
 - **Setup wizard** — `npm run setup` interactively configures .env
 - **Automatic retry** — exponential backoff + 120s timeout (300s for local models)
 - **Zod validation** — runtime type-checking of every tool input and output
+- **CLI &amp; Web unified** — shared model config, system prompt, tool engine, provider definitions, and user presets across both interfaces
+- **opencode.json** — comprehensive permission rules (100+ safe command patterns auto-allowed) and truncated tool output for cleaner prompts
+- **Tool output truncation** — all tool results capped at 5000 chars (`MAX_TOOL_RESULT_LENGTH`) to keep context clean
 - **Conversation persistence** — auto-save/restore sessions across restarts
 - **Structured logging** — via `pino` (stderr, doesn't interfere with UI)
 

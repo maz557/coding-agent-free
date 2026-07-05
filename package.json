@@ -1,11 +1,13 @@
 {
   "name": "coding-agent-free",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Interactive AI coding agent using free OpenRouter models with real tool calling",
   "main": "src/agent.ts",
   "scripts": {
-    "start": "node node_modules/ts-node/dist/bin.js src/agent.ts",
+    "preweb": "node scripts/cleanup.js",
     "web": "node node_modules/ts-node/dist/bin.js src/server.ts",
+    "prestart": "node scripts/cleanup.js",
+    "start": "node node_modules/ts-node/dist/bin.js src/agent.ts",
     "setup": "node scripts/setup.js",
     "build": "tsc",
     "test": "node scripts/comprehensive-test.js",

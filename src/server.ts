@@ -2,25 +2,34 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import * as dotenv from 'dotenv';
 import OpenAI from 'openai';
-import { z } from 'zod';
-import { tools, executeTool } from './tools/fileManager';
+import { tools, executeTool, setSafeMode, isSafeModeEnabled, allowExtraPath } from './tools/fileManager';
+import { PROVIDERS, FIXED_PRESETS, SYSTEM_PROMPT } from './config/models';
 import * as path from 'path';
+import * as fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 
 dotenv.config();
 
-// --- Provider Config ---
-interface ProviderInfo { name: string; baseURL: string; apiKeyEnv: string; }
-const PROVIDERS: Record<string, ProviderInfo> = {
-  openrouter: { name: 'OpenRouter', baseURL: 'https://openrouter.ai/api/v1', apiKeyEnv: 'OPENROUTER_API_KEY' },
-  google:     { name: 'Google AI Studio', baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/', apiKeyEnv: 'GOOGLE_API_KEY' },
-  groq:       { name: 'Groq', baseURL: 'https://api.groq.com/openai/v1', apiKeyEnv: 'GROQ_API_KEY' },
-  deepseek:   { name: 'DeepSeek', baseURL: 'https://api.deepseek.com', apiKeyEnv: 'DEEPSEEK_API_KEY' },
-  mistral:    { name: 'Mistral', baseURL: 'https://api.mistral.ai/v1', apiKeyEnv: 'MISTRAL_API_KEY' },
-  ollama:     { name: 'Ollama', baseURL: process.env.OLLAMA_HOST || 'http://localhost:11434/v1', apiKeyEnv: '' },
-  lmstudio:   { name: 'LM Studio', baseURL: process.env.LMSTUDIO_HOST || 'http://localhost:1234/v1', apiKeyEnv: '' },
-  llamacpp:   { name: 'Llama.cpp', baseURL: process.env.LLAMACPP_HOST || 'http://localhost:8080/v1', apiKeyEnv: '' },
+const SUGGESTED_MODELS: Record<string, string> = {
+  openrouter: 'openrouter/free',
+  google: 'gemini-2.0-flash-exp',
+  groq: 'llama3-70b-8192',
+  deepseek: 'deepseek-chat',
+  mistral: 'mistral-large-latest',
+  ollama: '',
+  lmstudio: '',
+  llamacpp: '',
 };
+
+const MAX_DEPTH = 20;
+
+interface SessionData {
+  client: OpenAI;
+  modelConfig: { provider: string; primary: string; fallbacks: string[]; contextWindow?: number };
+  messages: any[];
+}
+
+const sessions = new Map<string, SessionData>();
 
 function createClient(providerId: string): OpenAI {
   const info = PROVIDERS[providerId] ?? PROVIDERS.openrouter;
@@ -33,208 +42,32 @@ function createClient(providerId: string): OpenAI {
   return new OpenAI({ baseURL: info.baseURL, apiKey, defaultHeaders: headers });
 }
 
-// --- Model Presets ---
-interface ModelPreset { provider: string; primary: string; fallbacks: string[]; contextWindow?: number; }
-const FIXED_PRESETS: Record<string, ModelPreset> = {
-  '1': { provider: 'openrouter', primary: 'openrouter/free', fallbacks: [] },
-  '2': { provider: 'openrouter', primary: 'qwen/qwen3-next-80b-a3b-instruct:free', fallbacks: ['openrouter/free'] },
-  '3': { provider: 'openrouter', primary: 'nvidia/nemotron-3-super-120b-a12b:free', fallbacks: ['openrouter/free'], contextWindow: 1_048_576 },
-  '4': { provider: 'openrouter', primary: 'openai/gpt-oss-120b:free', fallbacks: ['openrouter/free'] },
-  '5': { provider: 'openrouter', primary: 'nvidia/nemotron-3-ultra-550b-a55b:free', fallbacks: ['openrouter/free'], contextWindow: 1_048_576 },
-};
+// ─── Express Server ───
+const PRESETS_FILE = path.join(__dirname, '..', 'presets.json');
 
-const SYSTEM_PROMPT = `You are a coding assistant that completes tasks step by step using tools.
-
-Rules:
-- Focus strictly on the user's request. Do NOT explore random directories or files.
-- Read only the files the user asks about. If you need more context, read the most important files first.
-- After writing files, ALWAYS run tests/commands to verify they work.
-- If a test fails, fix the source code and re-run until it passes.
-- Use run_command to execute shell commands.
-- Keep tool calls to a minimum. Plan before you act.
-- If a tool returns an error (e.g. access denied), tell the user and stop — do NOT retry with different paths.
-- When done, summarize what you did and the results.
-
-Clarifying questions:
-- Only ask if the request is truly ambiguous (e.g. "delete something" without specifying what).
-- If you understand 80%+ of the request, make reasonable assumptions and proceed.
-- Prefer taking small actions first and adjust based on feedback, rather than asking multiple questions upfront.`;
-
-// --- Types ---
-type ToolCallFn = { name: string; arguments: string; };
-type ToolCall = { id: string; type: 'function'; function: ToolCallFn; };
-type ChatMessage =
-  | { role: 'system'; content: string; }
-  | { role: 'user'; content: string; }
-  | { role: 'assistant'; content: string | null; tool_calls?: ToolCall[]; }
-  | { role: 'tool'; tool_call_id: string; content: string; };
-
-// --- Context ---
-const DEFAULT_CONTEXT_WINDOW = 128_000;
-const MAX_DEPTH = 20;
-
-// --- Session ---
-interface SessionData {
-  client: OpenAI;
-  modelConfig: ModelPreset;
-  messages: ChatMessage[];
-}
-
-const sessions = new Map<string, SessionData>();
-
-function getOrCreateSession(sessionId: string): SessionData {
-  let session = sessions.get(sessionId);
-  if (!session) {
-    const modelConfig = { ...FIXED_PRESETS['1'] };
-    session = {
-      client: createClient(modelConfig.provider),
-      modelConfig,
-      messages: [{ role: 'system', content: SYSTEM_PROMPT }],
-    };
-    sessions.set(sessionId, session);
-  }
-  return session;
-}
-
-// --- Agent Loop ---
-interface AgentCallbacks {
-  onToken: (token: string) => void;
-  onToolCall: (name: string, args: string) => void;
-  onToolResult: (name: string, content: string) => void;
-  onModel: (model: string) => void;
-  onStatus: (msg: string) => void;
-  onError: (msg: string) => void;
-  onDone: (toolCallsCount: number) => void;
-}
-
-async function runAgent(
-  session: SessionData,
-  userInput: string,
-  cb: AgentCallbacks,
-): Promise<void> {
-  session.messages.push({ role: 'user', content: userInput });
-
-  let depth = 0;
-  let totalToolCalls = 0;
-
-  while (depth < MAX_DEPTH) {
-    depth++;
-
-    const base: OpenAI.ChatCompletionCreateParams = {
-      model: session.modelConfig.primary,
-      messages: session.messages as OpenAI.ChatCompletionMessageParam[],
-      tools: tools as OpenAI.ChatCompletionTool[],
-      tool_choice: 'auto',
-    };
-
-    if (session.modelConfig.provider === 'openrouter') {
-      const models = Array.from(new Set([session.modelConfig.primary, ...session.modelConfig.fallbacks].filter(Boolean)));
-      (base as any).extra_body = { models };
+function loadUserPresets(): Record<string, { provider: string; primary: string; fallbacks: string[]; contextWindow?: number }> {
+  try {
+    const data = fs.readFileSync(PRESETS_FILE, 'utf-8');
+    const parsed = JSON.parse(data);
+    const normalized: Record<string, any> = {};
+    for (const key of Object.keys(parsed)) {
+      const item = parsed[key] || {};
+      normalized[key] = {
+        provider: String(item.provider ?? 'openrouter'),
+        primary: String(item.primary ?? ''),
+        fallbacks: Array.isArray(item.fallbacks) ? item.fallbacks.map(String) : [],
+      };
     }
-
-    try {
-      const provInfo = PROVIDERS[session.modelConfig.provider];
-      const isLocal = provInfo && !provInfo.apiKeyEnv;
-      const timeoutMs = isLocal ? (Number(process.env.LOCAL_TIMEOUT) || 300000) : 120000;
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-      let stream: AsyncIterable<any>;
-      try {
-        stream = await session.client.chat.completions.create(
-          { ...base, stream: true },
-          { signal: controller.signal },
-        );
-      } finally {
-        clearTimeout(timeoutId);
-      }
-
-      let content = '';
-      const toolCallAccs = new Map<number, { id: string; name: string; args: string }>();
-      let usedModel = '';
-
-      for await (const chunk of stream) {
-        if (chunk.model) usedModel = chunk.model;
-        const choice = chunk.choices?.[0];
-        if (!choice) continue;
-        const delta = choice.delta;
-        if (!delta) continue;
-
-        if (delta.content) {
-          content += delta.content;
-          cb.onToken(delta.content);
-        }
-
-        if (delta.tool_calls) {
-          for (const tc of delta.tool_calls) {
-            const idx = tc.index ?? 0;
-            if (!toolCallAccs.has(idx)) {
-              toolCallAccs.set(idx, { id: '', name: '', args: '' });
-            }
-            const acc = toolCallAccs.get(idx)!;
-            if (tc.id) acc.id += tc.id;
-            if (tc.function?.name) acc.name += tc.function.name;
-            if (tc.function?.arguments) acc.args += tc.function.arguments;
-          }
-        }
-      }
-
-      const model = usedModel || session.modelConfig.primary;
-      cb.onModel(model);
-
-      const toolCalls: ToolCall[] = [];
-      for (const [, acc] of toolCallAccs) {
-        if (acc.name) {
-          toolCalls.push({ id: acc.id, type: 'function', function: { name: acc.name, arguments: acc.args } });
-        }
-      }
-
-      if (toolCalls.length === 0) {
-        session.messages.push({ role: 'assistant', content: content || null });
-        cb.onDone(totalToolCalls);
-        return;
-      }
-
-      session.messages.push({ role: 'assistant', content: content || null, tool_calls: toolCalls });
-
-      for (const tc of toolCalls) {
-        cb.onToolCall(tc.function.name, tc.function.arguments);
-
-        let parsedArgs: Record<string, unknown>;
-        try {
-          parsedArgs = JSON.parse(tc.function.arguments);
-        } catch {
-          const msg = `Invalid JSON in arguments for ${tc.function.name}`;
-          cb.onError(msg);
-          session.messages.push({ role: 'tool', tool_call_id: tc.id, content: `Error: ${msg}` });
-          continue;
-        }
-
-        try {
-          const result = await executeTool(tc.function.name, parsedArgs);
-          const content = typeof result === 'string' ? result : JSON.stringify(result);
-          cb.onToolResult(tc.function.name, content);
-          session.messages.push({ role: 'tool', tool_call_id: tc.id, content });
-        } catch (err: any) {
-          const msg = err?.message || 'Unknown tool error';
-          cb.onError(`${tc.function.name}: ${msg}`);
-          session.messages.push({ role: 'tool', tool_call_id: tc.id, content: `Error: ${msg}` });
-        }
-        totalToolCalls++;
-      }
-    } catch (err: any) {
-      const msg = err?.message || 'Unknown error';
-      cb.onError(msg);
-      cb.onDone(totalToolCalls);
-      return;
-    }
+    return normalized;
+  } catch {
+    return {};
   }
-
-  cb.onDone(totalToolCalls);
 }
 
-// --- Express Server ---
+function getAllPresets(): Record<string, any> {
+  return { ...FIXED_PRESETS, ...loadUserPresets() };
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -244,98 +77,191 @@ const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
 app.use(express.static(PUBLIC_DIR));
 
-// Session management
 app.post('/api/session', (_req, res) => {
-  const sessionId = uuidv4();
-  getOrCreateSession(sessionId);
-  res.json({ sessionId, models: Object.entries(FIXED_PRESETS).map(([k, v]) => ({
-    id: k, name: `${v.provider}/${v.primary}`,
-  })) });
+  const id = uuidv4();
+  const modelConfig = { ...FIXED_PRESETS['1'] };
+  sessions.set(id, {
+    client: createClient(modelConfig.provider),
+    modelConfig,
+    messages: [{ role: 'system', content: SYSTEM_PROMPT }],
+  });
+  res.json({
+    sessionId: id,
+    models: Object.entries(getAllPresets()).map(([k, v]) => ({ id: k, name: `${PROVIDERS[v.provider]?.name || v.provider}/${v.primary}` })),
+  });
 });
 
-// List models
 app.get('/api/models', (_req, res) => {
-  res.json(Object.entries(FIXED_PRESETS).map(([k, v]) => ({
-    id: k, provider: PROVIDERS[v.provider]?.name || v.provider, model: v.primary,
-  })));
+  const presets = Object.entries(getAllPresets()).map(([k, v]) => ({
+    type: 'preset' as const, id: k,
+    provider: PROVIDERS[v.provider]?.name || v.provider,
+    model: v.primary,
+  }));
+  const providers = Object.entries(PROVIDERS).map(([k, v]) => ({
+    type: 'provider' as const, id: k,
+    label: v.name,
+    defaultModel: SUGGESTED_MODELS[k] || '',
+  }));
+  res.json([...presets, ...providers]);
 });
 
-// Get active model
 app.get('/api/active/:sessionId', (req, res) => {
-  const session = sessions.get(req.params.sessionId);
-  if (!session) return res.status(404).json({ error: 'Session not found' });
-  const prov = PROVIDERS[session.modelConfig.provider]?.name || session.modelConfig.provider;
-  res.json({ provider: prov, model: session.modelConfig.primary, fallbacks: session.modelConfig.fallbacks });
+  const s = sessions.get(req.params.sessionId);
+  if (!s) return res.status(404).json({ error: 'Session not found' });
+  const prov = PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider;
+  res.json({ provider: prov, model: s.modelConfig.primary, fallbacks: s.modelConfig.fallbacks, safeMode: isSafeModeEnabled() });
 });
 
-// Switch model
 app.post('/api/model/:sessionId', (req, res) => {
-  const session = sessions.get(req.params.sessionId);
-  if (!session) return res.status(404).json({ error: 'Session not found' });
+  const s = sessions.get(req.params.sessionId);
+  if (!s) return res.status(404).json({ error: 'Session not found' });
   const { presetId, provider, model } = req.body;
-  if (presetId && FIXED_PRESETS[presetId]) {
-    session.modelConfig = { ...FIXED_PRESETS[presetId] };
+  const allPresets = getAllPresets();
+  if (presetId && allPresets[presetId]) {
+    s.modelConfig = { ...allPresets[presetId] };
   } else if (provider && model) {
-    session.modelConfig = { provider, primary: model, fallbacks: req.body.fallbacks || [] };
+    s.modelConfig = { provider, primary: model, fallbacks: req.body.fallbacks || [] };
   } else {
     return res.status(400).json({ error: 'Provide presetId or provider+model' });
   }
-  session.client = createClient(session.modelConfig.provider);
-  const prov = PROVIDERS[session.modelConfig.provider]?.name || session.modelConfig.provider;
-  res.json({ provider: prov, model: session.modelConfig.primary });
+  s.client = createClient(s.modelConfig.provider);
+  res.json({ provider: PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider, model: s.modelConfig.primary });
 });
 
-// Reset conversation
 app.post('/api/reset/:sessionId', (req, res) => {
-  const session = sessions.get(req.params.sessionId);
-  if (!session) return res.status(404).json({ error: 'Session not found' });
-  session.messages = [{ role: 'system', content: SYSTEM_PROMPT }];
+  const s = sessions.get(req.params.sessionId);
+  if (!s) return res.status(404).json({ error: 'Session not found' });
+  s.messages = [{ role: 'system', content: SYSTEM_PROMPT }];
   res.json({ status: 'ok' });
 });
 
-// Chat (SSE)
+app.get('/api/safe-mode', (_req, res) => {
+  res.json({ enabled: isSafeModeEnabled() });
+});
+
+app.post('/api/safe-mode', (req, res) => {
+  const { enabled } = req.body;
+  if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'enabled must be boolean' });
+  setSafeMode(enabled);
+  res.json({ enabled: isSafeModeEnabled() });
+});
+
+app.post('/api/allow', (req, res) => {
+  const { path: allowPath } = req.body;
+  if (!allowPath || typeof allowPath !== 'string') return res.status(400).json({ error: 'path is required' });
+  allowExtraPath(allowPath);
+  res.json({ allowedPath: allowPath });
+});
+
 app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res: Response) => {
-  const session = sessions.get(req.params.sessionId);
-  if (!session) {
-    return res.status(404).json({ error: 'Session not found' });
-  }
+  const s = sessions.get(req.params.sessionId);
+  if (!s) return res.status(404).json({ error: 'Session not found' });
 
   const { message } = req.body;
   if (!message || typeof message !== 'string') {
     return res.status(400).json({ error: 'message is required' });
   }
 
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no');
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+  });
+  res.flushHeaders();
 
-  const sendEvent = (event: string, data: any) => {
+  const send = (event: string, data: any) => {
+    if (res.destroyed) return;
     res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   };
 
-  let aborted = false;
-  req.on('close', () => { aborted = true; });
+  const provInfo = PROVIDERS[s.modelConfig.provider];
+  const isLocal = provInfo && !provInfo.apiKeyEnv;
+  const timeoutMs = isLocal ? (Number(process.env.LOCAL_TIMEOUT) || 300000) : 120000;
 
-  try {
-    await runAgent(session, message, {
-      onToken: (token) => { if (!aborted) sendEvent('token', { token }); },
-      onToolCall: (name, args) => { if (!aborted) sendEvent('tool_call', { name, args }); },
-      onToolResult: (name, content) => { if (!aborted) sendEvent('tool_result', { name, content }); },
-      onModel: (model) => { if (!aborted) sendEvent('model', { model }); },
-      onStatus: (msg) => { if (!aborted) sendEvent('status', { text: msg }); },
-      onError: (msg) => { if (!aborted) sendEvent('error', { message: msg }); },
-      onDone: (toolCallsCount) => {
-        if (!aborted) sendEvent('done', { toolCallsCount });
-        res.end();
-      },
-    });
-  } catch (err: any) {
-    if (!aborted) {
-      sendEvent('error', { message: err?.message || 'Unexpected error' });
-      sendEvent('done', { toolCallsCount: 0 });
-      res.end();
+  s.messages.push({ role: 'user', content: message });
+
+  for (let depth = 0; depth < MAX_DEPTH; depth++) {
+    const base: any = {
+      model: s.modelConfig.primary,
+      messages: s.messages,
+      tools: tools,
+      tool_choice: 'auto',
+      stream: true,
+    };
+
+    if (s.modelConfig.provider === 'openrouter') {
+      const models = [s.modelConfig.primary, ...s.modelConfig.fallbacks].filter(Boolean);
+      base.extra_body = { models: [...new Set(models)] };
     }
+
+    const ac = new AbortController();
+    const to = setTimeout(() => ac.abort(), timeoutMs);
+
+    try {
+      const stream: any = await s.client.chat.completions.create(base, { signal: ac.signal });
+
+      let content = '';
+      const tcs = new Map<number, any>();
+      let usedModel = '';
+
+      for await (const chunk of stream) {
+        if (res.destroyed) break;
+        if (chunk.model) usedModel = chunk.model;
+        const delta = chunk.choices?.[0]?.delta;
+        if (!delta) continue;
+        if (delta.content) { content += delta.content; send('token', { token: delta.content }); }
+        if (delta.tool_calls) {
+          for (const tc of delta.tool_calls) {
+            const idx = tc.index ?? 0;
+            if (!tcs.has(idx)) tcs.set(idx, { id: '', name: '', args: '' });
+            const a = tcs.get(idx);
+            if (tc.id) a.id += tc.id;
+            if (tc.function?.name) a.name += tc.function.name;
+            if (tc.function?.arguments) a.args += tc.function.arguments;
+          }
+        }
+      }
+
+      if (res.destroyed) break;
+
+      const model = usedModel || s.modelConfig.primary;
+      s.messages.push({ role: 'assistant', content: content || null });
+
+      if (tcs.size === 0) {
+        send('done', { toolCallsCount: 0 });
+        res.end();
+        return;
+      }
+
+      const calls = [...tcs.values()].filter((x: any) => x.name);
+      (s.messages[s.messages.length - 1] as any).tool_calls = calls.map((tc: any) => ({
+        id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.args },
+      }));
+
+      for (const tc of calls) {
+        if (res.destroyed) break;
+        send('tool_call', { name: tc.name, args: tc.args });
+        try {
+          const parsed = JSON.parse(tc.args);
+          const result = await executeTool(tc.name, parsed);
+          const text = typeof result === 'string' ? result : JSON.stringify(result);
+          send('tool_result', { name: tc.name, content: text.slice(0, 300) });
+          s.messages.push({ role: 'tool', tool_call_id: tc.id, content: text, name: tc.name });
+        } catch (err: any) {
+          send('error', { message: `${tc.name}: ${err.message}` });
+          s.messages.push({ role: 'tool', tool_call_id: tc.id, content: `Error: ${err.message}`, name: tc.name });
+        }
+      }
+    } catch (err: any) {
+      send('error', { message: err?.message || 'API error' });
+    } finally {
+      clearTimeout(to);
+    }
+  }
+
+  if (!res.destroyed) {
+    send('done', { toolCallsCount: 0 });
+    res.end();
   }
 });
 
