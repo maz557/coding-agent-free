@@ -1,10 +1,11 @@
 {
   "name": "coding-agent-free",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Interactive AI coding agent using free OpenRouter models with real tool calling",
   "main": "src/agent.ts",
   "scripts": {
     "start": "node node_modules/ts-node/dist/bin.js src/agent.ts",
+    "web": "node node_modules/ts-node/dist/bin.js src/server.ts",
     "setup": "node scripts/setup.js",
     "build": "tsc",
     "test": "node scripts/comprehensive-test.js",
@@ -22,14 +23,20 @@
   "license": "MIT",
   "type": "commonjs",
   "dependencies": {
+    "cors": "^2.8.6",
     "dotenv": "^17.4.2",
+    "express": "^5.2.1",
     "openai": "^6.44.0",
     "pino": "^10.3.1",
     "pino-pretty": "^13.1.3",
+    "uuid": "^14.0.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "@types/node": "^26.0.0",
+    "@types/uuid": "^10.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
   }

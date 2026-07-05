@@ -12,7 +12,7 @@
   <a href="#example-session"><strong>Demo</strong></a>
 </p>
 
-An interactive AI coding assistant that runs in your terminal — powered by **free** cloud APIs (OpenRouter, Groq, Google, DeepSeek, Mistral) and **local** models (Ollama, LM Studio, Llama.cpp). It reads, writes, searches, copies, moves, and deletes files, and runs shell commands — all through natural language tool calling.
+An interactive AI coding assistant that runs in your **terminal** or **web browser** — powered by **free** cloud APIs (OpenRouter, Groq, Google, DeepSeek, Mistral) and **local** models (Ollama, LM Studio, Llama.cpp). It reads, writes, searches, copies, moves, and deletes files, and runs shell commands — all through natural language tool calling.
 
 > 💡 **Offline-ready**: With a local server, the agent works fully offline — no internet required, no data leaves your machine.
 
@@ -77,6 +77,14 @@ npm start
 ```
 
 > On Windows, you can also double-click `run-agent.bat`.
+
+**Web interface:**
+```bash
+npm run web
+# Open http://localhost:3000 in your browser
+```
+
+> The web UI supports the same features as the terminal — streaming responses, tool calls, model switching, and conversation reset. Multiple browser tabs are supported with independent sessions.
 
 ## Example Interactions
 

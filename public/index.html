@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coding Agent Web</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; height: 100vh; display: flex; flex-direction: column; }
+  #header { background: #161b22; border-bottom: 1px solid #30363d; padding: 8px 16px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  #header h1 { font-size: 16px; font-weight: 600; color: #f0f6fc; }
+  #model-info { font-size: 12px; color: #8b949e; margin-left: auto; }
+  #model-select { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; padding: 4px 8px; font-size: 13px; }
+  #reset-btn { background: #21262d; color: #f85149; border: 1px solid #30363d; border-radius: 6px; padding: 4px 12px; font-size: 12px; cursor: pointer; }
+  #reset-btn:hover { background: #30363d; }
+  #chat { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .msg { max-width: 85%; padding: 10px 14px; border-radius: 12px; line-height: 1.5; font-size: 14px; white-space: pre-wrap; word-wrap: break-word; }
+  .msg.user { align-self: flex-start; background: #1f6feb; color: #fff; border-bottom-left-radius: 4px; }
+  .msg.assistant { align-self: flex-end; background: #161b22; border: 1px solid #30363d; border-bottom-right-radius: 4px; }
+  .msg.tool { align-self: flex-end; background: #0d1117; border: 1px solid #21262d; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 12px; color: #8b949e; max-width: 100%; }
+  .msg.tool .tool-name { color: #58a6ff; font-weight: 600; }
+  .msg.tool .tool-result { color: #7ee787; margin-top: 4px; }
+  .msg.error { align-self: flex-end; background: #3d1f1f; border: 1px solid #f85149; color: #ff7b72; }
+  .msg.model { align-self: flex-end; font-size: 11px; color: #8b949e; background: transparent; border: none; padding: 2px 14px; }
+  .msg .timestamp { font-size: 10px; color: #484f58; margin-top: 4px; text-align: left; direction: ltr; }
+  .msg.user .timestamp { color: rgba(255,255,255,0.6); }
+  .streaming-cursor::after { content: '▊'; animation: blink 1s step-end infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  #input-area { background: #161b22; border-top: 1px solid #30363d; padding: 12px 16px; display: flex; gap: 8px; flex-shrink: 0; }
+  #input { flex: 1; background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; border-radius: 8px; padding: 10px 14px; font-size: 14px; outline: none; resize: none; font-family: inherit; }
+  #input:focus { border-color: #58a6ff; }
+  #send-btn { background: #238636; color: #fff; border: none; border-radius: 8px; padding: 10px 20px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  #send-btn:hover { background: #2ea043; }
+  #send-btn:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
+  #status { font-size: 12px; color: #8b949e; padding: 4px 16px 8px; flex-shrink: 0; }
+  pre { background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 12px; overflow-x: auto; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 13px; direction: ltr; text-align: left; margin: 8px 0; }
+  code { font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 13px; background: #21262d; padding: 2px 6px; border-radius: 4px; }
+  pre code { background: none; padding: 0; }
+  .cmd { color: #ffa657; }
+  .output { color: #7ee787; }
+</style>
+</head>
+<body>
+<div id="header">
+  <h1>Coding Agent</h1>
+  <select id="model-select"></select>
+  <span id="model-info"></span>
+  <button id="reset-btn">Reset</button>
+</div>
+<div id="chat"></div>
+<div id="status">Ready</div>
+<div id="input-area">
+  <textarea id="input" rows="2" placeholder="Type your message..." dir="ltr"></textarea>
+  <button id="send-btn">Send</button>
+</div>
+
+<script>
+let sessionId = null;
+let isStreaming = false;
+const chat = document.getElementById('chat');
+const input = document.getElementById('input');
+const sendBtn = document.getElementById('send-btn');
+const resetBtn = document.getElementById('reset-btn');
+const modelSelect = document.getElementById('model-select');
+const modelInfo = document.getElementById('model-info');
+const status = document.getElementById('status');
+
+async function init() {
+  const res = await fetch('/api/session', { method: 'POST' });
+  const data = await res.json();
+  sessionId = data.sessionId;
+
+  const modelsRes = await fetch('/api/models');
+  const models = await modelsRes.json();
+  modelSelect.innerHTML = models.map(m => `<option value="${m.id}">${m.provider} — ${m.model}</option>`).join('');
+
+  const activeRes = await fetch(`/api/active/${sessionId}`);
+  const active = await activeRes.json();
+  modelInfo.textContent = `${active.provider} / ${active.model}`;
+}
+
+function addMessage(role, html) {
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  div.innerHTML = html;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+  return div;
+}
+
+function updateLastMessage(role, html) {
+  const msgs = chat.querySelectorAll(`.msg.${role}`);
+  if (msgs.length) {
+    msgs[msgs.length - 1].innerHTML = html;
+    chat.scrollTop = chat.scrollHeight;
+  }
+}
+
+async function sendMessage() {
+  const msg = input.value.trim();
+  if (!msg || isStreaming) return;
+
+  input.value = '';
+  isStreaming = true;
+  sendBtn.disabled = true;
+  status.textContent = 'Processing...';
+
+  addMessage('user', `${escapeHtml(msg)}<div class="timestamp">${new Date().toLocaleTimeString()}</div>`);
+
+  const assistantDiv = addMessage('assistant', `<span class="streaming-cursor"></span>`);
+
+  try {
+    const res = await fetch(`/api/chat/${sessionId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg }),
+    });
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          const event = line.slice(7);
+          const dataLine = lines[lines.indexOf(line) + 1];
+          // Will be processed in the next iteration
+        }
+      }
+    }
+
+    // Second read for proper SSE parsing
+    // Actually let me use a simpler approach with fetch + text
+  } catch (err) {
+    updateLastMessage('assistant', `Error: ${err.message}`);
+  }
+
+  isStreaming = false;
+  sendBtn.disabled = false;
+  status.textContent = 'Ready';
+  input.focus();
+}
+
+// Use EventSource-like approach with fetch
+async function streamChat(message) {
+  const res = await fetch(`/api/chat/${sessionId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message }),
+  });
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let currentEvent = '';
+  let assistantContent = '';
+  const msgDiv = addMessage('assistant', '');
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split('\n\n');
+    buffer = parts.pop() || '';
+
+    for (const part of parts) {
+      const lines = part.split('\n');
+      let event = '';
+      let data = '';
+
+      for (const line of lines) {
+        if (line.startsWith('event: ')) event = line.slice(7).trim();
+        if (line.startsWith('data: ')) data = line.slice(6);
+      }
+
+      if (!event || !data) continue;
+
+      try {
+        const parsed = JSON.parse(data);
+
+        switch (event) {
+          case 'token':
+            assistantContent += parsed.token;
+            msgDiv.innerHTML = escapeHtml(assistantContent) + '<span class="streaming-cursor"></span>';
+            chat.scrollTop = chat.scrollHeight;
+            break;
+          case 'tool_call':
+            addMessage('tool', `<span class="tool-name">🔧 ${escapeHtml(parsed.name)}</span><br><span class="cmd">${escapeHtml(parsed.args)}</span>`);
+            break;
+          case 'tool_result':
+            updateLastMessage('tool', `<span class="tool-name">✅ ${escapeHtml(parsed.name)}</span><br><span class="tool-result">${escapeHtml(parsed.content.slice(0, 300))}${parsed.content.length > 300 ? '...' : ''}</span>`);
+            break;
+          case 'model':
+            modelInfo.textContent = parsed.model;
+            msgDiv.innerHTML = escapeHtml(assistantContent) + `<div class="timestamp">Model: ${escapeHtml(parsed.model)}</div>`;
+            break;
+          case 'status':
+            status.textContent = parsed.text;
+            break;
+          case 'error':
+            addMessage('error', `⚠️ ${escapeHtml(parsed.message)}`);
+            break;
+          case 'done':
+            msgDiv.innerHTML = escapeHtml(assistantContent) || '✅ Done';
+            if (parsed.toolCallsCount > 0) {
+              msgDiv.innerHTML += `<div class="timestamp">${parsed.toolCallsCount} tool call(s)</div>`;
+            }
+            isStreaming = false;
+            sendBtn.disabled = false;
+            status.textContent = 'Ready';
+            input.focus();
+            break;
+        }
+      } catch (e) {
+        // skip malformed JSON
+      }
+    }
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Events
+sendBtn.addEventListener('click', () => {
+  const msg = input.value.trim();
+  if (msg && !isStreaming) {
+    input.value = '';
+    isStreaming = true;
+    sendBtn.disabled = true;
+    status.textContent = 'Processing...';
+    addMessage('user', `${escapeHtml(msg)}<div class="timestamp">${new Date().toLocaleTimeString()}</div>`);
+    streamChat(msg).catch(err => {
+      addMessage('error', `🚨 ${err.message}`);
+      isStreaming = false;
+      sendBtn.disabled = false;
+      status.textContent = 'Error';
+    });
+  }
+});
+
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendBtn.click();
+  }
+});
+
+resetBtn.addEventListener('click', async () => {
+  if (!confirm('Reset conversation?')) return;
+  await fetch(`/api/reset/${sessionId}`, { method: 'POST' });
+  chat.innerHTML = '';
+  status.textContent = 'Conversation reset';
+  addMessage('assistant', '🔄 Conversation cleared. Start fresh!');
+});
+
+modelSelect.addEventListener('change', async (e) => {
+  await fetch(`/api/model/${sessionId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ presetId: e.target.value }),
+  });
+  const activeRes = await fetch(`/api/active/${sessionId}`);
+  const active = await activeRes.json();
+  modelInfo.textContent = `${active.provider} / ${active.model}`;
+  addMessage('assistant', `🔄 Switched to <strong>${active.provider} — ${active.model}</strong>`);
+});
+
+init();
+</script>
+</body>
+</html>

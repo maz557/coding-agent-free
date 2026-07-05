@@ -11,7 +11,7 @@
     "skipLibCheck": true,
     "ignoreDeprecations": "6.0"
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "public/**/*"],
   "ts-node": {
     "esm": false
   }
