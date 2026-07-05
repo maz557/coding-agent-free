@@ -229,7 +229,7 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
       s.messages.push({ role: 'assistant', content: content || null });
 
       if (tcs.size === 0) {
-        send('done', { toolCallsCount: 0 });
+        send('done', { toolCallsCount: 0, model: `${PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider} — ${model}` });
         res.end();
         return;
       }
@@ -261,7 +261,7 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
   }
 
   if (!res.destroyed) {
-    send('done', { toolCallsCount: 0 });
+    send('done', { toolCallsCount: 0, model: `${PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider} — ${s.modelConfig.primary}` });
     res.end();
   }
 });

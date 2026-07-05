@@ -267,9 +267,12 @@ async function sendMessage() {
               break;
             case 'done':
               clearTimeout(timeoutId);
+              const modelName = parsed.model || '';
+              const modelLine = modelName ? `<div class="timestamp" style="color:#58a6ff;font-size:11px;margin-top:6px">🤖 ${escapeHtml(modelName)}</div>` : '';
               msgDiv.innerHTML = escapeHtml(assistantContent) || '✅ Done';
               if (parsed.toolCallsCount > 0)
                 msgDiv.innerHTML += `<div class="timestamp">${parsed.toolCallsCount} tool call(s)</div>`;
+              if (modelLine) msgDiv.innerHTML += modelLine;
               streamDone(); return;
           }
         } catch (e) { /* skip malformed json */ }
