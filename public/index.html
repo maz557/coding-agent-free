@@ -49,6 +49,7 @@
   <span id="model-info"></span>
   <button id="safe-mode-btn" style="background:#21262d;color:#ffa657;border:1px solid #30363d;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer" title="Toggle safe mode (restrict shell commands)">🛡️</button>
   <button id="reset-btn" style="background:#21262d;color:#f85149;border:1px solid #30363d;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer">Reset</button>
+  <button id="help-btn" style="background:#21262d;color:#8b949e;border:1px solid #30363d;border-radius:4px;padding:4px 8px;font-size:13px;cursor:pointer;font-weight:600">?</button>
 </div>
 <div id="toolbar" style="background:#0d1117;border-bottom:1px solid #30363d;padding:4px 16px;display:flex;align-items:center;gap:8px;font-size:11px;flex-shrink:0">
   <span id="safe-status" style="color:#8b949e">Safe: OFF</span>
@@ -60,6 +61,59 @@
 <div id="input-area">
   <textarea id="input" rows="2" placeholder="Type your message..." dir="ltr"></textarea>
   <button id="send-btn">Send</button>
+</div>
+
+<div id="help-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:1000;justify-content:center;align-items:flex-start;padding:40px 16px;overflow-y:auto" dir="ltr">
+  <div style="background:#161b22;border:1px solid #30363d;border-radius:12px;max-width:720px;width:100%;padding:24px;margin:auto;color:#c9d1d9;font-size:14px;line-height:1.6">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <h2 style="color:#f0f6fc;font-size:20px;margin:0">Help &amp; Usage</h2>
+      <button id="help-close" style="background:transparent;color:#8b949e;border:1px solid #30363d;border-radius:6px;padding:4px 12px;font-size:14px;cursor:pointer">✕</button>
+    </div>
+
+    <h3 style="color:#58a6ff;font-size:15px;margin:16px 0 8px">Getting Started</h3>
+    <p>Type any coding task in the input box and press <kbd style="background:#21262d;padding:2px 6px;border-radius:4px;border:1px solid #30363d">Enter</kbd>. The agent reads, writes, searches, and runs code — it does not just chat.</p>
+    <p><strong>Example:</strong> <code style="background:#0d1117;padding:2px 6px;border-radius:4px">create a hello.py that prints "hello world" and run it</code></p>
+
+    <h3 style="color:#58a6ff;font-size:15px;margin:16px 0 8px">Switching Models</h3>
+    <p>Use the dropdown in the header. Two types:</p>
+    <ul style="padding-left:20px;margin:4px 0">
+      <li><strong>Presets</strong> — pre-configured models from <code>presets.json</code></li>
+      <li><strong>Providers</strong> — select a provider, type any model name, click <strong>Apply</strong></li>
+    </ul>
+    <p>Supported providers: OpenRouter, Google, Groq, DeepSeek, Mistral, Ollama, LM Studio, Llama.cpp</p>
+
+    <h3 style="color:#58a6ff;font-size:15px;margin:16px 0 8px">Header Buttons</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;color:#ffa657">🛡️</td><td style="padding:4px 8px;border-bottom:1px solid #21262d"><strong>Safe mode</strong> — restricts shell commands to a whitelist. ON = green, OFF = yellow</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;color:#f85149">Reset</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Clears conversation history. Agent loses context of previous messages</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;color:#8b949e">?</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Opens this help panel</td></tr>
+    </table>
+
+    <h3 style="color:#58a6ff;font-size:15px;margin:16px 0 8px">Toolbar</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d"><strong>Allow path</strong></td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Grant the agent access to files outside the default workspace. Type a path and click <strong>Allow</strong></td></tr>
+    </table>
+
+    <h3 style="color:#58a6ff;font-size:15px;margin:16px 0 8px">Important Notes</h3>
+    <ul style="padding-left:20px;margin:4px 0">
+      <li>The agent works autonomously — it reads files, runs commands, edits code without your manual help</li>
+      <li>All file operations are restricted to the allowed directory (default: <code>./workspace</code>)</li>
+      <li>Free-tier API rate limits cause automatic retries with exponential backoff</li>
+      <li>Each session is independent — multiple browser tabs have separate conversations</li>
+      <li>Model switching is instant — no restart needed</li>
+      <li>Tool output is truncated to keep context clean (configurable via <code>MAX_TOOL_RESULT_LENGTH</code>)</li>
+    </ul>
+
+    <h3 style="color:#58a6ff;font-size:15px;margin:16px 0 8px">CLI Equivalents</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/model &lt;n&gt;</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Switch to preset number n (use dropdown in web UI)</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/safe</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Toggle safe mode (use 🛡️ button in web UI)</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/allow &lt;path&gt;</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Grant path access (use toolbar input in web UI)</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/reset</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Clear history (use Reset button in web UI)</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/active</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Shows current model in the header info</td></tr>
+    </table>
+    <p style="margin-top:16px;font-size:12px;color:#484f58">For full documentation, see the README or visit the GitHub repository.</p>
+  </div>
 </div>
 
 <script>
@@ -236,6 +290,14 @@ function escapeHtml(text) {
   div.textContent = text;
   return div.innerHTML;
 }
+
+  // Help modal
+const helpModal = document.getElementById('help-modal');
+function toggleHelp(show) { helpModal.style.display = show ? 'flex' : 'none'; }
+document.getElementById('help-btn').addEventListener('click', () => toggleHelp(true));
+document.getElementById('help-close').addEventListener('click', () => toggleHelp(false));
+helpModal.addEventListener('click', (e) => { if (e.target === helpModal) toggleHelp(false); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggleHelp(false); });
 
 // Events
 sendBtn.addEventListener('click', sendMessage);
