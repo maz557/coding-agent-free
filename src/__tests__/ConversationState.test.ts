@@ -12,8 +12,9 @@ describe('ConversationState', () => {
       assert.equal(trimmed.getAllMessages().length, 3);
     });
 
-    it('should truncate long tool results', () => {
-      const longContent = 'x'.repeat(6000);
+    it('should truncate long tool results keeping head and tail', () => {
+      // Content with distinct head and tail
+      const longContent = 'HEAD_START_' + 'm'.repeat(5980) + '_TAIL_END';
       const state = ConversationState.withSystemPrompt('system')
         .addUserMessage('hi')
         .addAssistantMessage('running tool')
@@ -21,8 +22,10 @@ describe('ConversationState', () => {
       const trimmed = state.trimToContextWindow(128_000);
       const msgs = trimmed.getAllMessages();
       const toolMsg = msgs.find(m => m.role === 'tool')!;
-      assert(toolMsg.content.length < 5500);
+      assert(toolMsg.content.length < longContent.length);
       assert(toolMsg.content.includes('[truncated'));
+      assert(toolMsg.content.startsWith('HEAD_START'));
+      assert(toolMsg.content.endsWith('_TAIL_END'));
     });
 
     it('should drop oldest user exchanges when exceeding MAX_EXCHANGES', () => {
@@ -52,6 +55,36 @@ describe('ConversationState', () => {
       const systemMsgs = trimmed.getAllMessages().filter(m => m.role === 'system');
       assert.equal(systemMsgs.length, 1);
       assert.equal(systemMsgs[0].content, 'You are a helpful coding assistant.');
+    });
+
+    it('should remove consecutive duplicate tool results (parallel calls)', () => {
+      // Two identical tool results from parallel tool calls
+      const state = ConversationState.withSystemPrompt('system')
+        .addUserMessage('run tool twice')
+        .addAssistantMessage(null, [
+          { id: 'c1', type: 'function', function: { name: 'read_file', arguments: '{}' } },
+          { id: 'c2', type: 'function', function: { name: 'read_file', arguments: '{}' } },
+        ])
+        .addToolResult('c1', 'same_output', 'read_file')
+        .addToolResult('c2', 'same_output', 'read_file')
+        .addAssistantMessage('done');
+      const trimmed = state.trimToContextWindow(128_000);
+      const toolMsgs = trimmed.getAllMessages().filter(m => m.role === 'tool');
+      assert.equal(toolMsgs.length, 1);
+      assert.equal(toolMsgs[0].content, 'same_output');
+    });
+
+    it('should not remove non-consecutive duplicate tool results', () => {
+      const state = ConversationState.withSystemPrompt('system')
+        .addUserMessage('read a')
+        .addAssistantMessage(null, [{ id: 'c1', type: 'function', function: { name: 'read_file', arguments: '{}' } }])
+        .addToolResult('c1', 'same content', 'read_file')
+        .addUserMessage('now read b')
+        .addAssistantMessage(null, [{ id: 'c2', type: 'function', function: { name: 'read_file', arguments: '{}' } }])
+        .addToolResult('c2', 'same content', 'read_file');
+      const trimmed = state.trimToContextWindow(128_000);
+      const toolMsgs = trimmed.getAllMessages().filter(m => m.role === 'tool');
+      assert.equal(toolMsgs.length, 2);
     });
   });
 

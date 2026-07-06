@@ -73,18 +73,39 @@ export class ConversationState {
   }
 
   private truncateLongResults(messages: ChatMessage[]): ChatMessage[] {
+    const HEAD_RATIO = 0.6;
     return messages.map(msg => {
       if (msg.role === 'tool' && msg.content && msg.content.length > MAX_TOOL_RESULT_LENGTH) {
-        const truncated = msg.content.slice(0, MAX_TOOL_RESULT_LENGTH) +
-          `\n... [truncated ${msg.content.length - MAX_TOOL_RESULT_LENGTH} more chars]`;
+        const headLen = Math.floor(MAX_TOOL_RESULT_LENGTH * HEAD_RATIO);
+        const tailLen = MAX_TOOL_RESULT_LENGTH - headLen;
+        const head = msg.content.slice(0, headLen);
+        const tail = msg.content.slice(-tailLen);
+        const truncated = head +
+          `\n... [truncated ${msg.content.length - MAX_TOOL_RESULT_LENGTH} more chars]` +
+          tail;
         return { ...msg, content: truncated };
       }
       return msg;
     });
   }
 
+  private removeDuplicateToolResults(messages: ChatMessage[]): ChatMessage[] {
+    const result: ChatMessage[] = [];
+    for (const msg of messages) {
+      if (msg.role === 'tool' && result.length > 0) {
+        const prev = result[result.length - 1];
+        if (prev.role === 'tool' && prev.content === msg.content && prev.name === msg.name) {
+          continue;
+        }
+      }
+      result.push(msg);
+    }
+    return result;
+  }
+
   trimToContextWindow(maxTokens: number): ConversationState {
     let messages = this.truncateLongResults([...this.messages]);
+    messages = this.removeDuplicateToolResults(messages);
 
     const systemMsgs = messages.filter(m => m.role === 'system');
     const nonSystem = messages.filter(m => m.role !== 'system');
