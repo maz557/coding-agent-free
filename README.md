@@ -31,6 +31,7 @@ An interactive AI coding assistant that runs in your **terminal** or **web brows
 | Agent gets stuck in loops | **Smart detection** — stops after 3× identical tool calls |
 | Provider rate-limited | **Auto-fallback** — switches provider automatically on 429 |
 | Long tool results waste tokens | **Token compression** — head+tail truncation + duplicate removal |
+| Want to use your IDE with free models | **OpenAI-compatible API** — `npm run setup-ide` connects Cline, Continue.dev, Cursor |
 
 ## Quick Start
 
