@@ -156,9 +156,10 @@ The agent reads the relevant file, analyzes the code, suggests and applies a fix
 - **8 providers** — OpenRouter, Groq, Google, DeepSeek, Mistral + Ollama, LM Studio, Llama.cpp
 - **5 built-in presets** — start with `openrouter/free` (auto-discovers working free models)
 - **User presets** — save/add/remove your own models with `/save`, `/add`, `/remove`
-- **Fallback chain** — if a model fails, it tries the next in the list
+- **Fallback chain** — auto-fallback across providers on rate limit (429), plus model-level fallbacks
 - **13 tools** — read, write, list (with details), create_folder, delete_file, delete_folder (recursive), append_file, copy_file, move_file, file_info, search_content, replace_in_file, and run_command
-- **Sliding window context** — keeps the last 20 exchanges by default, truncates large tool results, auto-trims to avoid token limit errors (configurable via `MAX_EXCHANGES` / `MAX_TOOL_RESULT_LENGTH`)
+- **Token compression** — head+tail truncation of long tool results + automatic duplicate removal
+- **Sliding window context** — keeps the last 20 exchanges by default, auto-trims to avoid token limit errors (configurable via `MAX_EXCHANGES` / `MAX_TOOL_RESULT_LENGTH`)
 - **Smart loop detection** — stops if a tool is called 3+ times identically or 5+ times consecutively
 - **Safe mode** (`--safe` / `/safe`) — whitelist-only shell commands
 - **Setup wizard** — `npm run setup` interactively configures .env
