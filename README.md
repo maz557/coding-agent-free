@@ -77,6 +77,7 @@ npm start
 ```
 
 > On Windows, you can also double-click `run-cli.bat`.
+> For RTL language support (Persian/Arabic), use `run-cli-rtl.bat` instead (requires [WezTerm](https://wezfurlong.org/wezterm/)).
 
 **Web interface:**
 ```bash
@@ -437,6 +438,9 @@ coding-agent-free/
 ├── .env                   # API keys (gitignored)
 ├── presets.json           # User presets (gitignored)
 ├── tsconfig.json
+├── run-cli.bat            # CLI launcher (Windows)
+├── run-cli-rtl.bat        # CLI launcher with RTL support (WezTerm)
+├── run-web.bat            # Web UI launcher (Windows)
 └── run-agent.bat          # Double-click launcher (Windows)
 ```
 
