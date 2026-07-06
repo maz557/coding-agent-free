@@ -1,7 +1,6 @@
 import OpenAI from 'openai';
 import pino from 'pino';
 import pinoPretty from 'pino-pretty';
-import { type Stream } from 'openai/streaming';
 import { ChatMessage, ToolCall, OpenAITool, AgentResult, OpenRouterCreateParams } from './types';
 import { ConversationState } from './ConversationState';
 import { validateToolInput, validateToolOutput, isToolCallArray } from './validation';
@@ -50,7 +49,7 @@ async function withRetryAndTimeout<T>(
 }
 
 async function processStreamResponse(
-  stream: Stream<OpenAI.Chat.Completions.ChatCompletionChunk>,
+  stream: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>,
 ): Promise<{ content: string; toolCalls: ToolCall[]; model: string }> {
   let content = '';
   const toolCallAccumulators = new Map<number, { id: string; name: string; arguments: string }>();
