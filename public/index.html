@@ -345,10 +345,10 @@ fileInput.addEventListener('change', async () => {
   const files = fileInput.files;
   if (!files || files.length === 0) return;
   status.textContent = `Uploading ${files.length} file(s)...`;
-  const payload: { name: string; content: string; originalPath?: string }[] = [];
+  const payload = [];
   for (const f of files) {
     const text = await f.text();
-    const fileDesc: any = { name: f.name, content: text };
+    const fileDesc = { name: f.name, content: text };
     // Extract original path from file's webkitRelativePath if available
     if (f.name.includes('/') || f.name.includes('\\')) fileDesc.originalPath = f.name;
     payload.push(fileDesc);
@@ -357,7 +357,7 @@ fileInput.addEventListener('change', async () => {
     const res = await fetch('/api/upload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ files: payload }) });
     const data = await res.json();
     if (data.uploaded) {
-      const names = data.uploaded.map((u: any) => u.name).join(', ');
+      const names = data.uploaded.map((u) => u.name).join(', ');
       addMessage('assistant', `📎 Uploaded ${data.uploaded.length} file(s): <code>${escapeHtml(names)}</code>`);
       status.textContent = 'Ready';
     }
