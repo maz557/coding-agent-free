@@ -8,8 +8,9 @@
   <br/>
   <a href="#-why-this-agent"><strong>Why This Agent?</strong></a> •
   <a href="#quick-start"><strong>Quick Start</strong></a> •
-  <a href="#local-models-ollama-lm-studio-llamacpp"><strong>Local Models</strong></a> •
-  <a href="#example-session"><strong>Demo</strong></a>
+  <a href="#cli-interface"><strong>CLI</strong></a> •
+  <a href="#web-interface"><strong>Web</strong></a> •
+  <a href="#example-interactions"><strong>Examples</strong></a>
 </p>
 
 An interactive AI coding assistant that runs in your **terminal** or **web browser** — powered by **free** cloud APIs (OpenRouter, Groq, Google, DeepSeek, Mistral) and **local** models (Ollama, LM Studio, Llama.cpp). It reads, writes, searches, copies, moves, and deletes files, and runs shell commands — all through natural language tool calling.
@@ -72,24 +73,27 @@ npm start
 #    You: /model 6
 ```
 
+## CLI Interface
+
 ```bash
 npm start
 ```
 
-> On Windows, you can also double-click `run-cli.bat`.
+> On Windows, double-click `run-cli.bat`.
 > 📝 **RTL languages (Persian, Arabic, Urdu, Hebrew, etc.):** If your terminal displays right-to-left text incorrectly, use `run-cli-rtl.bat` instead — it launches via [WezTerm](https://wezfurlong.org/wezterm/) with proper BiDi support.
 
-**Web interface:**
+## Web Interface
+
 ```bash
 npm run web
 # Open http://localhost:3000 in your browser
 ```
 
-> On Windows, you can also double-click `run-web.bat`.
+> On Windows, double-click `run-web.bat`.
 
-> The web UI supports the same features as the terminal — streaming responses, tool calls, model switching (all 8 providers + user presets), safe mode toggle, allow path, and conversation reset. Multiple browser tabs are supported with independent sessions. CLI and Web share the same model configuration (`src/config/models.ts`) and tool engine (`fileManager.ts`).
+The web UI supports the same features as the terminal — streaming responses, tool calls, model switching (all 8 providers + user presets), safe mode toggle, allow path, and conversation reset. Multiple browser tabs are supported with independent sessions. CLI and Web share the same model configuration (`src/config/models.ts`) and tool engine (`fileManager.ts`).
 
-**Web interface — example session:**
+**Example session:**
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -114,7 +118,6 @@ npm run web
 ```
 
 > The model dropdown lets you switch between all 8 providers and your saved presets mid-session. Streaming responses appear token-by-token in real time.
-
 > Click the **`?`** button in the header to open a help modal with usage guide, model switching instructions, and CLI command equivalents.
 
 ## Example Interactions
