@@ -443,8 +443,7 @@ coding-agent-free/
 ├── tsconfig.json
 ├── run-cli.bat            # CLI launcher (Windows)
 ├── run-cli-rtl.bat        # CLI launcher with RTL support (WezTerm)
-├── run-web.bat            # Web UI launcher (Windows)
-└── run-agent.bat          # Double-click launcher (Windows)
+└── run-web.bat            # Web UI launcher (Windows)
 ```
 
 ## Environment Variables
