@@ -77,7 +77,7 @@ npm start
 ```
 
 > On Windows, you can also double-click `run-cli.bat`.
-> For RTL language support (Persian/Arabic), use `run-cli-rtl.bat` instead (requires [WezTerm](https://wezfurlong.org/wezterm/)).
+> 📝 **RTL languages (Persian, Arabic, Urdu, Hebrew, etc.):** If your terminal displays right-to-left text incorrectly, use `run-cli-rtl.bat` instead — it launches via [WezTerm](https://wezfurlong.org/wezterm/) with proper BiDi support.
 
 **Web interface:**
 ```bash
