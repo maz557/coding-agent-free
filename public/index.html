@@ -66,6 +66,8 @@
 <div id="chat"></div>
 <div id="status">Ready</div>
 <div id="input-area">
+  <input type="file" id="file-input" multiple style="display:none">
+  <button id="upload-btn" style="background:#21262d;color:#58a6ff;border:1px solid #30363d;border-radius:8px;padding:8px 12px;font-size:16px;cursor:pointer;line-height:1" title="Upload files">➕</button>
   <textarea id="input" rows="2" placeholder="Type your message..." dir="ltr"></textarea>
   <button id="send-btn">Send</button>
 </div>
@@ -334,6 +336,37 @@ document.getElementById('help-btn').addEventListener('click', () => toggleHelp(t
 document.getElementById('help-close').addEventListener('click', () => toggleHelp(false));
 helpModal.addEventListener('click', (e) => { if (e.target === helpModal) toggleHelp(false); });
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggleHelp(false); });
+
+  // File upload
+const fileInput = document.getElementById('file-input');
+const uploadBtn = document.getElementById('upload-btn');
+uploadBtn.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', async () => {
+  const files = fileInput.files;
+  if (!files || files.length === 0) return;
+  status.textContent = `Uploading ${files.length} file(s)...`;
+  const payload: { name: string; content: string; originalPath?: string }[] = [];
+  for (const f of files) {
+    const text = await f.text();
+    const fileDesc: any = { name: f.name, content: text };
+    // Extract original path from file's webkitRelativePath if available
+    if (f.name.includes('/') || f.name.includes('\\')) fileDesc.originalPath = f.name;
+    payload.push(fileDesc);
+  }
+  try {
+    const res = await fetch('/api/upload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ files: payload }) });
+    const data = await res.json();
+    if (data.uploaded) {
+      const names = data.uploaded.map((u: any) => u.name).join(', ');
+      addMessage('assistant', `📎 Uploaded ${data.uploaded.length} file(s): <code>${escapeHtml(names)}</code>`);
+      status.textContent = 'Ready';
+    }
+  } catch (err: any) {
+    addMessage('error', `🚨 Upload failed: ${err.message}`);
+    status.textContent = 'Upload failed';
+  }
+  fileInput.value = '';
+});
 
 // Events
 sendBtn.addEventListener('click', sendMessage);
