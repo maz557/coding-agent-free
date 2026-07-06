@@ -414,8 +414,9 @@ Agent: demo/hello.py  ...
 |-------|-------------|------|
 | `403 Forbidden` | API key missing or invalid | Check `.env` has the right key for that provider |
 | `403 Forbidden` | Internet restrictions blocking API host | Enable VPN/proxy, set `HTTPS_PROXY`, or use local models: `/add 6 ollama:auto` |
-| `429 Rate limit exceeded` | Free tier daily limit hit | Wait, use different provider, or switch to local models |
-| `All 3 attempts failed` | Model unreachable or too slow | Try a smaller model or use local models |
+| `429 Rate limit exceeded` | Free tier daily limit hit | Wait or let **auto-fallback** switch provider automatically. Manual: `/model <n>` |
+| `Agent stopped: stuck detected` | Same tool called 3×+ consecutively | Recovery message injected automatically — rephrase your request |
+| `All 3 attempts failed` | Model unreachable or too slow | Try a smaller model, use local models, or switch provider with `/model <n>` |
 | `tool_calls` with empty arguments | Model doesn't support tool calling | Use a different model |
 | `ENOTFOUND` / `ECONNREFUSED` | Internet restrictions or proxy needed | Enable VPN/proxy, set `HTTPS_PROXY`, or use local models |
 
