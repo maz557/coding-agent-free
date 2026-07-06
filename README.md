@@ -29,6 +29,8 @@ An interactive AI coding assistant that runs in your **terminal** or **web brows
 | Setup is too complex | **`npm run setup`** — interactive wizard, no manual `.env` editing |
 | AI runs dangerous commands | **Safe mode** (`/safe`) — whitelist-only shell commands |
 | Agent gets stuck in loops | **Smart detection** — stops after 3× identical tool calls |
+| Provider rate-limited | **Auto-fallback** — switches provider automatically on 429 |
+| Long tool results waste tokens | **Token compression** — head+tail truncation + duplicate removal |
 
 ## Quick Start
 
