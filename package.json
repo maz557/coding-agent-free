@@ -12,7 +12,8 @@
     "build": "tsc",
     "test": "node scripts/comprehensive-test.js",
     "test:quick": "node scripts/test-improvements.js",
-    "test:tools": "node node_modules/ts-node/dist/bin.js scripts/tool-integration-test.ts"
+    "test:tools": "node node_modules/ts-node/dist/bin.js scripts/tool-integration-test.ts",
+    "test:unit": "node -r ts-node/register --test src/__tests__/*.test.ts"
   },
   "keywords": [
     "openrouter",
