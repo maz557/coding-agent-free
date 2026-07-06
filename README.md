@@ -445,11 +445,15 @@ coding-agent-free/
 │   └── __tests__/              # Unit tests
 │       ├── ConversationState.test.ts  # 9 tests: trim, removeLastAssistantTurn, etc.
 │       └── comprehensive.test.ts      # 30 tests: all modules + integration
+├── .github/
+│   └── workflows/
+│       └── ci.yml              # CI: type check + tests on push/PR
 ├── scripts/
 │   ├── check_models.js         # List free OpenRouter models with tool support
 │   ├── cleanup.js              # Kill stale processes on port 3000
+│   ├── comprehensive-test.js   # 35 integration tests (npm test)
 │   ├── setup.js                # Interactive setup wizard (npm run setup)
-│   ├── test.js                 # Non-interactive integration test
+│   ├── test.js                 # Non-interactive CLI smoke test
 │   ├── test-improvements.js
 │   ├── tool-integration-test.ts
 │   └── wezterm-launcher.cmd    # Helper for run-cli-rtl.bat
@@ -465,7 +469,7 @@ coding-agent-free/
 └── run-web.bat                 # Web UI launcher (Windows)
 ```
 
-> 📝 Run unit tests: `npm run test:unit` (39 tests across all modules)
+> 📝 Run tests: `npm run test:unit` (39 unit tests) — `npm test` (35 integration tests)
 
 ## Environment Variables
 
