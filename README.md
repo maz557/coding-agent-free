@@ -427,24 +427,44 @@ Agent: demo/hello.py  ...
 ```
 coding-agent-free/
 ├── src/
-│   ├── agent.ts           # Main agent: CLI, presets, loop detection, retry, validation
-│   └── tools/
-│       └── fileManager.ts # 13 tools + dangerous command denylist + safe mode whitelist
+│   ├── agent.ts                # CLI entry point
+│   ├── CodingAgent.ts          # Agent loop, tool execution, stuck detection
+│   ├── ConversationState.ts    # Sliding window, context trimming, message management
+│   ├── commands.ts             # Preset formatting, showModels
+│   ├── detectLocalModel.ts     # Auto-detect models on local providers
+│   ├── persistence.ts          # Save/load conversation & presets (with Zod validation)
+│   ├── tokenEstimator.ts       # Token estimation (length/4)
+│   ├── types.ts                # Shared type definitions (ChatMessage, ToolCall, etc.)
+│   ├── validation.ts           # Zod schemas for tool input/output
+│   ├── server.ts               # Express web server (SSE streaming)
+│   ├── config/
+│   │   └── models.ts           # Provider definitions, presets, system prompt
+│   ├── tools/
+│   │   └── fileManager.ts      # 13 tools + safe mode + workspace restrictions
+│   └── __tests__/              # Unit tests
+│       ├── ConversationState.test.ts  # 9 tests: trim, removeLastAssistantTurn, etc.
+│       └── comprehensive.test.ts      # 30 tests: all modules + integration
 ├── scripts/
-│   ├── check_models.js    # List free OpenRouter models with tool support
-│   ├── setup.js           # Interactive setup wizard (npm run setup)
-│   └── test.js            # Non-interactive test
-├── local/                  # Local tools (gitignored)
-│   ├── backup/src/         # Snapshot of src/ for quick rollback
-│   └── restore.ps1         # Restore src/ from backup
-├── workspace/             # Default working directory
-├── .env                   # API keys (gitignored)
-├── presets.json           # User presets (gitignored)
+│   ├── check_models.js         # List free OpenRouter models with tool support
+│   ├── cleanup.js              # Kill stale processes on port 3000
+│   ├── setup.js                # Interactive setup wizard (npm run setup)
+│   ├── test.js                 # Non-interactive integration test
+│   ├── test-improvements.js
+│   ├── tool-integration-test.ts
+│   └── wezterm-launcher.cmd    # Helper for run-cli-rtl.bat
+├── local/                      # Local tools (gitignored)
+│   ├── backup/src/             # Snapshot of src/ for quick rollback
+│   └── restore.ps1             # Restore src/ from backup
+├── workspace/                  # Default working directory
+├── .env                        # API keys (gitignored)
+├── presets.json                # User presets (gitignored)
 ├── tsconfig.json
-├── run-cli.bat            # CLI launcher (Windows)
-├── run-cli-rtl.bat        # CLI launcher with RTL support (WezTerm)
-└── run-web.bat            # Web UI launcher (Windows)
+├── run-cli.bat                 # CLI launcher (Windows)
+├── run-cli-rtl.bat             # CLI launcher with RTL support (WezTerm)
+└── run-web.bat                 # Web UI launcher (Windows)
 ```
+
+> 📝 Run unit tests: `npm run test:unit` (39 tests across all modules)
 
 ## Environment Variables
 
