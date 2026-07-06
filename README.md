@@ -510,7 +510,7 @@ You can also reset the conversation mid-session with `/reset` if the model gets 
 - **System prompt adherence**: Some free models (e.g., Nvidia Nemotron 550B) may ignore or partially follow system instructions. Switch to a different model if you notice this.
 - **Rate limits**: Free-tier API keys have daily rate limits (HTTP 429). The agent retries with exponential backoff (max 3 attempts), but persistent limits require switching providers or waiting.
 - **Token window**: With a 128K context model and 20-exchange sliding window, large codebases may hit context limits. Increase `MAX_EXCHANGES` and `MAX_TOOL_RESULT_LENGTH` in `.env` for larger projects.
-- **Stuck detection**: The agent stops after 3× identical tool calls or 5× consecutive same-name calls. This prevents infinite loops but may occasionally interrupt legitimate repeated operations. Use `/retry` to continue.
+- **Stuck detection**: The agent stops after 3× identical tool calls or 5× consecutive same-name calls, injects a recovery system message, and removes the last tool results. Simply rephrase your request to continue.
 - **Windows shell**: PowerShell pipeline operators (`|`, `&&`) may trigger verbose permission prompts under strict opencode.json rules. Simple commands work without prompts.
 - **Relative vs absolute paths**: Models handle paths inconsistently — some use relative paths, others absolute. The agent normalizes paths within `ALLOWED_DIR`.
 
