@@ -96,6 +96,15 @@ npm run web
 
 The web UI supports the same features as the terminal — streaming responses, tool calls, model switching (all 8 providers + user presets), safe mode toggle, allow path, and conversation reset. Multiple browser tabs are supported with independent sessions. CLI and Web share the same model configuration (`src/config/models.ts`) and tool engine (`fileManager.ts`).
 
+The web server also exposes an **OpenAI-compatible API** at `http://localhost:3000/v1/chat/completions`, so any OpenAI-compatible client (Cline, Continue.dev, Cursor, etc.) can use your configured providers through a single endpoint with auto-fallback support.
+
+Configure your IDE automatically:
+```bash
+npm run setup-ide
+```
+
+This will configure **Cline**, **Continue.dev**, and **Cursor** to point to the local API proxy, using your `.env` provider keys through the same routing.
+
 **Example session:**
 
 ```
@@ -457,6 +466,7 @@ coding-agent-free/
 │   ├── cleanup.js              # Kill stale processes on port 3000
 │   ├── comprehensive-test.js   # 35 integration tests (npm test)
 │   ├── setup.js                # Interactive setup wizard (npm run setup)
+│   ├── setup-ide.js            # Configure IDEs to use local API proxy
 │   ├── test.js                 # Non-interactive CLI smoke test
 │   ├── test-improvements.js
 │   ├── tool-integration-test.ts

@@ -266,7 +266,82 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
   }
 });
 
+// ─── OpenAI-Compatible Proxy ───
+const ALL_API_KEYS = [
+  process.env.OPENROUTER_API_KEY || '',
+  process.env.GROQ_API_KEY || '',
+  process.env.GOOGLE_API_KEY || '',
+  process.env.DEEPSEEK_API_KEY || '',
+  process.env.MISTRAL_API_KEY || '',
+].filter(Boolean);
+
+function findPreset(modelOrId: string): { provider: string; primary: string; fallbacks: string[]; contextWindow?: number } | null {
+  const allPresets = getAllPresets();
+  if (allPresets[modelOrId]) return allPresets[modelOrId];
+  for (const p of Object.values(allPresets)) {
+    if ((p as any).primary === modelOrId) return p as any;
+  }
+  return null;
+}
+
+app.post('/v1/chat/completions', async (req: Request, res: Response) => {
+  const authHeader = req.headers.authorization || '';
+  const providedKey = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (!providedKey && ALL_API_KEYS.length > 0) {
+    return res.status(401).json({ error: { message: 'Missing API key', type: 'auth_error' } });
+  }
+
+  const { model, messages, stream = false, tools: reqTools, tool_choice, ...extraParams } = req.body;
+  if (!messages || !Array.isArray(messages)) {
+    return res.status(400).json({ error: { message: 'messages is required and must be an array', type: 'invalid_request' } });
+  }
+
+  const preset = findPreset(model) || { ...FIXED_PRESETS['1'], provider: 'openrouter' };
+  const client = createClient(preset.provider);
+
+  const requestBody: any = {
+    model: preset.primary,
+    messages,
+    stream,
+    ...extraParams,
+  };
+  if (reqTools) requestBody.tools = reqTools;
+  if (tool_choice) requestBody.tool_choice = tool_choice;
+  if (preset.provider === 'openrouter') {
+    requestBody.extra_body = {
+      models: [preset.primary, ...preset.fallbacks].filter(Boolean),
+    };
+  }
+
+  try {
+    const response = await client.chat.completions.create(requestBody) as any;
+
+    if (stream) {
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      });
+      res.flushHeaders();
+      for await (const chunk of response) {
+        if (res.destroyed) break;
+        res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+      }
+      if (!res.destroyed) res.write('data: [DONE]\n\n');
+      if (!res.destroyed) res.end();
+    } else {
+      res.json(response);
+    }
+  } catch (err: any) {
+    const status = err?.status || 500;
+    res.status(status).json({
+      error: { message: err?.message || 'Proxy error', type: 'proxy_error', code: err?.code },
+    });
+  }
+});
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🌐 Web interface: http://localhost:${PORT}`);
+  console.log(`   OpenAI-compatible API: http://localhost:${PORT}/v1/chat/completions`);
   console.log(`   Workspace: ${path.resolve(process.env.ALLOWED_DIR || './workspace')}`);
 });

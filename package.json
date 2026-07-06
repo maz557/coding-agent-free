@@ -9,6 +9,7 @@
     "prestart": "node scripts/cleanup.js",
     "start": "node node_modules/ts-node/dist/bin.js src/agent.ts",
     "setup": "node scripts/setup.js",
+    "setup-ide": "node scripts/setup-ide.js",
     "build": "tsc",
     "test": "node scripts/comprehensive-test.js",
     "test:quick": "node scripts/test-improvements.js",
