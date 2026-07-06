@@ -10,8 +10,6 @@ import { v4 as uuidv4 } from 'uuid';
 
 dotenv.config();
 
-const WORKSPACE = path.resolve(process.env.ALLOWED_DIR || './workspace');
-
 const SUGGESTED_MODELS: Record<string, string> = {
   openrouter: 'openrouter/free',
   google: 'gemini-2.0-flash-exp',
@@ -72,7 +70,7 @@ function getAllPresets(): Record<string, any> {
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json());
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
@@ -153,21 +151,6 @@ app.post('/api/allow', (req, res) => {
   if (!allowPath || typeof allowPath !== 'string') return res.status(400).json({ error: 'path is required' });
   allowExtraPath(allowPath);
   res.json({ allowedPath: allowPath });
-});
-
-app.post('/api/upload', async (req, res) => {
-  const { files } = req.body;
-  if (!Array.isArray(files) || files.length === 0) return res.status(400).json({ error: 'files array required' });
-  const results: { name: string; path: string; size: number }[] = [];
-  for (const f of files) {
-    if (!f.name || !f.content) continue;
-    const safeName = path.basename(f.name);
-    const dest = path.join(WORKSPACE, safeName);
-    fs.writeFileSync(dest, f.content, 'utf-8');
-    if (f.originalPath) allowExtraPath(f.originalPath);
-    results.push({ name: safeName, path: dest, size: fs.statSync(dest).size });
-  }
-  res.json({ uploaded: results });
 });
 
 app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res: Response) => {
