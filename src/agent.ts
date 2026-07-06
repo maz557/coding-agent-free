@@ -317,8 +317,35 @@ async function startChat() {
     console.log('\n⏳ Thinking...\n');
 
     try {
-      const result = await agent.execute(input);
+      let result = await agent.execute(input);
       lastActualModel = result.model;
+
+      // Auto-fallback on rate limit: try next available preset
+      if (result.error === 'rate_limit') {
+        const allPresets = getAllPresets(userPresets);
+        const currentNum = Object.entries(allPresets).find(([, p]) =>
+          p.primary === activeModelConfig.primary && p.provider === activeModelConfig.provider
+        )?.[0];
+        if (currentNum) {
+          const entries = Object.entries(allPresets).sort(([a], [b]) => Number(a) - Number(b));
+          const idx = entries.findIndex(([n]) => n === currentNum);
+          for (let i = idx + 1; i < entries.length; i++) {
+            const [nextNum, nextPreset] = entries[i];
+            if (nextPreset.provider !== activeModelConfig.provider) {
+              const prevProvider = PROVIDERS[activeModelConfig.provider]?.name ?? activeModelConfig.provider;
+              const nextProvider = PROVIDERS[nextPreset.provider]?.name ?? nextPreset.provider;
+              console.log(`  ⚠️ ${prevProvider} rate limited → auto-switching to [${nextNum}] ${nextProvider}`);
+              activeModelConfig = { ...nextPreset };
+              client = createClient(activeModelConfig.provider);
+              const prevMessages = agent.getConversationMessages();
+              agent = new CodingAgent(client, typedTools, activeModelConfig, systemPrompt, prevMessages as ChatMessage[]);
+              result = await agent.execute(input);
+              lastActualModel = result.model;
+              break;
+            }
+          }
+        }
+      }
 
       const conversationMessages = agent.getConversationMessages();
       await saveConversation(conversationMessages as ChatMessage[], activeModelConfig);

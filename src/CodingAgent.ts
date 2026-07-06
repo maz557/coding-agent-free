@@ -275,11 +275,13 @@ export class CodingAgent {
         const msg = err?.message || 'Unknown API error';
         console.log(`  🚨 API Error: ${msg}`);
         logger.error({ error: err, depth }, 'Agent execution failed');
+        const isRateLimit = err?.status === 429 || err?.code === 'rate_limit_exceeded';
         return {
           model: usedModel,
           content: `An error occurred while communicating with the AI model: ${msg}`,
           logs: [],
           toolCallsCount: totalToolCalls,
+          error: isRateLimit ? 'rate_limit' : 'api_error',
         };
       }
     }

@@ -31,6 +31,7 @@ export interface AgentResult {
   content: string | null;
   logs: string[];
   toolCallsCount: number;
+  error?: 'rate_limit' | 'api_error';
 }
 
 export type OpenRouterCreateParams = OpenAI.ChatCompletionCreateParams & {
