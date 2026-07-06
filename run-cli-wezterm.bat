@@ -36,7 +36,7 @@ echo  Found WezTerm at: %WEZTERM%
 echo  Launching...
 echo.
 
-start "" "%WEZTERM%" start -- "%~dp0scripts\wezterm-launcher.cmd"
+start "" "%WEZTERM%" --config bidi_enabled=true --config "bidi_direction=""AutoRTL""" start -- "%~dp0scripts\wezterm-launcher.cmd"
 
 echo.
 echo  If the window closes immediately, run this to debug:
