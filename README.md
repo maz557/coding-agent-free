@@ -14,6 +14,17 @@
   <a href="#example-interactions"><strong>Examples</strong></a>
 </p>
 
+<p align="center">
+  🌐
+  <a href="README.md"><strong>English</strong></a> •
+  <a href="README.fa.md">فارسی</a> •
+  <a href="README.ar.md">العربية</a> •
+  <a href="README.tr.md">Türkçe</a> •
+  <a href="README.es.md">Español</a> •
+  <a href="README.fr.md">Français</a> •
+  <a href="README.ur.md">اردو</a>
+</p>
+
 An interactive AI coding assistant that runs in your **terminal** or **web browser** — powered by **free** cloud APIs (OpenRouter, Groq, Google, DeepSeek, Mistral) and **local** models (Ollama, LM Studio, Llama.cpp). It reads, writes, searches, copies, moves, and deletes files, and runs shell commands — all through natural language tool calling.
 
 > 💡 **Offline-ready**: With a local server, the agent works fully offline — no internet required, no data leaves your machine.
