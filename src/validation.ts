@@ -51,13 +51,15 @@ export function validateToolOutput(toolName: string, output: unknown): unknown {
 
 export function isToolCall(obj: unknown): obj is { id: string; type: 'function'; function: { name: string; arguments: string } } {
   if (!obj || typeof obj !== 'object') return false;
-  const x = obj as any;
+  const candidate = obj as Record<string, unknown>;
   return (
-    typeof x.id === 'string' &&
-    x.type === 'function' &&
-    x.function &&
-    typeof x.function.name === 'string' &&
-    typeof x.function.arguments === 'string'
+    typeof candidate.id === 'string' &&
+    candidate.type === 'function' &&
+    candidate.function !== null &&
+    typeof candidate.function === 'object' &&
+    !Array.isArray(candidate.function) &&
+    typeof (candidate.function as Record<string, unknown>).name === 'string' &&
+    typeof (candidate.function as Record<string, unknown>).arguments === 'string'
   );
 }
 

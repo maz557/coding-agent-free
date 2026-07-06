@@ -48,7 +48,8 @@ export class ConversationState {
   removeLastAssistantTurn(): ConversationState {
     let idx = -1;
     for (let i = this.messages.length - 1; i >= 0; i--) {
-      if (this.messages[i].role === 'assistant' && (this.messages[i] as any).tool_calls?.length > 0) {
+      const msg = this.messages[i];
+      if (msg.role === 'assistant' && 'tool_calls' in msg && msg.tool_calls && msg.tool_calls.length > 0) {
         idx = i;
         break;
       }

@@ -2,6 +2,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import pino from 'pino';
 import pinoPretty from 'pino-pretty';
+import { z } from 'zod';
 import { ChatMessage } from './types';
 import { ModelPreset } from './config/models';
 
@@ -12,6 +13,34 @@ const logger = pino(
 
 const PRESETS_FILE = path.join(__dirname, '..', 'presets.json');
 const CONVERSATION_FILE = path.join(__dirname, '..', 'conversation.json');
+
+const chatMessageSchema: z.ZodType<ChatMessage> = z.lazy(() =>
+  z.union([
+    z.object({ role: z.literal('system'), content: z.string(), name: z.string().optional() }),
+    z.object({ role: z.literal('user'), content: z.string(), name: z.string().optional() }),
+    z.object({
+      role: z.literal('assistant'),
+      content: z.string().nullable(),
+      name: z.string().optional(),
+      tool_calls: z.array(z.object({
+        id: z.string(),
+        type: z.literal('function'),
+        function: z.object({ name: z.string(), arguments: z.string() }),
+      })).optional(),
+    }),
+    z.object({ role: z.literal('tool'), tool_call_id: z.string(), content: z.string(), name: z.string().optional() }),
+  ])
+);
+
+const savedSessionSchema = z.object({
+  messages: z.array(chatMessageSchema),
+  modelPreset: z.object({
+    provider: z.string(),
+    primary: z.string(),
+    fallbacks: z.array(z.string()),
+    contextWindow: z.number().optional(),
+  }).nullable(),
+});
 
 export interface SavedSession {
   messages: ChatMessage[];
@@ -36,10 +65,16 @@ export async function loadConversation(): Promise<SavedSession | null> {
   try {
     const data = await fs.readFile(CONVERSATION_FILE, 'utf-8');
     const parsed = JSON.parse(data);
+    // Support legacy format (plain array of messages)
     if (Array.isArray(parsed)) {
       return { messages: parsed as ChatMessage[], modelPreset: null };
     }
-    return parsed as SavedSession;
+    const result = savedSessionSchema.safeParse(parsed);
+    if (!result.success) {
+      logger.warn({ errors: result.error.issues }, 'conversation.json validation failed, starting fresh');
+      return null;
+    }
+    return result.data;
   } catch (err: any) {
     if (err?.code !== 'ENOENT') {
       logger.warn({ err }, 'conversation.json corrupted, starting fresh');
