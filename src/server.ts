@@ -345,8 +345,12 @@ app.post('/v1/chat/completions', async (req: Request, res: Response) => {
   }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🌐 Web interface: http://localhost:${PORT}`);
-  console.log(`   OpenAI-compatible API: http://localhost:${PORT}/v1/chat/completions`);
-  console.log(`   Workspace: ${path.resolve(process.env.ALLOWED_DIR || './workspace')}`);
-});
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🌐 Web interface: http://localhost:${PORT}`);
+    console.log(`   OpenAI-compatible API: http://localhost:${PORT}/v1/chat/completions`);
+    console.log(`   Workspace: ${path.resolve(process.env.ALLOWED_DIR || './workspace')}`);
+  });
+}
+
+export { app, createClient };

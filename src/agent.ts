@@ -28,7 +28,7 @@ const logger = pino(
 
 const DEFAULT_CONTEXT_WINDOW = 128_000;
 
-function createClient(providerId: string): OpenAI {
+export function createClient(providerId: string): OpenAI {
   const info = PROVIDERS[providerId] ?? PROVIDERS.openrouter;
   const apiKey = info.apiKeyEnv ? (process.env[info.apiKeyEnv] || '') : 'local';
   const headers: Record<string, string> = {};
@@ -375,4 +375,6 @@ async function startChat() {
   }
 }
 
-startChat();
+if (require.main === module) {
+  startChat();
+}
