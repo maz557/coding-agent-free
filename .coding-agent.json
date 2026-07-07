@@ -1,41 +1,4 @@
 {
-  "mcpServers": {
-    "filesystem": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "./workspace"]
-    },
-    "github": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
-      "env": {
-        "GITHUB_TOKEN": "your-github-token"
-      }
-    }
-  },
-  "lspServers": [
-    {
-      "command": "typescript-language-server",
-      "args": ["--stdio"],
-      "languageId": "typescript",
-      "filePatterns": ["**/*.ts", "**/*.tsx"]
-    },
-    {
-      "command": "pyright",
-      "args": ["--stdio"],
-      "languageId": "python",
-      "filePatterns": ["**/*.py"]
-    },
-    {
-      "command": "rust-analyzer",
-      "args": [],
-      "languageId": "rust",
-      "filePatterns": ["**/*.rs"]
-    },
-    {
-      "command": "gopls",
-      "args": [],
-      "languageId": "go",
-      "filePatterns": ["**/*.go"]
-    }
-  ]
+  "mcpServers": {},
+  "lspServers": []
 }

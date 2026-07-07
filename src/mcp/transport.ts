@@ -10,6 +10,7 @@ export class StdioTransport implements Transport {
   private _onError: ((error: Error) => void) | null = null;
   private pending = new Map<string | number, { resolve: (value: unknown) => void; reject: (err: Error) => void }>();
   private msgId = 0;
+  private stderrBuf = '';
 
   constructor(
     private readonly command: string,
@@ -57,10 +58,13 @@ export class StdioTransport implements Transport {
       }
     });
 
-    this.process.on('close', () => {
+    this.process.on('close', (code) => {
       if (this._onClose) this._onClose();
+      const reason = this.stderrBuf
+        ? `MCP server closed (exit ${code}): ${this.stderrBuf.trim().slice(0, 200)}`
+        : `MCP server closed (exit ${code})`;
       for (const [, p] of this.pending) {
-        p.reject(new Error('MCP server closed'));
+        p.reject(new Error(reason));
       }
       this.pending.clear();
     });
@@ -70,7 +74,7 @@ export class StdioTransport implements Transport {
     });
 
     this.process.stderr?.on('data', (data: Buffer) => {
-      // ignore stderr for now
+      this.stderrBuf += data.toString();
     });
   }
 
