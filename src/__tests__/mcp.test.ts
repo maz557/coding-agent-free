@@ -219,6 +219,33 @@ rl.on('line', (line) => {
     await manager.shutdown();
     assert.equal(manager.getServerNames().length, 0);
   });
+
+  it('should connect to a real MCP echo server and call tools', async () => {
+    const { MCPManager } = require('../mcp/MCPManager');
+    const manager = new MCPManager();
+    const echoServerPath = path.resolve(__dirname, '../../examples/mcp-echo-server.js');
+    await manager.connectServer('echo-server', {
+      command: process.execPath,
+      args: [echoServerPath],
+    });
+
+    assert.equal(manager.getServerNames().length, 1);
+    assert.equal(manager.getServerNames()[0], 'echo-server');
+    assert.equal(manager.getServerToolCount('echo-server'), 1);
+    assert.equal(manager.findServerForTool('echo'), 'echo-server');
+
+    const tools = manager.getOpenAITools();
+    assert.equal(tools.length, 1);
+    assert.equal(tools[0].function.name, 'echo');
+    assert(tools[0].function.description?.includes('Echoes'));
+    assert(tools[0].function.parameters?.properties?.text);
+
+    const result = await manager.callTool('echo-server', 'echo', { text: 'integration test' });
+    assert.equal(result, 'Echo: integration test');
+
+    await manager.shutdown();
+    assert.equal(manager.getServerNames().length, 0);
+  });
 });
 
 describe('StdioTransport - construction and lifecycle', () => {

@@ -2,6 +2,9 @@
 const readline = require('readline');
 
 const rl = readline.createInterface({ input: process.stdin });
+
+process.stdin.on('end', () => process.exit(0));
+process.on('SIGTERM', () => process.exit(0));
 let msgId = 1;
 
 // capabilities: we support tools

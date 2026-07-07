@@ -58,6 +58,18 @@ const DEFAULT_LSP_SERVERS: LSPServerConfig[] = [
     languageId: 'cpp',
     filePatterns: ['**/*.cpp', '**/*.hpp', '**/*.cc', '**/*.cxx'],
   },
+  {
+    command: 'solargraph',
+    args: ['stdio'],
+    languageId: 'ruby',
+    filePatterns: ['**/*.rb'],
+  },
+  {
+    command: 'lua-language-server',
+    args: ['--stdio'],
+    languageId: 'lua',
+    filePatterns: ['**/*.lua'],
+  },
 ];
 
 export class LSPManager {

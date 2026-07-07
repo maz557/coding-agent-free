@@ -69,7 +69,11 @@ export class MCPManager {
       clientInfo: { name: 'coding-agent-free', version: '1.0.0' },
     }) as InitializeResult;
 
-    await (transport as any).request('notifications/initialized', {});
+    await (transport as any).send({
+      jsonrpc: '2.0' as const,
+      method: 'notifications/initialized',
+      params: {},
+    });
 
     const toolsResult = await (transport as any).request('tools/list', {}) as ListToolsResult;
 

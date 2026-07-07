@@ -474,6 +474,8 @@ The agent supports these languages out of the box. You just need to install the 
 | **Go** | `.go` | `go install golang.org/x/tools/gopls@latest` |
 | **SQL** | `.sql` | `npm install -g sql-language-server` |
 | **C / C++** | `.c`, `.h`, `.cpp`, `.hpp`, `.cc`, `.cxx` | Install LLVM/clangd: `winget install LLVM` (Windows), `apt install clangd` (Linux), `brew install llvm` (macOS) |
+| **Ruby** | `.rb` | `gem install solargraph` |
+| **Lua** | `.lua` | Download from https://github.com/LuaLS/lua-language-server/releases or `brew install lua-language-server` (macOS) |
 
 Once installed, the agent automatically finds and starts the correct LSP server for your project — no configuration files needed. You'll see:
 
@@ -1091,7 +1093,7 @@ npm run setup-ide
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | `LSP tool unavailable` | LSP disabled | Type `/lsp` to enable |
-| `Server not found` | LSP server binary missing | Install it: `npm install -g typescript-language-server` (JS/TS), `pip install pyright` (Python), `npm install -g sql-language-server` (SQL), `apt install clangd` or `winget install LLVM` (C/C++) |
+| `Server not found` | LSP server binary missing | Install it: `npm install -g typescript-language-server` (JS/TS), `pip install pyright` (Python), `npm install -g sql-language-server` (SQL), `apt install clangd` or `winget install LLVM` (C/C++), `gem install solargraph` (Ruby), `brew install lua-language-server` (Lua) |
 | `No results` | No matching file types | Check your file extensions match the LSP config |
 
 ### MCP not working
