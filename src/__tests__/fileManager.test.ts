@@ -2,8 +2,9 @@ import { describe, it, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as os from 'os';
 
-const { executeTool, setSafeMode, isSafeModeEnabled } = require('../tools/fileManager');
+const { executeTool, setSafeMode, isSafeModeEnabled, setAllowedDir } = require('../tools/fileManager');
 
 let seq = 0;
 function uniq(prefix: string): string {
@@ -12,6 +13,18 @@ function uniq(prefix: string): string {
 }
 
 describe('fileManager tools', () => {
+  let testDir: string;
+
+  before(async () => {
+    testDir = path.join(os.tmpdir(), `coding-agent-test-${Date.now()}`);
+    await fs.mkdir(testDir, { recursive: true });
+    setAllowedDir(testDir);
+  });
+
+  after(async () => {
+    await fs.rm(testDir, { recursive: true, force: true });
+    setAllowedDir(path.resolve('./workspace'));
+  });
   describe('write_file / read_file', () => {
     it('should write and read a file', async () => {
       const f = uniq('file');

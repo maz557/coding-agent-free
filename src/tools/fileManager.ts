@@ -138,12 +138,16 @@ export type ToolArguments =
 
 // --- 2. Workspace Manager Class (Encapsulation) ---
 class WorkspaceManager {
-  private readonly allowedDir: string;
+  private allowedDir: string;
   private extraAllowedPaths: string[] = [];
 
   constructor() {
     // Resolve and normalize the base directory once
     this.allowedDir = path.resolve(process.env.ALLOWED_DIR || './workspace');
+  }
+
+  setAllowedDir(dir: string): void {
+    this.allowedDir = path.resolve(dir);
   }
 
   allowExtraPath(p: string): void {
@@ -661,4 +665,8 @@ export async function executeTool(name: string, args: ToolArguments): Promise<st
 
 export function allowExtraPath(p: string): void {
   workspace.allowExtraPath(p);
+}
+
+export function setAllowedDir(dir: string): void {
+  workspace.setAllowedDir(dir);
 }
