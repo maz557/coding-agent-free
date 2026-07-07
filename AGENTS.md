@@ -3,6 +3,7 @@
 This is the Coding Agent Free project itself.
 
 ## Key files
+- `docs/GUIDE.md` — comprehensive user guide with step-by-step tutorials and 5 example projects
 - `src/config/models.ts` — providers, presets, system prompt
 - `src/agent.ts` — CLI entry point (handles /commands, auto-fallback)
 - `src/CodingAgent.ts` — tool-call loop, stuck detection, streaming

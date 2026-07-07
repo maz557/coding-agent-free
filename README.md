@@ -11,7 +11,8 @@
   <a href="#-requirements--installation"><strong>Install</strong></a> •
   <a href="#-usage-guide"><strong>Usage</strong></a> •
   <a href="#%EF%B8%8F-cli-interface"><strong>CLI</strong></a> •
-  <a href="#-web-interface"><strong>Web</strong></a>
+  <a href="#-web-interface"><strong>Web</strong></a> •
+  <a href="docs/GUIDE.md"><strong>📘 Guide</strong></a>
 </p>
 
 <p align="center">
@@ -485,6 +486,10 @@ MAX_TOOL_RESULT_LENGTH=20000
 Reset mid-session with `/reset` if context gets stale.
 
 ---
+
+---
+
+> 💡 **New to Coding Agent Free?** Check the **[Comprehensive User Guide](docs/GUIDE.md)** for step-by-step tutorials, 5 hands-on example projects, and a complete walkthrough from beginner to advanced.
 
 ## Tests
 
