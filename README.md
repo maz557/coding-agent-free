@@ -483,6 +483,7 @@ coding-agent-free/
 │   ├── check_models.js         # List free OpenRouter models with tool support
 │   ├── cleanup.js              # Kill stale processes on port 3000
 │   ├── comprehensive-test.js   # 35 integration tests (npm test)
+│   ├── provider-integration-test.ts  # 26 provider integration tests (npm run test:integration)
 │   ├── setup.js                # Interactive setup wizard (npm run setup)
 │   ├── setup-ide.js            # Configure IDEs to use local API proxy
 │   ├── test.js                 # Non-interactive CLI smoke test
@@ -502,7 +503,7 @@ coding-agent-free/
 └── run-web.bat                 # Web UI launcher (Windows)
 ```
 
-> 📝 Run tests: `npm run test:unit` (129 unit tests) — `npm test` (35 integration tests)
+> 📝 Run tests: `npm run test:unit` (129 unit tests) — `npm run test:integration` (26 provider tests) — `npm test` (35 integration tests)
 
 ## Environment Variables
 
