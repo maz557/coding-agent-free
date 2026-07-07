@@ -20,10 +20,16 @@ This is the Coding Agent Free project itself.
 - **SSE streaming** — raw fetch + ReadableStream (no EventSource dependency)
 
 ## Tests
-- `npm run test:unit` — 137 unit tests pass (7 files: ConversationState, comprehensive, CodingAgent, loadProjectContext, fileManager, agent, server)
+- `npm run test:unit` — **178** unit tests pass (12 files: ConversationState, comprehensive, CodingAgent, loadProjectContext, fileManager, agent, server, mcp, lsp, persistence, toolRegistry, models)
 - `npm run test:integration` — 26 provider integration tests
 - `npm test` — 35 integration tests
 - CI: `.github/workflows/ci.yml` runs all tests on push/PR
+
+## Key modules
+- `src/mcp/` — MCP support (types, StdioTransport, HTTPTransport, MCPManager, config loader)
+- `src/lsp/` — LSP support (LSPClient, LSPManager, tool definitions: code_definition/references/hover)
+- `src/persistence.ts` — multi-session persistence (sessions/ dir, auto-title, modelPreset)
+- `src/tools/toolRegistry.ts` — central tool registry combining builtin + MCP + LSP tools
 
 ## Conventions
 - No comments in code unless necessary

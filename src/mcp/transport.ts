@@ -36,9 +36,21 @@ export class StdioTransport implements Transport {
 
     this.rl.on('line', (line: string) => {
       try {
-        const msg = JSON.parse(line) as JSONRPCMessage;
+        const msg = JSON.parse(line) as any;
+        if (msg.id !== undefined && msg.id !== null) {
+          const pending = this.pending.get(msg.id);
+          if (pending) {
+            this.pending.delete(msg.id);
+            if (msg.error) {
+              pending.reject(new Error(msg.error.message || 'MCP error'));
+            } else {
+              // Extract result field if present, otherwise return whole msg
+              pending.resolve('result' in msg ? msg.result : msg);
+            }
+          }
+        }
         if (this._onMessage) {
-          this._onMessage(msg);
+          this._onMessage(msg as JSONRPCMessage);
         }
       } catch {
         // ignore malformed lines
