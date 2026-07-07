@@ -2,7 +2,8 @@ import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import * as path from 'path';
 import * as os from 'os';
-import * as fs from 'fs/promises';
+import * as fsp from 'fs/promises';
+import * as fs from 'fs';
 
 describe('LSP tool definitions', () => {
   it('should export lspToolDefinitions with 3 tools', () => {
@@ -82,16 +83,65 @@ describe('LSPManager - file pattern matching', () => {
   });
 });
 
+describe('LSP config loader', () => {
+  let origCwd: typeof process.cwd;
+  let origHome: string | undefined;
+
+  before(() => {
+    origCwd = process.cwd;
+    origHome = process.env.HOME;
+    const homeDir = path.join(os.tmpdir(), `lsp-config-home-${Date.now()}`);
+    fs.mkdirSync(homeDir, { recursive: true });
+    fs.writeFileSync(path.join(homeDir, '.coding-agent.json'), JSON.stringify({
+      lspServers: [
+        { command: 'mylsp', args: ['--stdio'], languageId: 'mylang', filePatterns: ['**/*.my'] },
+      ],
+    }));
+    process.cwd = () => homeDir as any;
+    process.env.HOME = homeDir;
+  });
+
+  after(() => {
+    process.cwd = origCwd;
+    process.env.HOME = origHome;
+  });
+
+  it('should load LSP config from .coding-agent.json', () => {
+    const { loadLSPConfig } = require('../lsp/config');
+    const configs = loadLSPConfig();
+    assert.equal(configs.length, 1);
+    assert.equal(configs[0].command, 'mylsp');
+    assert.equal(configs[0].languageId, 'mylang');
+    assert.deepEqual(configs[0].filePatterns, ['**/*.my']);
+  });
+
+  it('should return empty for missing lspServers', () => {
+    fs.writeFileSync(path.join(process.env.HOME!, '.coding-agent.json'), JSON.stringify({}));
+    const { loadLSPConfig } = require('../lsp/config');
+    const configs = loadLSPConfig();
+    assert.equal(configs.length, 0);
+  });
+
+  it('should return empty for invalid entries', () => {
+    fs.writeFileSync(path.join(process.env.HOME!, '.coding-agent.json'), JSON.stringify({
+      lspServers: [{ bad: 'data' }],
+    }));
+    const { loadLSPConfig } = require('../lsp/config');
+    const configs = loadLSPConfig();
+    assert.equal(configs.length, 0);
+  });
+});
+
 describe('LSPManager - startForProject on empty dir', () => {
   let tmpDir: string;
 
   before(async () => {
     tmpDir = path.join(os.tmpdir(), `lsp-test-${Date.now()}`);
-    await fs.mkdir(tmpDir, { recursive: true });
+    await fsp.mkdir(tmpDir, { recursive: true });
   });
 
   after(async () => {
-    await fs.rm(tmpDir, { recursive: true, force: true });
+    await fsp.rm(tmpDir, { recursive: true, force: true });
   });
 
   it('should skip when no matching files', async () => {

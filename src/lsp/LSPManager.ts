@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { LSPClient } from './LSPClient';
 
-interface LSPServerConfig {
+export interface LSPServerConfig {
   command: string;
   args: string[];
   languageId: string;
@@ -21,6 +21,24 @@ const DEFAULT_LSP_SERVERS: LSPServerConfig[] = [
     args: ['--stdio'],
     languageId: 'javascript',
     filePatterns: ['**/*.js', '**/*.jsx', '**/*.mjs'],
+  },
+  {
+    command: 'pyright',
+    args: ['--stdio'],
+    languageId: 'python',
+    filePatterns: ['**/*.py'],
+  },
+  {
+    command: 'rust-analyzer',
+    args: [],
+    languageId: 'rust',
+    filePatterns: ['**/*.rs'],
+  },
+  {
+    command: 'gopls',
+    args: [],
+    languageId: 'go',
+    filePatterns: ['**/*.go'],
   },
 ];
 

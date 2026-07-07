@@ -8,6 +8,7 @@ import pinoPretty from 'pino-pretty';
 import { getAllTools, executeTool, allowExtraPath, setSafeMode, isSafeModeEnabled, setMCPEnabled, isMCPEnabled, setLSPEnabled, isLSPEnabled } from './tools/toolRegistry';
 import { mcpManager } from './mcp/MCPManager';
 import { loadMCPConfig } from './mcp/config';
+import { loadLSPConfig } from './lsp/config';
 import { lspManager } from './lsp/index';
 import { ModelPreset, PROVIDERS, FIXED_PRESETS, SYSTEM_PROMPT } from './config/models';
 import { ChatMessage } from './types';
@@ -160,6 +161,10 @@ async function startChat() {
 
   // Initialize LSP for code understanding
   try {
+    const lspConfigs = loadLSPConfig();
+    for (const cfg of lspConfigs) {
+      lspManager.addConfig(cfg);
+    }
     const allowedDir = path.resolve(process.env.ALLOWED_DIR || './workspace');
     await lspManager.startForProject(allowedDir);
     if (lspManager.isAvailable()) {

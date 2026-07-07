@@ -5,6 +5,7 @@ import OpenAI from 'openai';
 import { getAllTools, executeTool, setSafeMode, isSafeModeEnabled, allowExtraPath, setMCPEnabled, isMCPEnabled, setLSPEnabled, isLSPEnabled } from './tools/toolRegistry';
 import { mcpManager } from './mcp/MCPManager';
 import { loadMCPConfig } from './mcp/config';
+import { loadLSPConfig } from './lsp/config';
 import { lspManager } from './lsp/index';
 import { PROVIDERS, FIXED_PRESETS, SYSTEM_PROMPT } from './config/models';
 import * as path from 'path';
@@ -459,6 +460,10 @@ if (process.env.NODE_ENV !== 'test') {
     }
 
     try {
+      const lspConfigs = loadLSPConfig();
+      for (const cfg of lspConfigs) {
+        lspManager.addConfig(cfg);
+      }
       const allowedDir = path.resolve(process.env.ALLOWED_DIR || './workspace');
       await lspManager.startForProject(allowedDir);
       if (lspManager.isAvailable()) {

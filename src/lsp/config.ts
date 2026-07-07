@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { MCPServerDefinition } from './MCPManager';
+import { LSPServerConfig } from './LSPManager';
 
 const CONFIG_FILENAME = '.coding-agent.json';
 
@@ -22,15 +22,20 @@ function getDefaultConfigPath(): string {
   return path.join(home, CONFIG_FILENAME);
 }
 
-export function loadMCPConfig(): Record<string, MCPServerDefinition> {
+export function loadLSPConfig(): LSPServerConfig[] {
   const configDir = findProjectRoot(process.cwd()) || getDefaultConfigPath();
   const configPath = configDir.endsWith(CONFIG_FILENAME) ? configDir : path.join(configDir, CONFIG_FILENAME);
-
   try {
     const raw = fs.readFileSync(configPath, 'utf-8');
     const parsed = JSON.parse(raw);
-    return parsed.mcpServers || {};
+    const servers = parsed.lspServers;
+    if (!Array.isArray(servers)) return [];
+
+    return servers.filter((s: any) =>
+      s && typeof s.command === 'string' && Array.isArray(s.args) &&
+      typeof s.languageId === 'string' && Array.isArray(s.filePatterns)
+    ) as LSPServerConfig[];
   } catch {
-    return {};
+    return [];
   }
 }
