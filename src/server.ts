@@ -6,6 +6,7 @@ import { tools, executeTool, setSafeMode, isSafeModeEnabled, allowExtraPath } fr
 import { PROVIDERS, FIXED_PRESETS, SYSTEM_PROMPT } from './config/models';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as fsp from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
 import { loadProjectContext } from './loadProjectContext';
 
@@ -28,6 +29,12 @@ interface SessionData {
   client: OpenAI;
   modelConfig: { provider: string; primary: string; fallbacks: string[]; contextWindow?: number };
   messages: any[];
+  meta: {
+    createdAt: string;
+    title: string;
+    modelLabel: string;
+    firstUserMessage: string;
+  };
 }
 
 const sessions = new Map<string, SessionData>();
@@ -78,22 +85,58 @@ const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
 app.use(express.static(PUBLIC_DIR));
 
-app.post('/api/session', (_req, res) => {
+app.post('/api/session', (req, res) => {
   const id = uuidv4();
   const modelConfig = { ...FIXED_PRESETS['1'] };
   const projectContext = loadProjectContext();
   const systemContent = projectContext
     ? `${SYSTEM_PROMPT}\n\n${projectContext}`
     : SYSTEM_PROMPT;
+  const provName = PROVIDERS[modelConfig.provider]?.name || modelConfig.provider;
   sessions.set(id, {
     client: createClient(modelConfig.provider),
     modelConfig,
     messages: [{ role: 'system', content: systemContent }],
+    meta: {
+      createdAt: new Date().toISOString(),
+      title: req.body?.title || 'New Session',
+      modelLabel: `${provName} — ${modelConfig.primary}`,
+      firstUserMessage: '',
+    },
   });
   res.json({
     sessionId: id,
     models: Object.entries(getAllPresets()).map(([k, v]) => ({ id: k, name: `${PROVIDERS[v.provider]?.name || v.provider}/${v.primary}` })),
   });
+});
+
+app.get('/api/sessions', (_req, res) => {
+  const list = [...sessions.entries()].map(([id, s]) => ({
+    id,
+    title: s.meta.title,
+    createdAt: s.meta.createdAt,
+    modelLabel: s.meta.modelLabel,
+    messageCount: s.messages.filter(m => m.role !== 'system').length,
+  }));
+  list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  res.json(list);
+});
+
+app.get('/api/sessions/:sessionId', (req, res) => {
+  const s = sessions.get(req.params.sessionId);
+  if (!s) return res.status(404).json({ error: 'Session not found' });
+  const msgs = s.messages
+    .filter(m => m.role !== 'system')
+    .map(m => ({
+      role: m.role,
+      content: m.content,
+      name: m.name,
+      tool_calls: m.tool_calls?.map((tc: any) => ({
+        id: tc.id, type: tc.type,
+        function: { name: tc.function.name, arguments: tc.function.arguments },
+      })),
+    }));
+  res.json({ messages: msgs, modelLabel: s.meta.modelLabel });
 });
 
 app.get('/api/models', (_req, res) => {
@@ -130,6 +173,7 @@ app.post('/api/model/:sessionId', (req, res) => {
     return res.status(400).json({ error: 'Provide presetId or provider+model' });
   }
   s.client = createClient(s.modelConfig.provider);
+  s.meta.modelLabel = `${PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider} — ${s.modelConfig.primary}`;
   res.json({ provider: PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider, model: s.modelConfig.primary });
 });
 
@@ -184,6 +228,12 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
   const timeoutMs = isLocal ? (Number(process.env.LOCAL_TIMEOUT) || 300000) : 120000;
 
   s.messages.push({ role: 'user', content: message });
+  if (!s.meta.firstUserMessage) {
+    s.meta.firstUserMessage = message;
+    if (s.meta.title === 'New Session') {
+      s.meta.title = message.slice(0, 60) + (message.length > 60 ? '...' : '');
+    }
+  }
 
   for (let depth = 0; depth < MAX_DEPTH; depth++) {
     const base: any = {
@@ -249,8 +299,34 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
         send('tool_call', { name: tc.name, args: tc.args });
         try {
           const parsed = JSON.parse(tc.args);
+
+          // Capture before-content for write_file / replace_in_file / append_file
+          let diffData: { path: string; before: string; after: string } | null = null;
+          if ((tc.name === 'write_file' || tc.name === 'replace_in_file' || tc.name === 'append_file') && parsed.path) {
+            try {
+              const allowedDir = path.resolve(process.env.ALLOWED_DIR || './workspace');
+              const fullPath = path.resolve(allowedDir, parsed.path);
+              const beforeContent = await fsp.readFile(fullPath, 'utf-8');
+              let afterContent: string;
+              if (tc.name === 'write_file') {
+                afterContent = String(parsed.content);
+              } else if (tc.name === 'replace_in_file') {
+                const idx = beforeContent.indexOf(parsed.old_str);
+                afterContent = idx === -1 ? beforeContent
+                  : beforeContent.slice(0, idx) + parsed.new_str + beforeContent.slice(idx + parsed.old_str.length);
+              } else { // append_file
+                afterContent = beforeContent + parsed.content;
+              }
+              if (beforeContent !== afterContent) {
+                diffData = { path: parsed.path, before: beforeContent, after: afterContent };
+              }
+            } catch { /* new file or unreadable — skip diff */ }
+          }
+
           const result = await executeTool(tc.name, parsed);
           const text = typeof result === 'string' ? result : JSON.stringify(result);
+
+          if (diffData) { send('diff', diffData); await new Promise(r => setTimeout(r, 5)); }
           send('tool_result', { name: tc.name, content: text.slice(0, 300) });
           s.messages.push({ role: 'tool', tool_call_id: tc.id, content: text, name: tc.name });
         } catch (err: any) {
@@ -353,4 +429,5 @@ if (process.env.NODE_ENV !== 'test') {
   });
 }
 
-export { app, createClient };
+export { app, createClient, sessions };
+export type { SessionData };

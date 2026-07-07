@@ -108,6 +108,13 @@ npm run web
 
 La interfaz web admite las mismas funciones que la terminal — respuestas en streaming, llamadas a herramientas, cambio de modelo (los 8 proveedores + preajustes de usuario), modo seguro, ruta permitida y reinicio de conversación. Se admiten múltiples pestañas del navegador con sesiones independientes. La CLI y la Web comparten la misma configuración de modelo (`src/config/models.ts`) y el mismo motor de herramientas (`fileManager.ts`).
 
+**Nuevo en v1.10 — mejoras en la interfaz web:**
+- **Visor de diferencias (Diff Viewer)** — al escribir, reemplazar o añadir archivos, se muestran diferencias línea por línea (verde + / rojo -).
+- **Gestor de sesiones (Session Manager)** — crear y cambiar entre sesiones con título automático desde el primer mensaje, mostrando modelo y número de mensajes.
+- **Comandos de barra (Slash Commands)** — `/active`, `/model 2`, `/safe`, `/allow`, `/reset`, `/models`, `/exit` en la entrada web.
+- **Modal de ayuda (Help Modal)** — botón `?` con guía de uso, cambio de modelo, referencia de comandos y explicación del visor de diferencias.
+- **Streaming SSE** — uso de `fetch` + `ReadableStream` (sin dependencia de `EventSource`).
+
 El servidor web también expone una **API compatible con OpenAI** en `http://localhost:3000/v1/chat/completions`, por lo que cualquier cliente compatible con OpenAI (Cline, Continue.dev, Cursor, etc.) puede usar tus proveedores configurados a través de un único punto final con soporte de cambio automático.
 
 Configura tu IDE automáticamente:
@@ -501,7 +508,7 @@ coding-agent-free/
 └── run-web.bat                 # Lanzador Web UI (Windows)
 ```
 
-> 📝 Ejecuta pruebas: `npm run test:unit` (129 pruebas unitarias) — `npm run test:integration` (26 pruebas de integración de proveedores) — `npm test` (35 pruebas de integración)
+> 📝 Ejecuta pruebas: `npm run test:unit` (137 pruebas unitarias) — `npm run test:integration` (26 pruebas de integración de proveedores) — `npm test` (35 pruebas de integración)
 
 ## Variables de Entorno
 

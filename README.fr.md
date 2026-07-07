@@ -108,6 +108,13 @@ npm run web
 
 L'interface web prend en charge les mêmes fonctionnalités que le terminal — réponses en streaming, appels d'outils, changement de modèle (les 8 fournisseurs + préréglages utilisateur), bascule du mode sécurisé, chemin d'accès autorisé et réinitialisation de la conversation. Plusieurs onglets de navigateur sont pris en charge avec des sessions indépendantes. La CLI et le Web partagent la même configuration de modèle (`src/config/models.ts`) et le même moteur d'outils (`fileManager.ts`).
 
+**Nouveau dans v1.10 — améliorations de l'interface web :**
+- **Visionneuse de diff (Diff Viewer)** — lors de l'écriture, du remplacement ou de l'ajout d'un fichier, les différences ligne par ligne (vert + / rouge -) sont affichées.
+- **Gestionnaire de sessions (Session Manager)** — créer et basculer entre sessions avec titre automatique depuis le premier message, affichage du modèle et du nombre de messages.
+- **Commandes slash (Slash Commands)** — `/active`, `/model 2`, `/safe`, `/allow`, `/reset`, `/models`, `/exit` dans la saisie web.
+- **Fenêtre d'aide (Help Modal)** — bouton `?` avec guide d'utilisation, changement de modèle, référence des commandes et explication de la visionneuse de diff.
+- **Streaming SSE** — utilisation de `fetch` + `ReadableStream` (sans dépendance `EventSource`).
+
 Le serveur web expose également une **API compatible OpenAI** à l'adresse `http://localhost:3000/v1/chat/completions`, de sorte que tout client compatible OpenAI (Cline, Continue.dev, Cursor, etc.) peut utiliser vos fournisseurs configurés via un seul point d'accès avec support de bascule automatique.
 
 Configurez votre IDE automatiquement :
@@ -501,7 +508,7 @@ coding-agent-free/
 └── run-web.bat                 # Lanceur interface Web (Windows)
 ```
 
-> 📝 Exécutez les tests : `npm run test:unit` (129 tests unitaires) — `npm run test:integration` (26 tests d'intégration fournisseur) — `npm test` (35 tests d'intégration)
+> 📝 Exécutez les tests : `npm run test:unit` (137 tests unitaires) — `npm run test:integration` (26 tests d'intégration fournisseur) — `npm test` (35 tests d'intégration)
 
 ## Variables d'environnement
 

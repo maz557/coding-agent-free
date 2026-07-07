@@ -44,6 +44,37 @@
    .code-block .copy-btn.copied { color: #7ee787; border-color: #7ee787; }
   .cmd { color: #ffa657; }
   .output { color: #7ee787; }
+  /* Diff viewer */
+  .diff { align-self: flex-end; background: #0d1117; border: 1px solid #21262d; border-radius: 8px; font-family: 'Cascadia Code','Fira Code',monospace; font-size: 12px; direction: ltr; text-align: left; width: 100%; max-width: 100%; overflow-x: auto; margin: 4px 0; }
+  .diff-header { padding: 6px 10px; background: #161b22; border-bottom: 1px solid #21262d; font-size: 11px; color: #58a6ff; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .diff-header .file-path { color: #c9d1d9; font-weight: 400; }
+  .diff-body { max-height: 400px; overflow-y: auto; }
+  .diff-line { padding: 1px 10px; white-space: pre; min-height: 20px; display: flex; gap: 0; font-size: 12px; }
+  .diff-line .ln { color: #484f58; user-select: none; min-width: 36px; text-align: right; padding-right: 8px; flex-shrink: 0; }
+  .diff-line .sign { width: 16px; flex-shrink: 0; color: #484f58; }
+  .diff-line .code { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+  .diff-line.add { background: rgba(63,185,80,0.15); }
+  .diff-line.add .sign { color: #3fb950; }
+  .diff-line.remove { background: rgba(248,81,73,0.15); }
+  .diff-line.remove .sign { color: #f85149; }
+  .diff-line.same { color: #8b949e; }
+  .diff-stats { padding: 4px 10px; font-size: 11px; color: #8b949e; border-top: 1px solid #21262d; display: flex; gap: 12px; }
+  .diff-stats .added { color: #3fb950; }
+  .diff-stats .removed { color: #f85149; }
+  /* Session panel */
+  #session-overlay { position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,0.5); display: none; }
+  #session-panel { position: fixed; right: 0; top: 0; bottom: 0; width: 300px; background: #161b22; border-left: 1px solid #30363d; z-index: 501; display: flex; flex-direction: column; direction: ltr; }
+  #session-panel.hidden { display: none; }
+  #session-panel h2 { font-size: 14px; color: #f0f6fc; padding: 12px 16px; border-bottom: 1px solid #30363d; margin: 0; display: flex; align-items: center; gap: 8px; }
+  #session-panel h2 button { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 4px; padding: 2px 10px; font-size: 11px; cursor: pointer; margin-left: auto; }
+  #session-panel h2 button:hover { background: #30363d; }
+  #session-list { flex: 1; overflow-y: auto; padding: 8px; }
+  .session-item { padding: 8px 10px; border-radius: 6px; cursor: pointer; margin-bottom: 4px; border: 1px solid transparent; }
+  .session-item:hover { background: #21262d; border-color: #30363d; }
+  .session-item.active { background: #1f6feb20; border-color: #1f6feb; }
+  .session-item .s-title { font-size: 13px; color: #c9d1d9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .session-item .s-meta { font-size: 11px; color: #8b949e; margin-top: 2px; display: flex; gap: 8px; }
+  .session-item .s-model { color: #58a6ff; }
 </style>
 </head>
 <body>
@@ -54,6 +85,7 @@
   <button id="apply-model-btn" style="display:none;background:#21262d;color:#58a6ff;border:1px solid #30363d;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer">Apply</button>
   <span id="model-info"></span>
   <button id="safe-mode-btn" style="background:#21262d;color:#ffa657;border:1px solid #30363d;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer" title="Toggle safe mode (restrict shell commands)">🛡️</button>
+  <button id="sessions-btn" style="background:#21262d;color:#58a6ff;border:1px solid #30363d;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer" title="Sessions">📋</button>
   <button id="reset-btn" style="background:#21262d;color:#f85149;border:1px solid #30363d;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer">Reset</button>
   <button id="help-btn" style="background:#21262d;color:#8b949e;border:1px solid #30363d;border-radius:4px;padding:4px 8px;font-size:13px;cursor:pointer;font-weight:600">?</button>
 </div>
@@ -62,6 +94,11 @@
   <input id="allow-input" type="text" placeholder="/allow path..." style="background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:4px;padding:2px 6px;font-size:11px;width:200px;direction:ltr">
   <button id="allow-btn" style="background:#21262d;color:#58a6ff;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer">Allow</button>
   <span id="model-badge" style="margin-left:auto;font-size:11px;color:#58a6ff;background:#0d1117;padding:2px 8px;border-radius:4px;border:1px solid #21262d;direction:ltr"></span>
+</div>
+<div id="session-overlay"></div>
+<div id="session-panel" class="hidden">
+  <h2>📋 Sessions <button id="new-session-btn">+ New</button></h2>
+  <div id="session-list"></div>
 </div>
 <div id="chat"></div>
 <div id="status">Ready</div>
@@ -92,6 +129,7 @@
     <h3 style="color:#58a6ff;font-size:15px;margin:16px 0 8px">Header Buttons</h3>
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;color:#ffa657">🛡️</td><td style="padding:4px 8px;border-bottom:1px solid #21262d"><strong>Safe mode</strong> — restricts shell commands to a whitelist. ON = green, OFF = yellow</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;color:#58a6ff">📋</td><td style="padding:4px 8px;border-bottom:1px solid #21262d"><strong>Sessions</strong> — opens panel to create, switch, or manage conversations. Sessions are independent; each has its own history and model</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;color:#f85149">Reset</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Clears conversation history. Agent loses context of previous messages</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;color:#8b949e">?</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Opens this help panel</td></tr>
     </table>
@@ -100,6 +138,15 @@
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d"><strong>Allow path</strong></td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Grant the agent access to files outside the default workspace. Type a path and click <strong>Allow</strong></td></tr>
     </table>
+
+    <h3 style="color:#58a6ff;font-size:15px;margin:16px 0 8px">File Changes (Diff Viewer)</h3>
+    <p>When the agent modifies an existing file via <code>write_file</code>, a <strong>diff view</strong> appears showing exactly what changed:</p>
+    <ul style="padding-left:20px;margin:4px 0">
+      <li><span style="color:#3fb950">Green lines (+)</span> = added content</li>
+      <li><span style="color:#f85149">Red lines (-)</span> = removed content</li>
+      <li>Gray lines = unchanged context (up to 3 surrounding lines)</li>
+    </ul>
+    <p>Diffs are computed line-by-line and capped at 300 lines. The file path and change summary (+N / -M) appear in the header bar.</p>
 
     <h3 style="color:#58a6ff;font-size:15px;margin:16px 0 8px">Important Notes</h3>
     <ul style="padding-left:20px;margin:4px 0">
@@ -111,13 +158,16 @@
       <li>Tool output is truncated to keep context clean (configurable via <code>MAX_TOOL_RESULT_LENGTH</code>)</li>
     </ul>
 
-    <h3 style="color:#58a6ff;font-size:15px;margin:16px 0 8px">CLI Equivalents</h3>
+    <h3 style="color:#58a6ff;font-size:15px;margin:16px 0 8px">Slash Commands (Chat Input)</h3>
+    <p>Type these in the chat input to control the agent:</p>
     <table style="width:100%;border-collapse:collapse;font-size:13px">
-      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/model &lt;n&gt;</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Switch to preset number n (use dropdown in web UI)</td></tr>
-      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/safe</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Toggle safe mode (use 🛡️ button in web UI)</td></tr>
-      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/allow &lt;path&gt;</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Grant path access (use toolbar input in web UI)</td></tr>
-      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/reset</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Clear history (use Reset button in web UI)</td></tr>
-      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/active</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Shows current model in the header info</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/model &lt;n&gt;</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Switch to preset number n</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/safe</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Toggle safe mode</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/allow &lt;path&gt;</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Grant path access</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/reset</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Clear conversation history</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/active</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Show current active model</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/models</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">List all available presets</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/exit</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">End the session</td></tr>
     </table>
     <p style="margin-top:16px;font-size:12px;color:#484f58">For full documentation, see the README or visit the GitHub repository.</p>
   </div>
@@ -140,6 +190,13 @@ const safeModeBtn = document.getElementById('safe-mode-btn');
 const safeStatus = document.getElementById('safe-status');
 const allowInput = document.getElementById('allow-input');
 const allowBtn = document.getElementById('allow-btn');
+const sessionsBtn = document.getElementById('sessions-btn');
+const sessionPanel = document.getElementById('session-panel');
+const sessionOverlay = document.getElementById('session-overlay');
+const sessionListEl = document.getElementById('session-list');
+const newSessionBtn = document.getElementById('new-session-btn');
+
+let sessionList = [];
 
 async function populateModels() {
   const res = await fetch('/api/models');
@@ -163,6 +220,7 @@ async function init() {
   const data = await res.json();
   sessionId = data.sessionId;
   await populateModels();
+  await refreshSessionList();
 
   const [activeRes, safeRes] = await Promise.all([
     fetch(`/api/active/${sessionId}`),
@@ -203,10 +261,89 @@ function updateLastMessage(role, html) {
   }
 }
 
+async function handleCommand(msg) {
+  const lower = msg.toLowerCase();
+  if (lower === '/exit') {
+    addMessage('assistant', 'Session ended. Close the tab or start a new session.');
+    return true;
+  }
+  if (lower === '/active') {
+    const res = await fetch(`/api/active/${sessionId}`);
+    if (res.ok) {
+      const d = await res.json();
+      addMessage('assistant', `Active: <strong>${escapeHtml(d.provider)} — ${escapeHtml(d.model)}</strong>`);
+    }
+    return true;
+  }
+  if (lower === '/safe') {
+    safeModeOn = !safeModeOn;
+    await fetch('/api/safe-mode', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: safeModeOn }),
+    });
+    updateSafeUI();
+    addMessage('assistant', `🛡️ Safe mode ${safeModeOn ? 'enabled' : 'disabled'}`);
+    return true;
+  }
+  if (lower === '/reset') {
+    if (!confirm('Reset conversation?')) return true;
+    await fetch(`/api/reset/${sessionId}`, { method: 'POST' });
+    chat.innerHTML = '';
+    status.textContent = 'Conversation reset';
+    addMessage('assistant', '🔄 Conversation cleared. Start fresh!');
+    return true;
+  }
+  if (lower === '/models') {
+    const res = await fetch('/api/models');
+    if (!res.ok) return true;
+    const items = await res.json();
+    let text = 'Available presets:<br>';
+    for (const m of items)
+      if (m.type === 'preset')
+        text += `  ${escapeHtml(m.id)}: ${escapeHtml(m.provider)} — ${escapeHtml(m.model)}<br>`;
+    addMessage('assistant', text);
+    return true;
+  }
+  const mm = msg.match(/^\/model\s+(\d+)$/i);
+  if (mm) {
+    const res = await fetch(`/api/model/${sessionId}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ presetId: mm[1] }),
+    });
+    if (res.ok) {
+      const activeRes = await fetch(`/api/active/${sessionId}`);
+      const active = await activeRes.json();
+      const mt = `${active.provider} / ${active.model}`;
+      modelInfo.textContent = mt;
+      document.getElementById('model-badge').textContent = `🧠 ${mt}`;
+      addMessage('assistant', `🔄 Switched to <strong>${active.provider} — ${active.model}</strong>`);
+    } else {
+      const err = await res.text().catch(() => 'Preset not found');
+      addMessage('error', `⚠️ ${escapeHtml(err)}`);
+    }
+    return true;
+  }
+  const am = msg.match(/^\/allow\s+(.+)$/i);
+  if (am) {
+    const p = am[1].trim().replace(/^"(.*)"$/, '$1');
+    await fetch('/api/allow', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: p }),
+    });
+    addMessage('assistant', `📁 Path allowed: <code>${escapeHtml(p)}</code>`);
+    return true;
+  }
+  return false;
+}
+
 async function sendMessage() {
   const msg = input.value.trim();
   if (!msg || isStreaming) return;
   input.value = '';
+  if (msg.startsWith('/') && await handleCommand(msg)) {
+    input.focus();
+    return;
+  }
   isStreaming = true;
   sendBtn.disabled = true;
   status.textContent = 'Processing...';
@@ -262,6 +399,12 @@ async function sendMessage() {
             case 'tool_result':
               updateLastMessage('tool', `<span class="tool-name">✅ ${escapeHtml(parsed.name)}</span><br><span class="tool-result">${escapeHtml(parsed.content.slice(0, 300))}${parsed.content.length > 300 ? '...' : ''}</span>`);
               break;
+            case 'diff':
+              console.log('🔍 diff event received:', parsed.path, parsed.before?.length, parsed.after?.length);
+              try {
+                addMessage('diff', renderDiff(parsed.path, parsed.before, parsed.after));
+              } catch (e) { console.error('❌ renderDiff failed:', e); }
+              break;
             case 'model':
               modelInfo.textContent = parsed.model;
               document.getElementById('model-badge').textContent = `🧠 ${parsed.model}`;
@@ -297,6 +440,7 @@ async function sendMessage() {
 
 function streamDone() {
   isStreaming = false; sendBtn.disabled = false; status.textContent = 'Ready'; input.focus();
+  refreshSessionList();
 }
 
 function escapeHtml(text) {
@@ -325,6 +469,107 @@ function copyCode(btn, id) {
   }).catch(() => {
     btn.textContent = 'Failed';
   });
+}
+
+// --- Diff Viewer ---
+function computeDiff(before, after) {
+  const aLines = before.split('\n');
+  const bLines = after.split('\n');
+  const m = aLines.length, n = bLines.length;
+  const dp = Array.from({ length: m + 1 }, () => new Uint16Array(n + 1));
+  for (let i = 1; i <= m; i++)
+    for (let j = 1; j <= n; j++)
+      dp[i][j] = aLines[i - 1] === bLines[j - 1] ? dp[i - 1][j - 1] + 1 : Math.max(dp[i - 1][j], dp[i][j - 1]);
+  const result = [];
+  let i = m, j = n;
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && aLines[i - 1] === bLines[j - 1]) {
+      result.unshift({ type: 'same', line: aLines[i - 1] });
+      i--; j--;
+    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      result.unshift({ type: 'add', line: bLines[j - 1] });
+      j--;
+    } else {
+      result.unshift({ type: 'remove', line: aLines[i - 1] });
+      i--;
+    }
+  }
+  return result;
+}
+
+function renderDiff(path, before, after) {
+  const maxLines = 300;
+  const diff = computeDiff(before, after);
+  const addCount = diff.filter(d => d.type === 'add').length;
+  const remCount = diff.filter(d => d.type === 'remove').length;
+  let addIdx = 0, remIdx = 0, sameIdx = 0;
+  let body = diff.slice(0, maxLines).map(d => {
+    if (d.type === 'add') { addIdx++; return `<div class="diff-line add"><span class="ln">${addIdx}</span><span class="sign">+</span><span class="code">${escapeHtml(d.line)}</span></div>`; }
+    if (d.type === 'remove') { remIdx++; return `<div class="diff-line remove"><span class="ln">${remIdx}</span><span class="sign">-</span><span class="code">${escapeHtml(d.line)}</span></div>`; }
+    sameIdx++;
+    if (sameIdx <= 3) return `<div class="diff-line same"><span class="ln"></span><span class="sign"></span><span class="code">${escapeHtml(d.line)}</span></div>`;
+    return null;
+  }).filter(Boolean).join('');
+  if (diff.length > maxLines) body += `<div class="diff-line same"><span class="ln"></span><span class="sign"></span><span class="code">… ${diff.length - maxLines} more lines</span></div>`;
+  const stats = `<span class="added">+${addCount}</span><span class="removed">-${remCount}</span>`;
+  return `<div class="diff"><div class="diff-header">📄 <span class="file-path">${escapeHtml(path)}</span> ${stats}</div><div class="diff-body">${body}</div></div>`;
+}
+
+// --- Session Manager ---
+async function refreshSessionList() {
+  try {
+    const res = await fetch('/api/sessions');
+    if (!res.ok) return;
+    sessionList = await res.json();
+    if (!sessionListEl) return;
+    let html = '';
+    for (const s of sessionList) {
+      const active = s.id === sessionId ? ' active' : '';
+      const title = escapeHtml(s.title || 'Session');
+      const model = escapeHtml(s.modelLabel || '');
+      const time = new Date(s.createdAt).toLocaleString();
+      html += `<div class="session-item${active}" data-id="${s.id}">
+        <div class="s-title">${title}</div>
+        <div class="s-meta"><span class="s-model">${model}</span><span>${s.messageCount} msgs</span><span>${time}</span></div>
+      </div>`;
+    }
+    sessionListEl.innerHTML = html || '<div style="padding:16px;color:#8b949e;font-size:13px">No sessions</div>';
+    sessionListEl.querySelectorAll('.session-item').forEach(el => {
+      el.addEventListener('click', () => switchToSession(el.dataset.id));
+    });
+  } catch {}
+}
+
+async function switchToSession(id) {
+  if (id === sessionId) return;
+  if (isStreaming) return;
+  try {
+    const res = await fetch(`/api/sessions/${id}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    sessionId = id;
+    chat.innerHTML = '';
+    // Render existing messages
+    for (const m of data.messages) {
+      if (m.role === 'user') {
+        addMessage('user', `${escapeHtml(m.content || '')}<div class="timestamp">${new Date().toLocaleTimeString()}</div>`);
+      } else if (m.role === 'assistant') {
+        addMessage('assistant', renderContent(m.content || '') || '✅ Done');
+        if (m.tool_calls && m.tool_calls.length) {
+          const tc = m.tool_calls[0];
+          addMessage('tool', `<span class="tool-name">🔧 ${escapeHtml(tc.function.name)}</span><br><span class="cmd">${escapeHtml(tc.function.arguments)}</span>`);
+        }
+      } else if (m.role === 'tool') {
+        updateLastMessage('tool', `<span class="tool-name">✅ ${escapeHtml(m.name || 'tool')}</span><br><span class="tool-result">${escapeHtml((m.content || '').slice(0, 300))}${(m.content || '').length > 300 ? '...' : ''}</span>`);
+      }
+    }
+    status.textContent = `Switched to session`;
+    if (data.modelLabel) {
+      modelInfo.textContent = data.modelLabel;
+      document.getElementById('model-badge').textContent = `🧠 ${data.modelLabel}`;
+    }
+    await refreshSessionList();
+  } catch {}
 }
 
   // Help modal
@@ -425,6 +670,34 @@ allowBtn.addEventListener('click', async () => {
 
 allowInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') allowBtn.click();
+});
+
+function toggleSessionPanel(show) {
+  sessionPanel.classList.toggle('hidden', !show);
+  sessionOverlay.style.display = show ? 'block' : 'none';
+}
+
+sessionsBtn.addEventListener('click', () => {
+  toggleSessionPanel(sessionPanel.classList.contains('hidden'));
+  refreshSessionList();
+});
+
+sessionOverlay.addEventListener('click', () => toggleSessionPanel(false));
+
+newSessionBtn.addEventListener('click', async () => {
+  toggleSessionPanel(false);
+  const res = await fetch('/api/session', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({title:'New Session'}) });
+  if (!res.ok) return;
+  const data = await res.json();
+  sessionId = data.sessionId;
+  chat.innerHTML = '';
+  await populateModels();
+  await refreshSessionList();
+  const activeRes = await fetch(`/api/active/${sessionId}`);
+  const active = await activeRes.json();
+  const modelText = `${active.provider} / ${active.model}`;
+  modelInfo.textContent = modelText;
+  document.getElementById('model-badge').textContent = `🧠 ${modelText}`;
 });
 
 init();

@@ -108,6 +108,13 @@ npm run web
 
 Web arayüzü, terminal ile aynı özellikleri destekler — akış yanıtları, araç çağrıları, model değiştirme (8 sağlayıcı + kullanıcı ön ayarları), güvenli mod geçişi, izin yolu ve konuşma sıfırlama. Bağımsız oturumlarla birden çok tarayıcı sekmesi desteklenir. CLI ve Web aynı model yapılandırmasını (`src/config/models.ts`) ve araç motorunu (`fileManager.ts`) paylaşır.
 
+**v1.10'da yeni — Web arayüzü iyileştirmeleri:**
+- **Diff Görüntüleyici** — dosya yazma, değiştirme veya ekleme işlemlerinde satır satır farklar (yeşil + / kırmızı -) gösterilir.
+- **Oturum Yöneticisi** — oturum oluşturma, değiştirme; ilk mesajdan otomatik başlık, model ve mesaj sayısı gösterimi.
+- **Eğik Çizgi Komutları** — `/active`, `/model 2`, `/safe`, `/allow`, `/reset`, `/models`, `/exit` web girişinde.
+- **Yardım Modalı** — `?` butonu ile kullanım kılavuzu, model değiştirme, komut referansı ve diff görüntüleyici açıklaması.
+- **SSE akışı** — `fetch` + `ReadableStream` kullanımı (`EventSource` bağımlılığı yok).
+
 Web sunucusu ayrıca `http://localhost:3000/v1/chat/completions` adresinde bir **OpenAI-uyumlu API** sunar; böylece herhangi bir OpenAI-uyumlu istemci (Cline, Continue.dev, Cursor vb.), otomatik geçiş desteğiyle tek bir uç nokta üzerinden yapılandırdığınız sağlayıcıları kullanabilir.
 
 IDE'nizi otomatik yapılandırın:
@@ -501,7 +508,7 @@ coding-agent-free/
 └── run-web.bat                 # Web arayüzü başlatıcı (Windows)
 ```
 
-> 📝 Testleri çalıştırın: `npm run test:unit` (129 birim testi) — `npm run test:integration` (26 sağlayıcı entegrasyon testi) — `npm test` (35 entegrasyon testi)
+> 📝 Testleri çalıştırın: `npm run test:unit` (137 birim testi) — `npm run test:integration` (26 sağlayıcı entegrasyon testi) — `npm test` (35 entegrasyon testi)
 
 ## Ortam Değişkenleri
 

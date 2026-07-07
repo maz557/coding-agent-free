@@ -108,6 +108,13 @@ npm run web
 
 The web UI supports the same features as the terminal — streaming responses, tool calls, model switching (all 8 providers + user presets), safe mode toggle, allow path, and conversation reset. Multiple browser tabs are supported with independent sessions. CLI and Web share the same model configuration (`src/config/models.ts`) and tool engine (`fileManager.ts`).
 
+**New in v1.10 — Web UI enhancements:**
+- **Diff Viewer** — when a file is written, replaced, or appended, the UI shows a side-by-side line-level diff (green + / red –) so you can see exactly what changed.
+- **Session Manager** — create multiple sessions, switch between them, see auto-generated titles from the first message, model used, and message count.
+- **Slash Commands** — type `/active`, `/model 2`, `/safe`, `/allow "C:\path"`, `/reset`, `/models`, `/exit` directly in the web input.
+- **Help Modal** — click the `?` button for a complete usage guide including model switching, commands reference, and diff viewer explanation.
+- **SSE streaming** — uses `fetch` + `ReadableStream` (no `EventSource` dependency) for reliable streaming.
+
 The web server also exposes an **OpenAI-compatible API** at `http://localhost:3000/v1/chat/completions`, so any OpenAI-compatible client (Cline, Continue.dev, Cursor, etc.) can use your configured providers through a single endpoint with auto-fallback support.
 
 Configure your IDE automatically:
@@ -192,6 +199,10 @@ The agent reads the relevant file, analyzes the code, suggests and applies a fix
 - **Tool output truncation** — all tool results capped at 5000 chars (`MAX_TOOL_RESULT_LENGTH`) to keep context clean
 - **Conversation persistence** — auto-save/restore sessions across restarts
 - **Structured logging** — via `pino` (stderr, doesn't interfere with UI)
+- **Diff Viewer (Web UI)** — line-level LCS diffs for `write_file`, `replace_in_file`, `append_file`
+- **Session Manager (Web UI)** — create/switch/list sessions with auto-title & metadata
+- **Slash Commands (Web UI)** — `/active`, `/model <n>`, `/safe`, `/allow`, `/reset`, `/models`, `/exit`
+- **Help Modal (Web UI)** — usage guide, commands reference, diff viewer explanation
 
 ## Available Tools
 
@@ -463,7 +474,7 @@ coding-agent-free/
 │   ├── tokenEstimator.ts       # Token estimation (length/4)
 │   ├── types.ts                # Shared type definitions (ChatMessage, ToolCall, etc.)
 │   ├── validation.ts           # Zod schemas for tool input/output
-│   ├── server.ts               # Express web server (SSE streaming)
+│   ├── server.ts               # Express web server (SSE streaming, session management, auto-title)
 │   ├── config/
 │   │   └── models.ts           # Provider definitions, presets, system prompt
 │   ├── tools/
@@ -475,7 +486,7 @@ coding-agent-free/
 │       ├── loadProjectContext.test.ts  # 7 tests: file lookup, walk, edge cases
 │       ├── fileManager.test.ts        # 26 tests: all 13 tools + safe mode
 │       ├── agent.test.ts              # 24 tests: CLI commands, regex parsing, createClient
-│       └── server.test.ts             # 21 tests: API endpoints, session, safe-mode, proxy
+│       └── server.test.ts             # 30 tests: API endpoints, session, safe-mode, proxy, diff events
 ├── .github/
 │   └── workflows/
 │       └── ci.yml              # CI: type check + tests on push/PR
@@ -503,7 +514,7 @@ coding-agent-free/
 └── run-web.bat                 # Web UI launcher (Windows)
 ```
 
-> 📝 Run tests: `npm run test:unit` (129 unit tests) — `npm run test:integration` (26 provider tests) — `npm test` (35 integration tests)
+> 📝 Run tests: `npm run test:unit` (137 unit tests) — `npm run test:integration` (26 provider tests) — `npm test` (35 integration tests)
 
 ## Environment Variables
 
