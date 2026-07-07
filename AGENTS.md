@@ -13,7 +13,8 @@ This is the Coding Agent Free project itself.
 - `scripts/setup.js` — interactive setup wizard
 
 ## Tests
-- `npm run test:unit` — 84 unit tests (5 files: ConversationState, comprehensive, CodingAgent, loadProjectContext, fileManager)
+- `npm run test:unit` — 129 unit tests (7 files: ConversationState, comprehensive, CodingAgent, loadProjectContext, fileManager, agent, server)
+- `npm run test:integration` — 26 provider integration tests
 - `npm test` — 35 integration tests
 - CI: `.github/workflows/ci.yml` runs all tests on push/PR
 
