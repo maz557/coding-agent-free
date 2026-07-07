@@ -32,9 +32,15 @@ export class LSPClient {
 
   async start(): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.process = spawn(this.command, this.args, {
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
+      const trySpawn = (useShell: boolean) => {
+        if (useShell) {
+          const cmd = [this.command, ...this.args].map(a => a.includes(' ') ? `"${a}"` : a).join(' ');
+          return spawn(cmd, [], { stdio: ['pipe', 'pipe', 'pipe'], shell: true });
+        }
+        return spawn(this.command, this.args, { stdio: ['pipe', 'pipe', 'pipe'] });
+      };
+
+      this.process = trySpawn(false);
 
       let initialized = false;
 
@@ -43,7 +49,24 @@ export class LSPClient {
         this.processBuffer();
       });
 
-      this.process.on('error', (err) => reject(err));
+      this.process.on('error', (err: any) => {
+        if (process.platform === 'win32' && err.code === 'ENOENT' && !(this.process as any)?._shellFallback) {
+          (this.process as any)._shellFallback = true;
+          this.process!.kill();
+          this.process = trySpawn(true);
+          (this.process as any)._shellFallback = true;
+          this.process.stdout!.on('data', (data: Buffer) => {
+            this.buffer += data.toString();
+            this.processBuffer();
+          });
+          this.process.on('error', reject);
+          this.process.on('close', () => {
+            if (!initialized) reject(new Error(`LSP server exited: ${this.command}`));
+          });
+          return;
+        }
+        reject(err);
+      });
       this.process.on('close', () => {
         if (!initialized) reject(new Error(`LSP server exited: ${this.command}`));
       });
