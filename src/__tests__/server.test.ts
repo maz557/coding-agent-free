@@ -1,8 +1,9 @@
-import { describe, it, afterEach, beforeEach } from 'node:test';
+import { describe, it, afterEach, beforeEach, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 
 const BASE = 'http://localhost:0';
+const ORIGINAL_ENV = { ...process.env };
 
 let server: http.Server;
 let baseUrl: string;
@@ -36,6 +37,15 @@ function fetchJson(url: string, opts?: RequestInit): Promise<any> {
 let sessionId = '';
 
 describe('server API', () => {
+  before(() => {
+    process.env.OPENROUTER_API_KEY = 'sk-or-v1-test';
+    process.env.GOOGLE_API_KEY = 'AIza-test';
+  });
+  after(() => {
+    process.env.OPENROUTER_API_KEY = ORIGINAL_ENV.OPENROUTER_API_KEY;
+    process.env.GOOGLE_API_KEY = ORIGINAL_ENV.GOOGLE_API_KEY;
+  });
+
   beforeEach(async () => {
     process.env.NODE_ENV = 'test';
     const started = await startServer();

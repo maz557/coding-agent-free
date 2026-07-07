@@ -1,8 +1,19 @@
-import { describe, it } from 'node:test';
+import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+
+const ORIGINAL_ENV = { ...process.env };
 
 describe('agent CLI', () => {
   describe('createClient', () => {
+    before(() => {
+      process.env.OPENROUTER_API_KEY = 'sk-or-v1-test';
+      process.env.GOOGLE_API_KEY = 'AIza-test';
+    });
+    after(() => {
+      process.env.OPENROUTER_API_KEY = ORIGINAL_ENV.OPENROUTER_API_KEY;
+      process.env.GOOGLE_API_KEY = ORIGINAL_ENV.GOOGLE_API_KEY;
+    });
+
     it('should create openrouter client with correct baseURL', () => {
       const { createClient } = require('../agent');
       const client = createClient('openrouter');
