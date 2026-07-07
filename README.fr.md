@@ -469,7 +469,12 @@ coding-agent-free/
 │   │   └── fileManager.ts      # 13 outils + mode sécurisé + restrictions d'espace de travail
 │   └── __tests__/              # Tests unitaires
 │       ├── ConversationState.test.ts  # 9 tests : trim, removeLastAssistantTurn, etc.
-│       └── comprehensive.test.ts      # 30 tests : tous les modules + intégration
+│       ├── comprehensive.test.ts      # 30 tests : tous les modules + intégration
+│       ├── CodingAgent.test.ts        # 11 tests : exécution, blocage, tentative, erreurs
+│       ├── loadProjectContext.test.ts  # 7 tests : recherche fichier, navigation, cas limites
+│       ├── fileManager.test.ts        # 26 tests : tous les 13 outils + mode sécurisé
+│       ├── agent.test.ts              # 24 tests : commandes CLI, analyse regex, createClient
+│       └── server.test.ts             # 21 tests : points d'accès API, session, safe-mode, proxy
 ├── .github/
 │   └── workflows/
 │       └── ci.yml              # CI : vérification de types + tests sur push/PR
@@ -477,6 +482,7 @@ coding-agent-free/
 │   ├── check_models.js         # Liste les modèles gratuits OpenRouter avec support d'outils
 │   ├── cleanup.js              # Tue les processus obsolètes sur le port 3000
 │   ├── comprehensive-test.js   # 35 tests d'intégration (npm test)
+│   ├── provider-integration-test.ts  # 26 tests d'intégration fournisseur (npm run test:integration)
 │   ├── setup.js                # Assistant de configuration interactif (npm run setup)
 │   ├── setup-ide.js            # Configure les IDE pour utiliser le proxy API local
 │   ├── test.js                 # Test CLI non interactif
@@ -495,7 +501,7 @@ coding-agent-free/
 └── run-web.bat                 # Lanceur interface Web (Windows)
 ```
 
-> 📝 Exécutez les tests : `npm run test:unit` (39 tests unitaires) — `npm test` (35 tests d'intégration)
+> 📝 Exécutez les tests : `npm run test:unit` (129 tests unitaires) — `npm run test:integration` (26 tests d'intégration fournisseur) — `npm test` (35 tests d'intégration)
 
 ## Variables d'environnement
 

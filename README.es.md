@@ -469,7 +469,12 @@ coding-agent-free/
 │   │   └── fileManager.ts      # 13 herramientas + modo seguro + restricciones del espacio de trabajo
 │   └── __tests__/              # Pruebas unitarias
 │       ├── ConversationState.test.ts  # 9 pruebas: trim, removeLastAssistantTurn, etc.
-│       └── comprehensive.test.ts      # 30 pruebas: todos los módulos + integración
+│       ├── comprehensive.test.ts      # 30 pruebas: todos los módulos + integración
+│       ├── CodingAgent.test.ts        # 11 pruebas: ejecución, atasco, reintento, errores
+│       ├── loadProjectContext.test.ts  # 7 pruebas: búsqueda de archivos, navegación, casos límite
+│       ├── fileManager.test.ts        # 26 pruebas: todas las 13 herramientas + modo seguro
+│       ├── agent.test.ts              # 24 pruebas: comandos CLI, análisis regex, createClient
+│       └── server.test.ts             # 21 pruebas: endpoints API, session, safe-mode, proxy
 ├── .github/
 │   └── workflows/
 │       └── ci.yml              # CI: verificación de tipos + pruebas en push/PR
@@ -477,6 +482,7 @@ coding-agent-free/
 │   ├── check_models.js         # Lista modelos gratuitos de OpenRouter con soporte de herramientas
 │   ├── cleanup.js              # Elimina procesos estancados en el puerto 3000
 │   ├── comprehensive-test.js   # 35 pruebas de integración (npm test)
+│   ├── provider-integration-test.ts  # 26 pruebas de integración de proveedores (npm run test:integration)
 │   ├── setup.js                # Asistente de configuración interactivo (npm run setup)
 │   ├── setup-ide.js            # Configura IDEs para usar el proxy API local
 │   ├── test.js                 # Prueba de humo CLI no interactiva
@@ -495,7 +501,7 @@ coding-agent-free/
 └── run-web.bat                 # Lanzador Web UI (Windows)
 ```
 
-> 📝 Ejecuta pruebas: `npm run test:unit` (39 pruebas unitarias) — `npm test` (35 pruebas de integración)
+> 📝 Ejecuta pruebas: `npm run test:unit` (129 pruebas unitarias) — `npm run test:integration` (26 pruebas de integración de proveedores) — `npm test` (35 pruebas de integración)
 
 ## Variables de Entorno
 

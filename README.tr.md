@@ -469,7 +469,12 @@ coding-agent-free/
 │   │   └── fileManager.ts      # 13 araç + güvenli mod + çalışma alanı kısıtlamaları
 │   └── __tests__/              # Birim testleri
 │       ├── ConversationState.test.ts  # 9 test: kırp, sonAsistanAdımınıKaldır vb.
-│       └── comprehensive.test.ts      # 30 test: tüm modüller + entegrasyon
+│       ├── comprehensive.test.ts      # 30 test: tüm modüller + entegrasyon
+│       ├── CodingAgent.test.ts        # 11 test: yürütme, takılma, yeniden deneme, hatalar
+│       ├── loadProjectContext.test.ts  # 7 test: dosya arama, gezinme, uç durumlar
+│       ├── fileManager.test.ts        # 26 test: 13 aracın tümü + güvenli mod
+│       ├── agent.test.ts              # 24 test: CLI komutları, regex ayrıştırma, createClient
+│       └── server.test.ts             # 21 test: API uç noktaları, oturum, güvenli mod, proxy
 ├── .github/
 │   └── workflows/
 │       └── ci.yml              # CI: push/PR'de tip kontrolü + testler
@@ -477,6 +482,7 @@ coding-agent-free/
 │   ├── check_models.js         # Araç desteği olan ücretsiz OpenRouter modellerini listele
 │   ├── cleanup.js              # 3000 portundaki eski süreçleri öldür
 │   ├── comprehensive-test.js   # 35 entegrasyon testi (npm test)
+│   ├── provider-integration-test.ts  # 26 sağlayıcı entegrasyon testi (npm run test:integration)
 │   ├── setup.js                # İnteraktif kurulum sihirbazı (npm run setup)
 │   ├── setup-ide.js            # IDE'leri yerel API proxy'sini kullanacak şekilde yapılandır
 │   ├── test.js                 # Etkileşimsiz CLI duman testi
@@ -495,7 +501,7 @@ coding-agent-free/
 └── run-web.bat                 # Web arayüzü başlatıcı (Windows)
 ```
 
-> 📝 Testleri çalıştırın: `npm run test:unit` (39 birim testi) — `npm test` (35 entegrasyon testi)
+> 📝 Testleri çalıştırın: `npm run test:unit` (129 birim testi) — `npm run test:integration` (26 sağlayıcı entegrasyon testi) — `npm test` (35 entegrasyon testi)
 
 ## Ortam Değişkenleri
 

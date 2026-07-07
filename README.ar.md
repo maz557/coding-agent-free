@@ -470,7 +470,12 @@ coding-agent-free/
 │   │   └── fileManager.ts      # 13 أداة + الوضع الآمن + قيود مساحة العمل
 │   └── __tests__/              # اختبارات الوحدة
 │       ├── ConversationState.test.ts  # 9 اختبارات: تقليم، إزالة آخر دور مساعد، إلخ.
-│       └── comprehensive.test.ts      # 30 اختبارًا: جميع الوحدات + التكامل
+│       ├── comprehensive.test.ts      # 30 اختبارًا: جميع الوحدات + التكامل
+│       ├── CodingAgent.test.ts        # 11 اختبارًا: التنفيذ، التعليق، إعادة المحاولة، الأخطاء
+│       ├── loadProjectContext.test.ts  # 7 اختبارات: البحث عن الملفات، التصفح، الحالات الحدية
+│       ├── fileManager.test.ts        # 26 اختبارًا: جميع الأدوات 13 + الوضع الآمن
+│       ├── agent.test.ts              # 24 اختبارًا: أوامر CLI، تحليل regex، createClient
+│       └── server.test.ts             # 21 اختبارًا: نقاط نهاية API، session، safe-mode، proxy
 ├── .github/
 │   └── workflows/
 │       └── ci.yml              # CI: فحص الأنواع + اختبارات عند الدفع/PR
@@ -478,6 +483,7 @@ coding-agent-free/
 │   ├── check_models.js         # سرد نماذج OpenRouter المجانية مع دعم الأدوات
 │   ├── cleanup.js              # قتل العمليات العالقة على المنفذ 3000
 │   ├── comprehensive-test.js   # 35 اختبار تكامل (npm test)
+│   ├── provider-integration-test.ts  # 26 اختبار تكامل مزود (npm run test:integration)
 │   ├── setup.js                # معالج الإعداد التفاعلي (npm run setup)
 │   ├── setup-ide.js            # تكوين بيئات التطوير لاستخدام وكيل API المحلي
 │   ├── test.js                 # اختبار دخان CLI غير تفاعلي
@@ -496,7 +502,7 @@ coding-agent-free/
 └── run-web.bat                 # مشغل واجهة الويب (ويندوز)
 ```
 
-> 📝 تشغيل الاختبارات: `npm run test:unit` (39 اختبار وحدة) — `npm test` (35 اختبار تكامل)
+> 📝 تشغيل الاختبارات: `npm run test:unit` (129 اختبار وحدة) — `npm run test:integration` (26 اختبار تكامل مزود) — `npm test` (35 اختبار تكامل)
 
 ## متغيرات البيئة
 

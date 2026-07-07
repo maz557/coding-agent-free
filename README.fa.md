@@ -469,7 +469,12 @@ coding-agent-free/
 │   │   └── fileManager.ts      # ۱۳ ابزار + حالت امن + محدودیت‌های فضای کاری
 │   └── __tests__/              # تست‌های واحد
 │       ├── ConversationState.test.ts  # ۹ تست: trim، removeLastAssistantTurn و غیره
-│       └── comprehensive.test.ts      # ۳۰ تست: همه ماژول‌ها + یکپارچگی
+│       ├── comprehensive.test.ts      # ۳۰ تست: همه ماژول‌ها + یکپارچگی
+│       ├── CodingAgent.test.ts        # ۱۱ تست: اجرا، گرفتگی، تلاش مجدد، خطاها
+│       ├── loadProjectContext.test.ts  # ۷ تست: جستجوی فایل، پیمایش، موارد مرزی
+│       ├── fileManager.test.ts        # ۲۶ تست: همه ۱۳ ابزار + حالت امن
+│       ├── agent.test.ts              # ۲۴ تست: دستورات CLI، parsing regex، createClient
+│       └── server.test.ts             # ۲۱ تست: نقاط پایانی API، session، safe-mode، proxy
 ├── .github/
 │   └── workflows/
 │       └── ci.yml              # CI: بررسی نوع + تست‌ها در push/PR
@@ -477,6 +482,7 @@ coding-agent-free/
 │   ├── check_models.js         # فهرست مدل‌های رایگان OpenRouter با پشتیبانی ابزار
 │   ├── cleanup.js              # کشتن فرآیندهای قدیمی روی پورت ۳۰۰۰
 │   ├── comprehensive-test.js   # ۳۵ تست یکپارچگی (npm test)
+│   ├── provider-integration-test.ts  # ۲۶ تست یکپارچگی تامین‌کننده (npm run test:integration)
 │   ├── setup.js                # ویزارد راه‌اندازی تعاملی (npm run setup)
 │   ├── setup-ide.js            # پیکربندی IDEها برای استفاده از پروکسی API محلی
 │   ├── test.js                 # تست دود CLI غیرتعاملی
@@ -495,7 +501,7 @@ coding-agent-free/
 └── run-web.bat                 # راه‌انداز رابط وب (ویندوز)
 ```
 
-> 📝 اجرای تست‌ها: `npm run test:unit` (۳۹ تست واحد) — `npm test` (۳۵ تست یکپارچگی)
+> 📝 اجرای تست‌ها: `npm run test:unit` (۱۲۹ تست واحد) — `npm run test:integration` (۲۶ تست یکپارچگی تامین‌کننده) — `npm test` (۳۵ تست یکپارچگی)
 
 ## متغیرهای محیطی
 

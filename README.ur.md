@@ -470,7 +470,12 @@ coding-agent-free/
 │   │   └── fileManager.ts      # 13 ٹولز + سیف موڈ + ورک اسپیس پابندیاں
 │   └── __tests__/              # یونٹ ٹیسٹس
 │       ├── ConversationState.test.ts  # 9 ٹیسٹ: trim, removeLastAssistantTurn, وغیرہ
-│       └── comprehensive.test.ts      # 30 ٹیسٹ: تمام ماڈیولز + انٹیگریشن
+│       ├── comprehensive.test.ts      # 30 ٹیسٹ: تمام ماڈیولز + انٹیگریشن
+│       ├── CodingAgent.test.ts        # 11 ٹیسٹ: عملدرآمد، پھنسنا، دوبارہ کوشش، خرابیاں
+│       ├── loadProjectContext.test.ts  # 7 ٹیسٹ: فائل تلاش، نیویگیشن، حدی کیسز
+│       ├── fileManager.test.ts        # 26 ٹیسٹ: تمام 13 ٹولز + سیف موڈ
+│       ├── agent.test.ts              # 24 ٹیسٹ: CLI کمانڈز، regex پارسنگ، createClient
+│       └── server.test.ts             # 21 ٹیسٹ: API اینڈپوائنٹس، سیشن، safe-mode، proxy
 ├── .github/
 │   └── workflows/
 │       └── ci.yml              # CI: ٹائپ چیک + ٹیسٹ push/PR پر
@@ -478,6 +483,7 @@ coding-agent-free/
 │   ├── check_models.js         # ٹول سپورٹ والے مفت OpenRouter ماڈلز دکھائیں
 │   ├── cleanup.js              # پورٹ 3000 پر پرانے پراسیسز ختم کریں
 │   ├── comprehensive-test.js   # 35 انٹیگریشن ٹیسٹس (npm test)
+│   ├── provider-integration-test.ts  # 26 پرووائیڈر انٹیگریشن ٹیسٹ (npm run test:integration)
 │   ├── setup.js                # انٹرایکٹو سیٹ اپ وزرڈ (npm run setup)
 │   ├── setup-ide.js            # IDEs کو مقامی API پراکسی استعمال کرنے کے لیے کنفیگر کریں
 │   ├── test.js                 # غیر انٹرایکٹو CLI سموک ٹیسٹ
@@ -496,7 +502,7 @@ coding-agent-free/
 └── run-web.bat                 # ویب UI لانچر (Windows)
 ```
 
-> 📝 ٹیسٹ چلائیں: `npm run test:unit` (39 یونٹ ٹیسٹ) — `npm test` (35 انٹیگریشن ٹیسٹ)
+> 📝 ٹیسٹ چلائیں: `npm run test:unit` (129 یونٹ ٹیسٹ) — `npm run test:integration` (26 پرووائیڈر انٹیگریشن ٹیسٹ) — `npm test` (35 انٹیگریشن ٹیسٹ)
 
 ## ماحولی متغیرات
 
