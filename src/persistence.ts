@@ -1,4 +1,5 @@
 import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
 import * as path from 'path';
 import pino from 'pino';
 import pinoPretty from 'pino-pretty';
@@ -11,8 +12,20 @@ const logger = pino(
   pinoPretty({ destination: 2, sync: true })
 );
 
+const SESSIONS_DIR = path.join(__dirname, '..', 'sessions');
 const PRESETS_FILE = path.join(__dirname, '..', 'presets.json');
-const CONVERSATION_FILE = path.join(__dirname, '..', 'conversation.json');
+
+function sessionsDir(): string {
+  const dir = process.env.SESSIONS_DIR || SESSIONS_DIR;
+  return dir;
+}
+
+async function ensureSessionsDir(): Promise<void> {
+  const dir = sessionsDir();
+  try {
+    await fs.mkdir(dir, { recursive: true });
+  } catch { /* exists */ }
+}
 
 const chatMessageSchema: z.ZodType<ChatMessage> = z.lazy(() =>
   z.union([
@@ -32,8 +45,11 @@ const chatMessageSchema: z.ZodType<ChatMessage> = z.lazy(() =>
   ])
 );
 
-const savedSessionSchema = z.object({
-  messages: z.array(chatMessageSchema),
+const sessionMetaSchema = z.object({
+  name: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  messageCount: z.number(),
   modelPreset: z.object({
     provider: z.string(),
     primary: z.string(),
@@ -42,51 +58,167 @@ const savedSessionSchema = z.object({
   }).nullable(),
 });
 
-export interface SavedSession {
+export interface SessionMeta {
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  messageCount: number;
+  modelPreset: ModelPreset | null;
+}
+
+export interface SessionData {
   messages: ChatMessage[];
-  modelPreset: {
-    provider: string;
-    primary: string;
-    fallbacks: string[];
-    contextWindow?: number;
-  } | null;
+  meta: SessionMeta;
 }
 
-export async function saveConversation(messages: ReadonlyArray<ChatMessage>, modelPreset?: ModelPreset): Promise<void> {
+export async function listSessions(): Promise<SessionMeta[]> {
+  await ensureSessionsDir();
+  const dir = sessionsDir();
+  const results: SessionMeta[] = [];
   try {
-    const session: SavedSession = { messages: messages as ChatMessage[], modelPreset: modelPreset ?? null };
-    await fs.writeFile(CONVERSATION_FILE, JSON.stringify(session, null, 2), 'utf-8');
-  } catch (err) {
-    logger.error({ err }, 'Failed to save conversation');
-  }
+    const entries = await fs.readdir(dir);
+    for (const entry of entries) {
+      if (!entry.endsWith('.json')) continue;
+      const name = entry.slice(0, -5);
+      try {
+        const meta = await getSessionMeta(name);
+        if (meta) results.push(meta);
+      } catch { /* skip corrupt */ }
+    }
+  } catch { /* empty */ }
+  return results.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
-export async function loadConversation(): Promise<SavedSession | null> {
+async function getSessionMeta(name: string): Promise<SessionMeta | null> {
+  const dir = sessionsDir();
+  const filePath = path.join(dir, `${name}.json`);
   try {
-    const data = await fs.readFile(CONVERSATION_FILE, 'utf-8');
+    const data = await fs.readFile(filePath, 'utf-8');
     const parsed = JSON.parse(data);
-    // Support legacy format (plain array of messages)
+    if (parsed.meta) {
+      const result = sessionMetaSchema.safeParse(parsed.meta);
+      if (result.success) return result.data;
+    }
+    // Legacy: no meta, create one
+    return {
+      name,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      messageCount: Array.isArray(parsed) ? parsed.length : 0,
+      modelPreset: null,
+    };
+  } catch { return null; }
+}
+
+function generateSessionName(messages: ReadonlyArray<ChatMessage>): string {
+  const firstUser = messages.find(m => m.role === 'user');
+  if (firstUser && typeof firstUser.content === 'string') {
+    const text = firstUser.content.trim();
+    return text.length > 40 ? text.slice(0, 40) + '...' : text;
+  }
+  return `Session ${new Date().toLocaleDateString()}`;
+}
+
+export async function saveSession(
+  name: string,
+  messages: ReadonlyArray<ChatMessage>,
+  modelPreset?: ModelPreset | null,
+): Promise<void> {
+  await ensureSessionsDir();
+  const dir = sessionsDir();
+  const existing = await getSessionMeta(name);
+  const meta: SessionMeta = {
+    name,
+    createdAt: existing?.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    messageCount: messages.length,
+    modelPreset: modelPreset !== undefined ? modelPreset : (existing?.modelPreset ?? null),
+  };
+
+  // Auto-title on first save
+  if (!existing && messages.length > 0) {
+    meta.name = generateSessionName(messages);
+  }
+
+  const data = { messages: messages as ChatMessage[], meta };
+  const filePath = path.join(dir, `${name}.json`);
+  await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8');
+}
+
+export async function loadSession(name: string): Promise<SessionData | null> {
+  const dir = sessionsDir();
+  const filePath = path.join(dir, `${name}.json`);
+  try {
+    const data = await fs.readFile(filePath, 'utf-8');
+    const parsed = JSON.parse(data);
+    if (parsed.meta) {
+      const metaResult = sessionMetaSchema.safeParse(parsed.meta);
+      if (!metaResult.success) {
+        // Fix meta
+        parsed.meta = {
+          name,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          messageCount: Array.isArray(parsed.messages) ? parsed.messages.length : 0,
+          modelPreset: null,
+        };
+      }
+      return parsed as SessionData;
+    }
+    // Legacy format: plain array of messages
+    if (Array.isArray(parsed)) {
+      return {
+        messages: parsed as ChatMessage[],
+        meta: {
+          name,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          messageCount: parsed.length,
+          modelPreset: null,
+        },
+      };
+    }
+    return null;
+  } catch { return null; }
+}
+
+export async function deleteSession(name: string): Promise<void> {
+  const dir = sessionsDir();
+  const filePath = path.join(dir, `${name}.json`);
+  try {
+    await fs.unlink(filePath);
+  } catch { /* not found */ }
+}
+
+export async function saveConversation(messages: ReadonlyArray<ChatMessage>, modelPreset?: ModelPreset | null): Promise<void> {
+  // If modelPreset is undefined, keep existing; if null, explicitly clear
+  await saveSession('default', messages, modelPreset);
+}
+
+export async function loadConversation(): Promise<{ messages: ChatMessage[]; modelPreset: ModelPreset | null } | null> {
+  // Try new format first
+  const data = await loadSession('default');
+  if (data) return { messages: data.messages, modelPreset: data.meta.modelPreset };
+
+  // Fallback: legacy conversation.json
+  const LEGACY_FILE = path.join(__dirname, '..', 'conversation.json');
+  try {
+    const raw = await fs.readFile(LEGACY_FILE, 'utf-8');
+    const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) {
       return { messages: parsed as ChatMessage[], modelPreset: null };
     }
-    const result = savedSessionSchema.safeParse(parsed);
-    if (!result.success) {
-      logger.warn({ errors: result.error.issues }, 'conversation.json validation failed, starting fresh');
-      return null;
+    if (parsed.messages) {
+      return { messages: parsed.messages as ChatMessage[], modelPreset: parsed.modelPreset ?? null };
     }
-    return result.data;
-  } catch (err: any) {
-    if (err?.code !== 'ENOENT') {
-      logger.warn({ err }, 'conversation.json corrupted, starting fresh');
-    }
-    return null;
-  }
+  } catch { /* not found or corrupt */ }
+  return null;
 }
 
 export async function clearConversation(): Promise<void> {
-  try {
-    await fs.unlink(CONVERSATION_FILE);
-  } catch { }
+  await deleteSession('default');
+  const LEGACY_FILE = path.join(__dirname, '..', 'conversation.json');
+  try { await fs.unlink(LEGACY_FILE); } catch { }
 }
 
 export async function loadUserPresets(): Promise<Record<string, ModelPreset>> {

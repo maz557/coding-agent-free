@@ -148,7 +148,7 @@ describe('persistence', () => {
     assert.equal(loaded.messages.length, 2);
     assert.equal(loaded.modelPreset?.primary, 'test-model');
 
-    await saveConversation(messages);
+    await saveConversation(messages, null);
     const loaded2 = await loadConversation();
     assert(loaded2);
     assert.equal(loaded2.modelPreset, null);

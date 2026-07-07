@@ -14,6 +14,7 @@ import { ChatMessage } from './types';
 import { CodingAgent } from './CodingAgent';
 import {
   saveConversation, loadConversation, clearConversation,
+  listSessions, loadSession, saveSession, deleteSession,
   loadUserPresets, saveUserPresets,
 } from './persistence';
 import { getAllPresets, showModels } from './commands';
@@ -103,6 +104,11 @@ async function startChat() {
   console.log('    /active      Show current active model');
     console.log('    /mcp list    Show connected MCP servers');
     console.log('    /mcp connect <name> <cmd>  Connect MCP server');
+    console.log('    /session list           List all sessions');
+    console.log('    /session <name>         Switch to a session (by name)');
+    console.log('    /session new <name>     Create a new session');
+    console.log('    /session rename <old> <new>  Rename a session');
+    console.log('    /session delete <name>  Delete a session');
     console.log('    /mcp disconnect <name>     Disconnect MCP server');
     console.log('    /mcp toggle  Enable/disable MCP tools');
     console.log('    /exit        Quit');
@@ -360,6 +366,86 @@ async function startChat() {
       agent = new CodingAgent(client, typedTools, activeModelConfig, systemPrompt);
       await clearConversation();
       console.log('\n🧹 Conversation cleared. Starting fresh.\n');
+      rl.prompt();
+      continue;
+    }
+
+    // Session management
+    const sessionCmd = input.match(/^\/session\s+(.+)$/i);
+    if (sessionCmd) {
+      const sub = sessionCmd[1].trim();
+      if (sub.toLowerCase() === 'list') {
+        const allSessions = await listSessions();
+        if (allSessions.length === 0) {
+          console.log('\n  No saved sessions.\n');
+        } else {
+          console.log('\n── Sessions ──────────────────────────────────');
+          for (const s of allSessions) {
+            const active = s.name === 'default' ? ' ← current' : '';
+            console.log(`  ${s.name} (${s.messageCount} msgs)${active}`);
+          }
+          console.log('──────────────────────────────────────────────\n');
+        }
+      } else if (sub.toLowerCase().startsWith('new ')) {
+        const name = sub.slice(4).trim();
+        if (!name) {
+          console.log('\n  Usage: /session new <name>\n');
+        } else {
+          await saveSession(name, []);
+          console.log(`\n✅ Session "${name}" created.\n`);
+        }
+      } else if (sub.toLowerCase().startsWith('rename ')) {
+        const rest = sub.slice(7).trim();
+        const spaceIdx = rest.indexOf(' ');
+        if (spaceIdx === -1) {
+          console.log('\n  Usage: /session rename <old> <new>\n');
+        } else {
+          const oldName = rest.slice(0, spaceIdx);
+          const newName = rest.slice(spaceIdx + 1).trim();
+          const data = await loadSession(oldName);
+          if (!data) {
+            console.log(`\n❌ Session "${oldName}" not found.\n`);
+          } else {
+            data.meta.name = newName;
+            await saveSession(newName, data.messages, data.meta.modelPreset ?? undefined);
+            await deleteSession(oldName);
+            if (oldName === 'default') {
+              // If we renamed default, save empty default
+              await saveSession('default', []);
+            }
+            console.log(`\n✅ Session "${oldName}" renamed to "${newName}".\n`);
+          }
+        }
+      } else if (sub.toLowerCase().startsWith('delete ')) {
+        const name = sub.slice(7).trim();
+        if (!name) {
+          console.log('\n  Usage: /session delete <name>\n');
+        } else {
+          await deleteSession(name);
+          console.log(`\n✅ Session "${name}" deleted.\n`);
+        }
+      } else {
+        // Assume it's a session name to switch to
+        const name = sub.trim();
+        const data = await loadSession(name);
+        if (!data) {
+          console.log(`\n❌ Session "${name}" not found.\n`);
+        } else {
+          // Save current session first
+          const currMessages = agent.getConversationMessages();
+          if (currMessages.length > 1) {
+            await saveSession('default', currMessages, activeModelConfig);
+          }
+          // Switch to new session
+          const prevMessages = data.messages;
+          agent = new CodingAgent(client, typedTools, activeModelConfig, systemPrompt, prevMessages as ChatMessage[]);
+          if (data.meta.modelPreset) {
+            activeModelConfig = { ...data.meta.modelPreset, fallbacks: data.meta.modelPreset.fallbacks ?? [] };
+            client = createClient(activeModelConfig.provider);
+          }
+          console.log(`\n✅ Switched to session "${name}" (${data.messages.length} msgs).\n`);
+        }
+      }
       rl.prompt();
       continue;
     }
