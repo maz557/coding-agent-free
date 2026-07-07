@@ -1,4 +1,5 @@
 import { StdioTransport } from './transport';
+import { HTTPTransport } from './HTTPTransport';
 import {
   Tool as MCPTool,
   InitializeResult,
@@ -6,17 +7,28 @@ import {
   CallToolResult,
   JSONRPCResponse,
   LATEST_PROTOCOL_VERSION,
+  Transport,
 } from './types';
 
-export interface MCPServerDefinition {
+export interface MCPServerStdioDefinition {
   command: string;
   args: string[];
   env?: Record<string, string>;
 }
 
+export interface MCPServerHTTPDefinition {
+  url: string;
+}
+
+export type MCPServerDefinition = MCPServerStdioDefinition | MCPServerHTTPDefinition;
+
+function isStdioDef(def: MCPServerDefinition): def is MCPServerStdioDefinition {
+  return 'command' in def;
+}
+
 interface ConnectedServer {
   name: string;
-  transport: StdioTransport;
+  transport: Transport;
   capabilities: InitializeResult;
   tools: MCPTool[];
 }
@@ -40,25 +52,26 @@ export class MCPManager {
       throw new Error(`MCP server "${name}" already connected`);
     }
 
-    const transport = new StdioTransport(def.command, def.args, def.env);
-    transport.onMessage = (msg) => {
-      const resp = msg as JSONRPCResponse;
-      if (resp.id !== undefined) {
-        // handled by request pattern
-      }
-    };
+    let transport: Transport;
+    if (isStdioDef(def)) {
+      const stdioTransport = new StdioTransport(def.command, def.args, def.env);
+      transport = stdioTransport;
+    } else {
+      const httpTransport = new HTTPTransport(def.url);
+      transport = httpTransport;
+    }
 
     await transport.start();
 
-    const result = await transport.request('initialize', {
+    const result = await (transport as any).request('initialize', {
       protocolVersion: LATEST_PROTOCOL_VERSION,
       capabilities: {},
       clientInfo: { name: 'coding-agent-free', version: '1.0.0' },
     }) as InitializeResult;
 
-    await transport.request('notifications/initialized', {});
+    await (transport as any).request('notifications/initialized', {});
 
-    const toolsResult = await transport.request('tools/list', {}) as ListToolsResult;
+    const toolsResult = await (transport as any).request('tools/list', {}) as ListToolsResult;
 
     const server: ConnectedServer = {
       name,
@@ -99,7 +112,7 @@ export class MCPManager {
     const server = this.servers.get(serverName);
     if (!server) throw new Error(`MCP server "${serverName}" not connected`);
 
-    const result = await server.transport.request('tools/call', {
+    const result = await (server.transport as any).request('tools/call', {
       name: toolName,
       arguments: args,
     }) as CallToolResult;
