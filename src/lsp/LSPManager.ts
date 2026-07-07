@@ -46,6 +46,18 @@ const DEFAULT_LSP_SERVERS: LSPServerConfig[] = [
     languageId: 'sql',
     filePatterns: ['**/*.sql'],
   },
+  {
+    command: 'clangd',
+    args: [],
+    languageId: 'c',
+    filePatterns: ['**/*.c', '**/*.h'],
+  },
+  {
+    command: 'clangd',
+    args: [],
+    languageId: 'cpp',
+    filePatterns: ['**/*.cpp', '**/*.hpp', '**/*.cc', '**/*.cxx'],
+  },
 ];
 
 export class LSPManager {

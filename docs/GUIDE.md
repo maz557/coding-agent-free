@@ -473,6 +473,7 @@ The agent supports these languages out of the box. You just need to install the 
 | **Rust** | `.rs` | `rustup component add rust-analyzer` |
 | **Go** | `.go` | `go install golang.org/x/tools/gopls@latest` |
 | **SQL** | `.sql` | `npm install -g sql-language-server` |
+| **C / C++** | `.c`, `.h`, `.cpp`, `.hpp`, `.cc`, `.cxx` | Install LLVM/clangd: `winget install LLVM` (Windows), `apt install clangd` (Linux), `brew install llvm` (macOS) |
 
 Once installed, the agent automatically finds and starts the correct LSP server for your project — no configuration files needed. You'll see:
 
@@ -670,7 +671,7 @@ Add a dark/light mode toggle button to the site. Update style.css with dark mode
 **Difficulty**: Intermediate  
 **Concepts**: LSP tools (`code_definition`, `code_references`, `code_hover`), multi-language support
 
-> **Try it in your language**: This project uses TypeScript, but the exact same steps work for Python, Rust, or Go — just install the corresponding LSP server (see [LSP section](#lsp-language-server-protocol)) and replace the file contents. The agent auto-detects your language.
+> **Try it in your language**: This project uses TypeScript, but the exact same steps work for Python, Rust, Go, C/C++, or SQL — just install the corresponding LSP server (see [LSP section](#lsp-language-server-protocol)) and replace the file contents. The agent auto-detects your language.
 
 #### Prerequisites
 
@@ -679,9 +680,10 @@ Install the TypeScript LSP server:
 npm install -g typescript typescript-language-server
 ```
 
-For **Python** instead, install: `pip install pyright`
+For **Python**: `pip install pyright`
 For **Rust**: `rustup component add rust-analyzer`
 For **Go**: `go install golang.org/x/tools/gopls@latest`
+For **C/C++**: `apt install clangd` (Linux), `winget install LLVM` (Windows), `brew install llvm` (macOS)
 
 #### Step 1: Create a TypeScript project
 
@@ -1089,7 +1091,7 @@ npm run setup-ide
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | `LSP tool unavailable` | LSP disabled | Type `/lsp` to enable |
-| `Server not found` | LSP server binary missing | Install it: `npm install -g typescript-language-server` (JS/TS), `pip install pyright` (Python), `npm install -g sql-language-server` (SQL) |
+| `Server not found` | LSP server binary missing | Install it: `npm install -g typescript-language-server` (JS/TS), `pip install pyright` (Python), `npm install -g sql-language-server` (SQL), `apt install clangd` or `winget install LLVM` (C/C++) |
 | `No results` | No matching file types | Check your file extensions match the LSP config |
 
 ### MCP not working
