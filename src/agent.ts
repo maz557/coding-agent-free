@@ -5,9 +5,10 @@ import * as dotenv from 'dotenv';
 import * as path from 'path';
 import pino from 'pino';
 import pinoPretty from 'pino-pretty';
-import { getAllTools, executeTool, allowExtraPath, setSafeMode, isSafeModeEnabled, setMCPEnabled, isMCPEnabled } from './tools/toolRegistry';
+import { getAllTools, executeTool, allowExtraPath, setSafeMode, isSafeModeEnabled, setMCPEnabled, isMCPEnabled, setLSPEnabled, isLSPEnabled } from './tools/toolRegistry';
 import { mcpManager } from './mcp/MCPManager';
 import { loadMCPConfig } from './mcp/config';
+import { lspManager } from './lsp/index';
 import { ModelPreset, PROVIDERS, FIXED_PRESETS, SYSTEM_PROMPT } from './config/models';
 import { ChatMessage } from './types';
 import { CodingAgent } from './CodingAgent';
@@ -94,7 +95,8 @@ async function startChat() {
   console.log('    /add <n> <m> Manually add model m as preset n (provider:model)');
   console.log('    /remove <n>  Remove a user preset');
   console.log('    /allow <p>   Allow model to access path outside workspace');
-  console.log('    /safe        Toggle safe mode (whitelist-only shell commands)');
+    console.log('    /safe        Toggle safe mode (whitelist-only shell commands)');
+    console.log('    /lsp         Toggle LSP (code understanding) tools');
   console.log('    /reset       Clear conversation history (start fresh)');
   console.log('    /list-providers  Show available providers');
   console.log('    /models      Show all presets');
@@ -149,6 +151,15 @@ async function startChat() {
       }
     }
   }
+
+  // Initialize LSP for code understanding
+  try {
+    const allowedDir = path.resolve(process.env.ALLOWED_DIR || './workspace');
+    await lspManager.startForProject(allowedDir);
+    if (lspManager.isAvailable()) {
+      console.log(`  🔬 LSP ready (code_definition, code_references, code_hover)`);
+    }
+  } catch { /* LSP is optional */ }
 
   const typedTools = getAllTools() as OpenAITool[];
   const projectContext = loadProjectContext();
@@ -331,6 +342,16 @@ async function startChat() {
       const now = !isSafeModeEnabled();
       setSafeMode(now);
       console.log(`\n🛡️  Safe mode ${now ? 'ENABLED' : 'DISABLED'} — only whitelisted shell commands are allowed.\n`);
+      rl.prompt();
+      continue;
+    }
+
+    if (input.toLowerCase() === '/lsp') {
+      const now = !isLSPEnabled();
+      setLSPEnabled(now);
+      typedTools.length = 0;
+      typedTools.push(...getAllTools() as OpenAITool[]);
+      console.log(`\n🔬 LSP ${now ? 'ENABLED' : 'DISABLED'} — ${lspManager.isAvailable() ? 'server ready' : 'no LSP server found'}.\n`);
       rl.prompt();
       continue;
     }

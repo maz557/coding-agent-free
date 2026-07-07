@@ -2,9 +2,10 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import * as dotenv from 'dotenv';
 import OpenAI from 'openai';
-import { getAllTools, executeTool, setSafeMode, isSafeModeEnabled, allowExtraPath, setMCPEnabled, isMCPEnabled } from './tools/toolRegistry';
+import { getAllTools, executeTool, setSafeMode, isSafeModeEnabled, allowExtraPath, setMCPEnabled, isMCPEnabled, setLSPEnabled, isLSPEnabled } from './tools/toolRegistry';
 import { mcpManager } from './mcp/MCPManager';
 import { loadMCPConfig } from './mcp/config';
+import { lspManager } from './lsp/index';
 import { PROVIDERS, FIXED_PRESETS, SYSTEM_PROMPT } from './config/models';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -216,6 +217,12 @@ app.post('/api/mcp/toggle', (_req, res) => {
   const enabled = !isMCPEnabled();
   setMCPEnabled(enabled);
   res.json({ enabled });
+});
+
+app.post('/api/lsp/toggle', (_req, res) => {
+  const enabled = !isLSPEnabled();
+  setLSPEnabled(enabled);
+  res.json({ enabled, ready: lspManager.isAvailable() });
 });
 
 app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res: Response) => {
@@ -438,7 +445,7 @@ app.post('/v1/chat/completions', async (req: Request, res: Response) => {
 });
 
 if (process.env.NODE_ENV !== 'test') {
-  // Initialize MCP servers from config
+  // Initialize services
   (async () => {
     const mcpConfig = loadMCPConfig();
     for (const [name, def] of Object.entries(mcpConfig)) {
@@ -450,6 +457,14 @@ if (process.env.NODE_ENV !== 'test') {
         console.log(`   ⚠️  MCP "${name}" failed: ${err.message}`);
       }
     }
+
+    try {
+      const allowedDir = path.resolve(process.env.ALLOWED_DIR || './workspace');
+      await lspManager.startForProject(allowedDir);
+      if (lspManager.isAvailable()) {
+        console.log(`   🔬 LSP ready (code_definition, code_references, code_hover)`);
+      }
+    } catch { /* LSP optional */ }
   })();
 
   app.listen(PORT, '0.0.0.0', () => {

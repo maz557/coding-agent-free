@@ -169,6 +169,7 @@
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/models</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">List all available presets</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/mcp list</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">List MCP servers</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/mcp toggle</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Disable/enable MCP tools</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/lsp</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Toggle LSP code understanding</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/exit</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">End the session</td></tr>
     </table>
     <p style="margin-top:16px;font-size:12px;color:#484f58">For full documentation, see the README or visit the GitHub repository.</p>
@@ -354,6 +355,12 @@ async function handleCommand(msg) {
     const res = await fetch('/api/mcp/toggle', { method: 'POST' });
     const data = await res.json();
     addMessage('assistant', `MCP ${data.enabled ? 'enabled' : 'disabled'}`);
+    return true;
+  }
+  if (lower === '/lsp') {
+    const res = await fetch('/api/lsp/toggle', { method: 'POST' });
+    const data = await res.json();
+    addMessage('assistant', `LSP ${data.enabled ? 'enabled' : 'disabled'} ${data.ready ? '(ready)' : '(no server)'}`);
     return true;
   }
   return false;

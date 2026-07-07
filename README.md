@@ -201,6 +201,7 @@ The agent reads the relevant file, analyzes the code, suggests and applies a fix
 - **Structured logging** — via `pino` (stderr, doesn't interfere with UI)
 - **Diff Viewer (Web UI)** — line-level LCS diffs for `write_file`, `replace_in_file`, `append_file`
 - **Session Manager (Web UI)** — create/switch/list sessions with auto-title & metadata
+- **LSP Support (Language Server Protocol)** — deep code understanding via `code_definition`, `code_references`, `code_hover`. Auto-detects TypeScript/JavaScript projects with `typescript-language-server`. Toggle with `/lsp`.
 - **MCP Support (Model Context Protocol)** — connect external MCP servers to extend agent capabilities (filesystem, GitHub API, databases, custom tools). Configured via `.coding-agent.json`
 - **Slash Commands (Web UI)** — `/active`, `/model <n>`, `/safe`, `/allow`, `/reset`, `/models`, `/exit`
 - **Help Modal (Web UI)** — usage guide, commands reference, diff viewer explanation
@@ -222,6 +223,9 @@ The agent reads the relevant file, analyzes the code, suggests and applies a fix
 | `search_content` | Search for exact text in files. Supports `filePattern` (e.g. `*.ts`) and `maxResults` (default 50). Skips files >1MB |
 | `replace_in_file` | Replace the first occurrence of exact text (case‑sensitive) |
 | `run_command` | Run a shell command in the workspace |
+| `code_definition` | Find where a symbol is defined (requires LSP) |
+| `code_references` | Find all references to a symbol (requires LSP) |
+| `code_hover` | Get type info / docs for a symbol (requires LSP) |
 | *(MCP tools)* | Tools from connected MCP servers appear automatically alongside built-in tools |
 
 ## Commands
@@ -241,6 +245,7 @@ The agent reads the relevant file, analyzes the code, suggests and applies a fix
 | `/mcp connect <name> <cmd>` | Connect a new MCP server by command |
 | `/mcp disconnect <name>` | Disconnect an MCP server |
 | `/mcp toggle` | Enable / disable MCP tools |
+| `/lsp` | Toggle LSP (code understanding) tools |
 | `/list-providers` | Show providers with valid keys (and local providers) |
 | `/exit` | Quit |
 
