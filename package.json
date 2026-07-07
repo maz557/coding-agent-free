@@ -11,6 +11,9 @@
     "setup": "node scripts/setup.js",
     "setup-ide": "node scripts/setup-ide.js",
     "build": "tsc",
+    "build:binary": "npm run build && pkg dist/agent.js --targets node18-win-x64,node18-linux-x64,node18-macos-x64 --output coding-agent",
+    "build:binary:win": "npm run build && pkg dist/agent.js --targets node18-win-x64 --output coding-agent.exe",
+    "build:binary:web": "npm run build && pkg dist/server.js --targets node18-win-x64 --output coding-agent-web.exe",
     "test": "node scripts/comprehensive-test.js",
     "test:quick": "node scripts/test-improvements.js",
     "test:tools": "node node_modules/ts-node/dist/bin.js scripts/tool-integration-test.ts",
@@ -42,6 +45,7 @@
     "@types/express": "^5.0.6",
     "@types/node": "^26.0.0",
     "@types/uuid": "^10.0.0",
+    "pkg": "^5.8.1",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
   }

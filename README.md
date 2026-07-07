@@ -69,6 +69,23 @@ echo "DEEPSEEK_API_KEY=sk-..." >> .env    # DeepSeek
 echo "MISTRAL_API_KEY=..." >> .env        # Mistral models
 ```
 
+### Standalone Binary (no Node.js required)
+
+Build a single executable that runs without Node.js installed:
+
+```bash
+npm run build:binary          # All platforms (Windows, Linux, macOS)
+npm run build:binary:win      # Windows only
+npm run build:binary:web      # Web server binary
+```
+
+Or use the helper script:
+```bash
+node scripts/build-binary.js node18-win-x64 coding-agent.exe
+```
+
+The binary includes everything: Node.js runtime + all dependencies + the agent code.
+
 **Fully offline (no API keys needed):**
 ```bash
 # 1. Clone and install (requires internet once)
