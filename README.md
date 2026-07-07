@@ -34,7 +34,7 @@ An interactive AI coding assistant that runs in your **terminal** or **web brows
 | Problem | How This Agent Solves It |
 |---------|--------------------------|
 | Coding assistants cost $20/month (ChatGPT+, Claude Pro) | **100% free** — uses free-tier OpenRouter, Groq, Google, DeepSeek, Mistral + local models |
-| One provider goes down / rate-limited | **8 providers** — auto-fallback on 429 + manual `/model <n>` |
+| One provider goes down / rate-limited | **13 providers** — auto-fallback on 429 + manual `/model <n>` |
 | No internet access / restricted region | **Local models** (Ollama, LM Studio, Llama.cpp) — fully offline |
 | Privacy concerns with cloud APIs | Run **local models only** — zero data leaves your machine |
 | Setup is too complex | **`npm run setup`** — interactive wizard, no manual `.env` editing |
@@ -181,7 +181,7 @@ The agent reads the relevant file, analyzes the code, suggests and applies a fix
 
 ## Features
 
-- **8 providers** — OpenRouter, Groq, Google, DeepSeek, Mistral + Ollama, LM Studio, Llama.cpp
+- **13 providers** — OpenRouter, Groq, Google, DeepSeek, Mistral, Anthropic, Together AI, Perplexity, xAI (Grok), Cohere + Ollama, LM Studio, Llama.cpp
 - **5 built-in presets** — start with `openrouter/free` (auto-discovers working free models)
 - **User presets** — save/add/remove your own models with `/save`, `/add`, `/remove`
 - **Fallback chain** — auto-fallback across providers on rate limit (429), plus model-level fallbacks
