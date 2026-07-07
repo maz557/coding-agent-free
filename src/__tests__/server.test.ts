@@ -59,8 +59,9 @@ describe('server API', () => {
   afterEach(async () => {
     server?.close();
     // Clear module cache so each test gets fresh state
+    const sep = process.platform === 'win32' ? '\\src\\' : '/src/';
     for (const key of Object.keys(require.cache)) {
-      if (key.includes('\\src\\')) delete require.cache[key];
+      if (key.includes(sep) || key.includes('/src/')) delete require.cache[key];
     }
   });
 
@@ -377,7 +378,7 @@ describe('diff event for write_file', () => {
   afterEach(() => {
     server?.close();
     for (const key of Object.keys(require.cache)) {
-      if (key.includes('\\src\\')) delete require.cache[key];
+      if (key.includes('\\src\\') || key.includes('/src/')) delete require.cache[key];
     }
     if (tempDir) try { fs.rmSync(tempDir, { recursive: true }); } catch { /* ok */ }
   });
