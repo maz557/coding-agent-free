@@ -317,6 +317,68 @@ Your conversation is automatically saved in the `sessions/` folder. Each session
 
 Commands: `/session list`, `/session new my-project`, `/session rename old new`, `/session delete name`
 
+### Project Files
+
+When you run the agent, it creates and manages several files in the project root:
+
+| File / Folder | Purpose | Created By |
+|--------------|---------|------------|
+| **`.env`** | Stores your API keys and environment variables | `npm run setup` |
+| **`.coding-agent.json`** | Configuration for MCP servers and custom LSP servers | You (or the agent) |
+| **`sessions/`** | Saved conversation history — each session is a JSON file | Agent (auto) |
+| **`workspace/`** | Default working directory where the agent creates projects by default | `npm run setup` |
+| **`presets.json`** | Custom model presets you define (overrides built-in presets) | You (optional) |
+
+#### `.env` (API Keys)
+
+Created by `npm run setup`. Contains all your API keys:
+
+```
+OPENROUTER_API_KEY=sk-or-v1-xxxxxxxx
+GROQ_API_KEY=gsk_yyyyyyyyy
+```
+
+The agent reads this file automatically on startup. **Never commit `.env` to Git** — it's already in `.gitignore`.
+
+#### `.coding-agent.json` (MCP & LSP Config)
+
+Optional file for configuring external tools. The agent looks for it in the project root:
+
+```json
+{
+  "mcpServers": { ... },
+  "lspServers": [ ... ]
+}
+```
+
+See [MCP](#mcp-model-context-protocol) and [LSP](#lsp-language-server-protocol) sections for details.
+
+#### `sessions/` (Conversation History)
+
+Every conversation is automatically saved here as `sessions/<session-name>.json`. Each file contains:
+- The full message history (system, user, assistant, tool messages)
+- The model preset used
+- A timestamp and auto-generated title
+
+You can share session files between team members — just copy the file into another project's `sessions/` folder.
+
+#### `workspace/` (Working Directory)
+
+The default location where the agent creates new projects. You can change it during `npm run setup` or use absolute paths in your requests to work anywhere.
+
+#### `presets.json` (Custom Model Presets)
+
+If you want custom model combinations beyond the 5 built-in presets, create `presets.json`:
+
+```json
+[
+  { "id": "my-fast-model", "provider": "groq", "model": "llama-3.3-70b-versatile", "label": "Groq Fast" },
+  { "id": "my-cheap-model", "provider": "openrouter", "model": "openrouter/free", "label": "Cheap" }
+]
+```
+
+These appear alongside built-in presets when you run `/models`.
+
 ### MCP (Model Context Protocol)
 
 MCP lets you connect **external tools** to the agent. Think of it as a plugin system — anyone can write an MCP server that gives the agent new capabilities.
