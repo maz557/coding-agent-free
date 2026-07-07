@@ -134,6 +134,40 @@ describe('LSPManager - file pattern matching', () => {
     const lsp = new LSPManager();
     assert((lsp as any).matchesPattern('src/app.tsx', ['**/*.tsx']));
   });
+
+  it('should match .rb files for ruby pattern', () => {
+    const { LSPManager } = require('../lsp/LSPManager');
+    const lsp = new LSPManager();
+    assert((lsp as any).matchesPattern('app/models/user.rb', ['**/*.rb']));
+  });
+
+  it('should match .lua files for lua pattern', () => {
+    const { LSPManager } = require('../lsp/LSPManager');
+    const lsp = new LSPManager();
+    assert((lsp as any).matchesPattern('src/main.lua', ['**/*.lua']));
+  });
+
+  it('should match .c and .h files for C pattern', () => {
+    const { LSPManager } = require('../lsp/LSPManager');
+    const lsp = new LSPManager();
+    assert((lsp as any).matchesPattern('src/main.c', ['**/*.c', '**/*.h']));
+    assert((lsp as any).matchesPattern('include/header.h', ['**/*.c', '**/*.h']));
+  });
+
+  it('should match .cpp, .hpp, .cc, .cxx files for C++ pattern', () => {
+    const { LSPManager } = require('../lsp/LSPManager');
+    const lsp = new LSPManager();
+    assert((lsp as any).matchesPattern('src/main.cpp', ['**/*.cpp', '**/*.hpp', '**/*.cc', '**/*.cxx']));
+    assert((lsp as any).matchesPattern('include/header.hpp', ['**/*.cpp', '**/*.hpp', '**/*.cc', '**/*.cxx']));
+    assert((lsp as any).matchesPattern('src/util.cc', ['**/*.cpp', '**/*.hpp', '**/*.cc', '**/*.cxx']));
+    assert((lsp as any).matchesPattern('src/util.cxx', ['**/*.cpp', '**/*.hpp', '**/*.cc', '**/*.cxx']));
+  });
+
+  it('should match .sql files for SQL pattern', () => {
+    const { LSPManager } = require('../lsp/LSPManager');
+    const lsp = new LSPManager();
+    assert((lsp as any).matchesPattern('db/query.sql', ['**/*.sql']));
+  });
 });
 
 describe('LSP config loader', () => {

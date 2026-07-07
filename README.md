@@ -15,17 +15,6 @@
   <a href="docs/GUIDE.md"><strong>📘 Guide</strong></a>
 </p>
 
-<p align="center">
-  🌐
-  <a href="README.md"><strong>English</strong></a> •
-  <a href="README.fa.md">فارسی</a> •
-  <a href="README.ar.md">العربية</a> •
-  <a href="README.tr.md">Türkçe</a> •
-  <a href="README.es.md">Español</a> •
-  <a href="README.fr.md">Français</a> •
-  <a href="README.ur.md">اردو</a>
-</p>
-
 An interactive AI coding assistant that runs in your **terminal** or **web browser** — powered by **free** cloud APIs and **local** models (Ollama, LM Studio, Llama.cpp). It reads, writes, searches, copies, moves, and deletes files, and runs shell commands — all through natural language tool calling. Includes **MCP** (Model Context Protocol) and **LSP** (Language Server Protocol) support for extensibility and deep code understanding.
 
 > 💡 **Offline-ready**: With a local server, the agent works fully offline — no internet required, no data leaves your machine.
@@ -81,7 +70,7 @@ An interactive AI coding assistant that runs in your **terminal** or **web brows
 - **npm** (comes with Node.js)
 - **Optional**: One or more API keys (see [Environment Variables](#environment-variables))
 - **Optional for local models**: [Ollama](https://ollama.ai), [LM Studio](https://lmstudio.ai), or [Llama.cpp](https://github.com/ggerganov/llama.cpp)
-- **Optional for LSP**: `typescript-language-server`, `pyright`, `rust-analyzer`, `gopls`, etc.
+- **Optional for LSP**: `typescript-language-server`, `pyright`, `rust-analyzer`, `gopls`, `clangd`, `solargraph`, `lua-language-server`
 
 ### Quick Install
 
@@ -343,6 +332,11 @@ Deep code understanding via `code_definition`, `code_references`, and `code_hove
 | Python | `pyright` | `**/*.py` |
 | Rust | `rust-analyzer` | `**/*.rs` |
 | Go | `gopls` | `**/*.go` |
+| SQL | `sql-language-server` | `**/*.sql` |
+| C | `clangd` | `**/*.c`, `**/*.h` |
+| C++ | `clangd` | `**/*.cpp`, `**/*.hpp`, `**/*.cc`, `**/*.cxx` |
+| Ruby | `solargraph` | `**/*.rb` |
+| Lua | `lua-language-server` | `**/*.lua` |
 
 **Custom LSP servers** — add to `.coding-agent.json`:
 ```json
@@ -493,9 +487,9 @@ Reset mid-session with `/reset` if context gets stale.
 
 ## Tests
 
-- `npm run test:unit` — **181** unit tests (12 files: ConversationState, comprehensive, CodingAgent, loadProjectContext, fileManager, agent, server, mcp, lsp, persistence, toolRegistry, models)
+- `npm run test:unit` — **222** unit tests (12 files: ConversationState, comprehensive, CodingAgent, loadProjectContext, fileManager, agent, server, mcp, lsp, persistence, toolRegistry, models)
 - `npm run test:integration` — 26 provider integration tests
-- `npm test` — 35 integration tests
+- `npm test` — 35 integration tests (provider connectivity)
 - CI: `.github/workflows/ci.yml` runs all tests on push/PR
 
 ## Contributing
