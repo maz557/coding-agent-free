@@ -86,6 +86,7 @@ npm install
 ```bash
 npm run setup
 ```
+The wizard also offers to install LSP servers (`typescript-language-server`, `pyright`, `sql-language-server`) globally for code intelligence (definition, references, hover).
 
 **Option B — Manual `.env` (pick at least one provider):**
 ```bash

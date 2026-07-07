@@ -1,6 +1,6 @@
 {
   "name": "coding-agent-free",
-  "version": "1.14.0",
+  "version": "1.17.0",
   "description": "Interactive AI coding agent using free OpenRouter models with real tool calling",
   "main": "src/agent.ts",
   "scripts": {
@@ -17,7 +17,7 @@
     "test": "node scripts/comprehensive-test.js",
     "test:quick": "node scripts/test-improvements.js",
     "test:tools": "node node_modules/ts-node/dist/bin.js scripts/tool-integration-test.ts",
-    "test:unit": "node -r ts-node/register --test src/__tests__/ConversationState.test.ts src/__tests__/comprehensive.test.ts src/__tests__/CodingAgent.test.ts src/__tests__/loadProjectContext.test.ts src/__tests__/fileManager.test.ts src/__tests__/agent.test.ts src/__tests__/server.test.ts src/__tests__/mcp.test.ts src/__tests__/lsp.test.ts src/__tests__/persistence.test.ts src/__tests__/toolRegistry.test.ts src/__tests__/models.test.ts",
+    "test:unit": "node -r ts-node/register --test --test-timeout=15000 src/__tests__/ConversationState.test.ts src/__tests__/comprehensive.test.ts src/__tests__/CodingAgent.test.ts src/__tests__/detectLocalModel.test.ts src/__tests__/loadProjectContext.test.ts src/__tests__/fileManager.test.ts src/__tests__/agent.test.ts src/__tests__/server.test.ts src/__tests__/mcp.test.ts src/__tests__/lsp.test.ts src/__tests__/persistence.test.ts src/__tests__/toolRegistry.test.ts src/__tests__/models.test.ts",
     "test:integration": "node -r ts-node/register --test scripts/provider-integration-test.ts"
   },
   "keywords": [
