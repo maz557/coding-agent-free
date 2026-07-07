@@ -366,12 +366,12 @@ process.stdin.on('data', (chunk) => {
     const msg = JSON.parse(content);
     if (msg.method === 'initialize') {
       const resp = JSON.stringify({ jsonrpc: '2.0', id: msg.id, result: { capabilities: {} } });
-      process.stdout.write('Content-Length: ' + resp.length + '\\r\\n\\r\\n' + resp);
+      process.stdout.write('Content-Length: ' + resp.length + '\\r\\n\\r\\n' + resp + '\\n');
     } else {
       const notif = JSON.stringify({ jsonrpc: '2.0', method: 'textDocument/publishDiagnostics', params: { uri: 'file:///test.ts', diagnostics: [{ message: 'test', range: { start: {line:0,character:0}, end: {line:0,character:1} } }] } });
-      process.stdout.write('Content-Length: ' + notif.length + '\\r\\n\\r\\n' + notif);
+      process.stdout.write('Content-Length: ' + notif.length + '\\r\\n\\r\\n' + notif + '\\n');
       const resp = JSON.stringify({ jsonrpc: '2.0', id: msg.id, result: null });
-      process.stdout.write('Content-Length: ' + resp.length + '\\r\\n\\r\\n' + resp);
+      process.stdout.write('Content-Length: ' + resp.length + '\\r\\n\\r\\n' + resp + '\\n');
     }
   }
 });
@@ -411,10 +411,10 @@ process.stdin.on('data', (chunk) => {
     const msg = JSON.parse(content);
     if (msg.method === 'initialize') {
       const resp = JSON.stringify({ jsonrpc: '2.0', id: msg.id, result: { capabilities: {} } });
-      process.stdout.write('Content-Length: ' + resp.length + '\\r\\n\\r\\n' + resp);
+      process.stdout.write('Content-Length: ' + resp.length + '\\r\\n\\r\\n' + resp + '\\n');
     } else {
       const resp = JSON.stringify({ jsonrpc: '2.0', id: msg.id, result: 'ok' });
-      process.stdout.write('Content-Length: ' + resp.length + '\\r\\n\\r\\n' + resp);
+      process.stdout.write('Content-Length: ' + resp.length + '\\r\\n\\r\\n' + resp + '\\n');
     }
   }
 });
@@ -442,10 +442,10 @@ process.stdin.on('data', (chunk) => {
     const msg = JSON.parse(content);
     if (msg.method === 'initialize') {
       const resp = JSON.stringify({ jsonrpc: '2.0', id: msg.id, result: { capabilities: {} } });
-      process.stdout.write('Content-Length: ' + resp.length + '\\r\\n\\r\\n' + resp);
+      process.stdout.write('Content-Length: ' + resp.length + '\\r\\n\\r\\n' + resp + '\\n');
     } else if (msg.id != null) {
       const resp = JSON.stringify({ jsonrpc: '2.0', id: msg.id, error: { code: -32601, message: 'Method not found' } });
-      process.stdout.write('Content-Length: ' + resp.length + '\\r\\n\\r\\n' + resp);
+      process.stdout.write('Content-Length: ' + resp.length + '\\r\\n\\r\\n' + resp + '\\n');
     }
   }
 });
