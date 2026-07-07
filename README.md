@@ -470,7 +470,10 @@ coding-agent-free/
 │   │   └── fileManager.ts      # 13 tools + safe mode + workspace restrictions
 │   └── __tests__/              # Unit tests
 │       ├── ConversationState.test.ts  # 9 tests: trim, removeLastAssistantTurn, etc.
-│       └── comprehensive.test.ts      # 30 tests: all modules + integration
+│       ├── comprehensive.test.ts      # 30 tests: all modules + integration
+│       ├── CodingAgent.test.ts        # 11 tests: execute, stuck, retry, errors
+│       ├── loadProjectContext.test.ts  # 7 tests: file lookup, walk, edge cases
+│       └── fileManager.test.ts        # 26 tests: all 13 tools + safe mode
 ├── .github/
 │   └── workflows/
 │       └── ci.yml              # CI: type check + tests on push/PR
@@ -497,7 +500,7 @@ coding-agent-free/
 └── run-web.bat                 # Web UI launcher (Windows)
 ```
 
-> 📝 Run tests: `npm run test:unit` (39 unit tests) — `npm test` (35 integration tests)
+> 📝 Run tests: `npm run test:unit` (84 unit tests) — `npm test` (35 integration tests)
 
 ## Environment Variables
 

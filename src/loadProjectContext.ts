@@ -7,7 +7,7 @@ export function loadProjectContext(cwd?: string): string | null {
   const startDir = cwd || process.cwd();
 
   let current = path.resolve(startDir);
-  for (let depth = 0; depth < 3; depth++) {
+  for (let depth = 0; depth < 4; depth++) {
     for (const name of CANDIDATE_FILES) {
       const fp = path.join(current, name);
       if (fs.existsSync(fp)) {

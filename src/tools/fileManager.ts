@@ -299,7 +299,7 @@ class WorkspaceManager {
       return `Folder deleted successfully: ${args.path}${args.recursive ? ' (recursively)' : ''}`;
     } catch (err: any) {
       if (err.code === 'ENOENT') throw new FileNotFoundError(args.path);
-      if (err.code === 'ENOTEMPTY') return `Error: folder is not empty. Use recursive:true to delete it.`;
+      if (err.code === 'ENOTEMPTY' || err.code === 'ERR_FS_EISDIR') return `Error: folder is not empty. Use recursive:true to delete it.`;
       return `Error deleting folder: ${err.message}`;
     }
   }

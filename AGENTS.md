@@ -12,6 +12,11 @@ This is the Coding Agent Free project itself.
 - `src/loadProjectContext.ts` — loads AGENTS.md / .coding-agent.md from project root
 - `scripts/setup.js` — interactive setup wizard
 
+## Tests
+- `npm run test:unit` — 84 unit tests (5 files: ConversationState, comprehensive, CodingAgent, loadProjectContext, fileManager)
+- `npm test` — 35 integration tests
+- CI: `.github/workflows/ci.yml` runs all tests on push/PR
+
 ## Conventions
 - No comments in code unless necessary
 - Use async/await, not raw promises

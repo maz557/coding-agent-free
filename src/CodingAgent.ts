@@ -45,7 +45,11 @@ async function withRetryAndTimeout<T>(
   }
 
   const finalMessage = lastError instanceof Error ? lastError.message : String(lastError);
-  throw new Error(`All ${maxRetries} attempts failed. Last error: ${finalMessage}`);
+  const finalErr = lastError instanceof Error ? lastError : new Error(finalMessage);
+  if (!finalErr.message.startsWith('All ')) {
+    finalErr.message = `All ${maxRetries} attempts failed. Last error: ${finalMessage}`;
+  }
+  throw finalErr;
 }
 
 async function processStreamResponse(

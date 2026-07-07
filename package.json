@@ -14,7 +14,7 @@
     "test": "node scripts/comprehensive-test.js",
     "test:quick": "node scripts/test-improvements.js",
     "test:tools": "node node_modules/ts-node/dist/bin.js scripts/tool-integration-test.ts",
-    "test:unit": "node -r ts-node/register --test src/__tests__/ConversationState.test.ts src/__tests__/comprehensive.test.ts"
+    "test:unit": "node -r ts-node/register --test src/__tests__/ConversationState.test.ts src/__tests__/comprehensive.test.ts src/__tests__/CodingAgent.test.ts src/__tests__/loadProjectContext.test.ts src/__tests__/fileManager.test.ts"
   },
   "keywords": [
     "openrouter",
