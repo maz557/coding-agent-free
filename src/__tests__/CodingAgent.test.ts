@@ -174,6 +174,89 @@ describe('CodingAgent', () => {
     });
   });
 
+  describe('execution edge cases', () => {
+    it('should handle multi-round tool calls', async () => {
+      const client = makeClient();
+      let callCount = 0;
+      client.chat.completions.create.mock.mockImplementation(() => {
+        callCount++;
+        if (callCount <= 2) {
+          return mockStream([
+            mockChunk({
+              toolCalls: [{ index: 0, id: `call_${callCount}`, name: 'list_files', args: '{}' }],
+            }),
+            mockChunk({ finishReason: 'stop' }),
+          ]);
+        }
+        return mockStream([mockChunk({ content: 'Done after multi-round.', finishReason: 'stop' })]);
+      });
+      const agent = new CodingAgent(client, makeTools(), { provider: 'openrouter', primary: 'test-model', fallbacks: [] }, 'sys');
+      const result = await agent.execute('do multi-round');
+      assert.equal(result.toolCallsCount, 2);
+      assert(!result.error);
+    });
+
+    it('should handle tool execution error gracefully', async () => {
+      const client = makeClient();
+      client.chat.completions.create.mock.mockImplementation(() =>
+        mockStream([
+          mockChunk({
+            toolCalls: [{ index: 0, id: 'call_1', name: 'read_file', args: '{}' }],
+          }),
+          mockChunk({ finishReason: 'stop' }),
+        ])
+      );
+      const agent = new CodingAgent(client, makeTools(), { provider: 'openrouter', primary: 'test-model', fallbacks: [] }, 'sys');
+      const result = await agent.execute('read file');
+      const messages = agent.getConversationMessages();
+      const toolResult = messages.find(m => m.role === 'tool');
+      assert(toolResult?.content?.includes('read_file'));
+      assert(!result.error);
+    });
+
+    it('should detect duplicate tool calls', async () => {
+      const client = makeClient();
+      let callCount = 0;
+      client.chat.completions.create.mock.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return mockStream([
+            mockChunk({
+              toolCalls: [
+                { index: 0, id: 'call_1', name: 'list_files', args: '{}' },
+                { index: 1, id: 'call_2', name: 'list_files', args: '{}' },
+              ],
+            }),
+            mockChunk({ finishReason: 'stop' }),
+          ]);
+        }
+        return mockStream([mockChunk({ content: 'Done.', finishReason: 'stop' })]);
+      });
+      const agent = new CodingAgent(client, makeTools(), { provider: 'openrouter', primary: 'test-model', fallbacks: [] }, 'sys');
+      const result = await agent.execute('list files');
+      assert.equal(result.toolCallsCount, 1);
+      assert(!result.error);
+    });
+
+    it('should handle invalid tool arguments', async () => {
+      const client = makeClient();
+      client.chat.completions.create.mock.mockImplementation(() =>
+        mockStream([
+          mockChunk({
+            toolCalls: [{ index: 0, id: 'call_1', name: 'list_files', args: 'not-json' }],
+          }),
+          mockChunk({ finishReason: 'stop' }),
+        ])
+      );
+      const agent = new CodingAgent(client, makeTools(), { provider: 'openrouter', primary: 'test-model', fallbacks: [] }, 'sys');
+      const result = await agent.execute('list files bad');
+      const messages = agent.getConversationMessages();
+      const toolResult = messages.find(m => m.role === 'tool');
+      assert(toolResult?.content?.includes('Invalid arguments'));
+      assert(!result.error);
+    });
+  });
+
   describe('with fallbacks', () => {
     it('should build model list including fallbacks', () => {
       const client = makeClient();

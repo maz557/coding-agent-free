@@ -119,6 +119,38 @@ This downloads all required packages. You'll see a progress bar and a `node_modu
 
 > 💡 **Recommendation**: Start with **OpenRouter** — one key gives you access to 18+ free tool-calling models. If Groq is available in your region, add that too for faster responses.
 
+#### Direct Links to Get API Keys
+
+| Provider | Get Your Key | Environment Variable |
+|----------|-------------|---------------------|
+| **OpenRouter** | https://openrouter.ai/keys | `OPENROUTER_API_KEY` |
+| **Groq** | https://console.groq.com/keys | `GROQ_API_KEY` |
+| **Google Gemini** | https://aistudio.google.com/apikey | `GOOGLE_API_KEY` |
+| **DeepSeek** | https://platform.deepseek.com/api_keys | `DEEPSEEK_API_KEY` |
+| **Mistral** | https://console.mistral.ai/api-keys | `MISTRAL_API_KEY` |
+| **Anthropic** | https://console.anthropic.com/ | `ANTHROPIC_API_KEY` |
+| **Together AI** | https://api.together.xyz/settings/api-keys | `TOGETHER_API_KEY` |
+| **Perplexity** | https://www.perplexity.ai/settings/api | `PERPLEXITY_API_KEY` |
+| **xAI** | https://console.x.ai/ | `XAI_API_KEY` |
+| **Cohere** | https://dashboard.cohere.com/api-keys | `COHERE_API_KEY` |
+
+#### Check Which Keys Are Active
+
+After creating your `.env` file (Step 5), you can check which keys are detected:
+
+```bash
+node -e "require('dotenv').config(); Object.entries({OPENROUTER_API_KEY:'OpenRouter',GROQ_API_KEY:'Groq',GOOGLE_API_KEY:'Google',DEEPSEEK_API_KEY:'DeepSeek',MISTRAL_API_KEY:'Mistral',ANTHROPIC_API_KEY:'Anthropic',TOGETHER_API_KEY:'Together',PERPLEXITY_API_KEY:'Perplexity',XAI_API_KEY:'xAI',COHERE_API_KEY:'Cohere'}).forEach(([env,name])=>console.log(process.env[env]?`  ✅ ${name} configured`:`  ❌ ${name} missing`))"
+```
+
+You should see green checkmarks next to every provider you've configured. Missing ones show a red cross — just get that key from the link above and add it to `.env`:
+
+```
+OPENROUTER_API_KEY=sk-or-v1-xxxxxxxxx
+GROQ_API_KEY=gsk_yyyyyyyyy
+```
+
+The agent will automatically use the best available key when you switch models with `/model <n>`.
+
 ### Step 5: Run the Setup Wizard
 
 ```bash
@@ -148,6 +180,39 @@ Agent: Hello! I'm ready to help. How can I assist you today?
 ```
 
 If you see errors about missing API keys, run `npm run setup` again.
+
+### Which Interface Should You Use?
+
+The agent offers three ways to interact. Here's when to use each:
+
+| Interface | Start Command | Best For |
+|-----------|--------------|----------|
+| **CLI (terminal)** | `npm start` | Quick tasks, scripting, when you're already in the terminal, minimal resource usage |
+| **Web UI** | `npm run web` | Visual diff viewer, session manager, model switching UI, team collaboration via browser |
+| **OpenAI-compatible API** | `npm run web` | Integration with IDEs (Cline, Continue.dev, Cursor), custom tools, programmatic access |
+
+**CLI or Web UI?** Start with CLI for simple edits and quick commands. Switch to Web UI when you need to review file diffs visually, manage multiple sessions, or prefer a graphical chat interface. The Web UI runs at http://localhost:3000.
+
+**When to build a standalone binary?**
+
+If you want to run the agent without Node.js installed, or distribute it to others:
+
+```bash
+# Build CLI binary
+npm run build:binary
+
+# Build Web UI binary
+npm run build:binary:web
+```
+
+This produces `coding-agent.exe` (Windows) or `coding-agent` (Linux/macOS) — a single executable with **no dependencies**. Use the binary when:
+
+- You want to **run on a server** without installing Node.js
+- You need to **distribute to teammates** who shouldn't install dev tools
+- You want a **portable version** on a USB drive
+- You're deploying to **CI/CD pipelines** with minimal setup
+
+The binary works identically to `npm start` — just double-click or run from terminal.
 
 ---
 
@@ -254,20 +319,136 @@ Commands: `/session list`, `/session new my-project`, `/session rename old new`,
 
 ### MCP (Model Context Protocol)
 
-MCP lets you connect **external tools** to the agent. For example:
-- A **filesystem MCP server** gives safe, sandboxed file access
-- A **GitHub MCP server** lets the agent manage repos, issues, and PRs
-- A **database MCP server** allows read-only SQL queries
-- Your **custom MCP server** can expose any API or tool
+MCP lets you connect **external tools** to the agent. Think of it as a plugin system — anyone can write an MCP server that gives the agent new capabilities.
+
+#### Finding MCP Servers
+
+- **Official MCP repository**: https://github.com/modelcontextprotocol/servers — contains filesystem, GitHub, Git, PostgreSQL, SQLite, Puppeteer, and more
+- **MCP marketplace**: https://smithery.ai — community directory of 1000+ MCP servers
+- **PulseMCP**: https://pulsemcp.com — searchable directory with reviews
+- **Write your own**: MCP servers are easy to build in Python, TypeScript, or any language
+
+#### What the Agent Can Do with MCP
+
+With different MCP servers, the agent can:
+
+| MCP Server | Example Capabilities |
+|------------|---------------------|
+| **Filesystem** | Read/write files in a sandboxed directory (files outside the sandbox are inaccessible) |
+| **GitHub** | Create repos, manage issues/PRs, search code, list branches |
+| **Git** | Commit, diff, log, stage files inside your project |
+| **PostgreSQL / SQLite** | Run read-only or read-write SQL queries |
+| **Puppeteer / Playwright** | Control a headless browser — take screenshots, click buttons, extract data |
+| **Brave Search / Web** | Search the web and fetch page content |
+| **Memory** | Give the agent persistent memory across conversations |
+
+The agent combines MCP tools with its built-in tools intelligently. For example, it might use `GitHub MCP` to create a PR, then use the built-in `run_command` to install dependencies and `write_file` to add the final files.
+
+#### Configuring MCP Servers
+
+MCP servers are configured in `.coding-agent.json` at your project root:
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "./sandbox"]
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"]
+    }
+  }
+}
+```
+
+After adding or changing MCP config, restart the agent. You'll see connected servers on startup:
+
+```
+🔌 MCP "filesystem" connected (2 tools)
+🔌 MCP "github" connected (5 tools)
+```
+
+#### Runtime MCP Commands
+
+| Command | What it does |
+|---------|-------------|
+| `/mcp list` | List all connected MCP servers and their tools |
+| `/mcp toggle` | Enable/disable all MCP tools |
+| `/mcp connect <name> <command> [args...]` | Connect a new MCP server on-the-fly |
+| `/mcp disconnect <name>` | Remove a connected server |
+
+> **Note for local/offline use**: MCP servers that require internet (GitHub, web search) won't work offline. Filesystem, SQLite, and Memory MCP servers work fully offline.
 
 ### LSP (Language Server Protocol)
 
-LSP gives the agent **deep code understanding**:
-- `code_definition` — find where a function/variable is defined
-- `code_references` — find all usages of a symbol
-- `code_hover` — get type info and documentation
+LSP gives the agent **deep code understanding** — the same technology that powers IDE features like "Go to Definition" in VS Code. When LSP is enabled, the agent can:
 
-Toggle with `/lsp`. The agent auto-starts LSP servers for your project's language.
+- `code_definition` — find where a function, class, or variable is defined
+- `code_references` — find every usage of a symbol across the project
+- `code_hover` — get type signature, documentation, and inline hints
+
+Toggle LSP on/off with `/lsp`.
+
+#### How the Agent Uses LSP
+
+When you ask questions like:
+- "Where is the `calculateTotal` function defined?" → agent calls `code_definition`
+- "Find all places that call `parseInput`" → agent calls `code_references`
+- "Show me the type signature of the `Config` interface" → agent calls `code_hover`
+
+The agent **automatically starts LSP servers** when it detects matching files in your project. It does NOT require any special configuration for most languages.
+
+#### Installing LSP Servers Per Language
+
+The agent supports these languages out of the box. You just need to install the corresponding LSP server:
+
+| Language | File Types | Install Command |
+|----------|-----------|----------------|
+| **TypeScript / JavaScript** | `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs` | `npm install -g typescript typescript-language-server` |
+| **Python** | `.py` | `pip install pyright` or `npm install -g pyright` |
+| **Rust** | `.rs` | `rustup component add rust-analyzer` |
+| **Go** | `.go` | `go install golang.org/x/tools/gopls@latest` |
+| **SQL** | `.sql` | `npm install -g sql-language-server` |
+
+Once installed, the agent automatically finds and starts the correct LSP server for your project — no configuration files needed. You'll see:
+
+```
+🔌 LSP "typescript-language-server" started
+```
+
+If the LSP server binary is not found, the agent skips it and uses fallback search (grep-based) instead. You can still ask definition/references questions — the agent will do its best without LSP.
+
+#### LSP in Multi-Language Projects
+
+In a project with Python backend + TypeScript frontend + SQL migrations, the agent:
+1. Scans all files in your project
+2. Starts a **typescript-language-server** for `.ts`/`.tsx` files
+3. Starts a **pyright** server for `.py` files
+4. Starts a **sql-language-server** for `.sql` files
+5. Routes each LSP query to the correct server based on the file being asked about
+
+You don't need to do anything special — the agent handles it automatically.
+
+#### Custom LSP Configuration
+
+If you need different LSP servers, add them to `.coding-agent.json`:
+
+```json
+{
+  "lspServers": [
+    {
+      "command": "my-custom-lsp",
+      "args": ["--stdio"],
+      "languageId": "mylang",
+      "filePatterns": ["**/*.my"]
+    }
+  ]
+}
+```
+
+This lets you add LSP support for any language.
 
 ---
 
@@ -427,12 +608,18 @@ Add a dark/light mode toggle button to the site. Update style.css with dark mode
 **Difficulty**: Intermediate  
 **Concepts**: LSP tools (`code_definition`, `code_references`, `code_hover`), multi-language support
 
+> **Try it in your language**: This project uses TypeScript, but the exact same steps work for Python, Rust, or Go — just install the corresponding LSP server (see [LSP section](#lsp-language-server-protocol)) and replace the file contents. The agent auto-detects your language.
+
 #### Prerequisites
 
 Install the TypeScript LSP server:
 ```bash
 npm install -g typescript typescript-language-server
 ```
+
+For **Python** instead, install: `pip install pyright`
+For **Rust**: `rustup component add rust-analyzer`
+For **Go**: `go install golang.org/x/tools/gopls@latest`
 
 #### Step 1: Create a TypeScript project
 
@@ -527,6 +714,8 @@ Build and run the project:
 
 **Difficulty**: Intermediate  
 **Concepts**: MCP configuration, MCP tools alongside built-in tools
+
+> **MCP servers are plugins**: This project uses the filesystem MCP server, but you can apply the same pattern to any MCP server. Browse [official MCP servers](https://github.com/modelcontextprotocol/servers) or the [Smithery marketplace](https://smithery.ai) for 1000+ community servers.
 
 #### Step 1: Install the MCP filesystem server
 
@@ -663,7 +852,29 @@ Create frontend/index.html — a modern todo app:
 - Use fetch() to call the backend API
 ```
 
-#### Step 4: Add Python linting
+#### Step 4: Enable LSP for cross-language debugging
+
+```
+/lsp
+```
+
+With LSP on, the agent understands your Python backend, JavaScript frontend, AND SQL files. It starts **pyright** for `.py` files, **typescript-language-server** for `.js` files, and **sql-language-server** for `.sql` files automatically (if installed). Try:
+
+```
+Find the definition of the Todo model in the Python backend
+```
+
+Then:
+
+```
+Find all references to the fetchTodos function in the frontend
+```
+
+The agent routes each query to the correct LSP server based on file type.
+
+> **Note**: If the agent can't find a symbol, make sure you have the LSP server installed: `pip install pyright` for Python, or `npm install -g typescript-language-server` for JS/TS.
+
+#### Step 5: Add Python linting
 
 ```
 Search the backend code for common issues — run "python -m py_compile backend/app.py"
@@ -671,7 +882,7 @@ Search the backend code for common issues — run "python -m py_compile backend/
 
 This checks for syntax errors.
 
-#### Step 5: Start the backend
+#### Step 6: Start the backend
 
 ```
 Start the Flask server in the background:
@@ -680,7 +891,7 @@ cd todo-app && pip install -r backend/requirements.txt && python backend/app.py 
 
 > If the agent can't install flask-cors due to naming, fix the requirements.txt to use `flask-cors` correctly.
 
-#### Step 6: Test with curl
+#### Step 7: Test with curl
 
 ```
 Test the API:
@@ -689,7 +900,7 @@ Test the API:
 3. curl -X DELETE http://localhost:5000/api/todos/1
 ```
 
-#### Step 7: Open the frontend
+#### Step 8: Open the frontend
 
 Tell the user:
 ```
@@ -697,7 +908,7 @@ Open frontend/index.html in your browser to use the todo app.
 The backend should be running on port 5000.
 ```
 
-#### Step 8: Save this session
+#### Step 9: Save this session
 
 ```
 /session rename todo-app
@@ -706,7 +917,7 @@ The backend should be running on port 5000.
 
 Your entire conversation is saved and can be restored later.
 
-#### Step 9: Restore later
+#### Step 10: Restore later
 
 When you start the agent next time:
 ```
@@ -816,7 +1027,7 @@ npm run setup-ide
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | `LSP tool unavailable` | LSP disabled | Type `/lsp` to enable |
-| `Server not found` | LSP server binary missing | Install it: `npm install -g typescript-language-server` |
+| `Server not found` | LSP server binary missing | Install it: `npm install -g typescript-language-server` (JS/TS), `pip install pyright` (Python), `npm install -g sql-language-server` (SQL) |
 | `No results` | No matching file types | Check your file extensions match the LSP config |
 
 ### MCP not working

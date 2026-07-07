@@ -40,6 +40,12 @@ const DEFAULT_LSP_SERVERS: LSPServerConfig[] = [
     languageId: 'go',
     filePatterns: ['**/*.go'],
   },
+  {
+    command: 'sql-language-server',
+    args: ['up', '--method', 'stream'],
+    languageId: 'sql',
+    filePatterns: ['**/*.sql'],
+  },
 ];
 
 export class LSPManager {
@@ -108,8 +114,8 @@ export class LSPManager {
   private matchesPattern(filePath: string, patterns: string[]): boolean {
     const normalized = filePath.replace(/\\/g, '/');
     for (const p of patterns) {
-      const regex = new RegExp('^' + p.replace(/\*\*/g, '.*').replace(/\*/g, '[^/]*').replace(/\?/g, '.') + '$');
-      if (regex.test(normalized)) return true;
+      const regexStr = p.split('**').map(s => s.replace(/\*/g, '[^/]*').replace(/\?/g, '.')).join('.*');
+      if (new RegExp('^' + regexStr + '$').test(normalized)) return true;
     }
     return false;
   }

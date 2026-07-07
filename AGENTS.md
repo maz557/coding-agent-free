@@ -11,6 +11,7 @@ This is the Coding Agent Free project itself.
 - `src/server.ts` — Express + SSE + OpenAI-compatible API + session management + diff events
 - `src/tools/fileManager.ts` — all 13 file/shell tools
 - `src/tools/toolRegistry.ts` — central tool registry combining builtin + MCP + LSP tools
+- `src/detectLocalModel.ts` — auto-detect local models (Ollama, LM Studio, llama.cpp)
 - `src/loadProjectContext.ts` — loads AGENTS.md / .coding-agent.md from project root
 - `src/mcp/config.ts` — loads MCP servers from .coding-agent.json
 - `src/lsp/config.ts` — loads LSP servers from .coding-agent.json
@@ -25,7 +26,7 @@ This is the Coding Agent Free project itself.
 - **SSE streaming** — raw fetch + ReadableStream (no EventSource dependency)
 
 ## Tests
-- `npm run test:unit` — **181** unit tests pass (12 files: ConversationState, comprehensive, CodingAgent, loadProjectContext, fileManager, agent, server, mcp, lsp, persistence, toolRegistry, models)
+- `npm run test:unit` — **222** unit tests pass (13 files: ConversationState, comprehensive, CodingAgent, detectLocalModel, loadProjectContext, fileManager, agent, server, mcp, lsp, persistence, toolRegistry, models)
 - `npm run test:integration` — 26 provider integration tests
 - `npm test` — 35 integration tests
 - CI: `.github/workflows/ci.yml` runs all tests on push/PR

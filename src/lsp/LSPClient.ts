@@ -194,6 +194,11 @@ export class LSPClient {
       await this.request('shutdown', null);
     } catch { /* ignore */ }
     this.notify('exit', null);
-    setTimeout(() => this.process?.kill(), 1000);
+    if (this.process) {
+      this.process.stdin?.end();
+      this.process.stdout?.destroy();
+      this.process.stderr?.destroy();
+      this.process.kill();
+    }
   }
 }
