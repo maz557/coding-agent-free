@@ -1,0 +1,90 @@
+import { spawn, ChildProcess } from 'child_process';
+import { Transport, JSONRPCMessage, JSONRPCResponse } from './types';
+import * as readline from 'readline';
+
+export class StdioTransport implements Transport {
+  private process: ChildProcess | null = null;
+  private rl: readline.Interface | null = null;
+  private _onMessage: ((message: JSONRPCMessage) => void) | null = null;
+  private _onClose: (() => void) | null = null;
+  private _onError: ((error: Error) => void) | null = null;
+  private pending = new Map<string | number, { resolve: (value: unknown) => void; reject: (err: Error) => void }>();
+  private msgId = 0;
+
+  constructor(
+    private readonly command: string,
+    private readonly args: string[],
+    private readonly env?: Record<string, string>,
+  ) {}
+
+  get onMessage() { return this._onMessage; }
+  set onMessage(fn) { this._onMessage = fn; }
+
+  get onClose() { return this._onClose; }
+  set onClose(fn) { this._onClose = fn; }
+
+  get onError() { return this._onError; }
+  set onError(fn) { this._onError = fn; }
+
+  async start(): Promise<void> {
+    this.process = spawn(this.command, this.args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env, ...this.env },
+    });
+
+    this.rl = readline.createInterface({ input: this.process.stdout! });
+
+    this.rl.on('line', (line: string) => {
+      try {
+        const msg = JSON.parse(line) as JSONRPCMessage;
+        if (this._onMessage) {
+          this._onMessage(msg);
+        }
+      } catch {
+        // ignore malformed lines
+      }
+    });
+
+    this.process.on('close', () => {
+      if (this._onClose) this._onClose();
+      for (const [, p] of this.pending) {
+        p.reject(new Error('MCP server closed'));
+      }
+      this.pending.clear();
+    });
+
+    this.process.on('error', (err) => {
+      if (this._onError) this._onError(err);
+    });
+
+    this.process.stderr?.on('data', (data: Buffer) => {
+      // ignore stderr for now
+    });
+  }
+
+  async send(message: JSONRPCMessage): Promise<void> {
+    if (!this.process?.stdin) throw new Error('MCP transport not connected');
+    this.process.stdin.write(JSON.stringify(message) + '\n');
+  }
+
+  async request(method: string, params?: Record<string, unknown>): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+      const id = ++this.msgId;
+      this.pending.set(id, { resolve, reject });
+      this.send({
+        jsonrpc: '2.0' as const,
+        id,
+        method,
+        params,
+      }).catch(reject);
+    });
+  }
+
+  async close(): Promise<void> {
+    this.rl?.close();
+    if (this.process) {
+      this.process.kill();
+      this.process = null;
+    }
+  }
+}

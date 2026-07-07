@@ -4,7 +4,7 @@ import pinoPretty from 'pino-pretty';
 import { ChatMessage, ToolCall, OpenAITool, AgentResult, OpenRouterCreateParams } from './types';
 import { ConversationState } from './ConversationState';
 import { validateToolInput, validateToolOutput, isToolCallArray } from './validation';
-import { executeTool } from './tools/fileManager';
+import { executeTool } from './tools/toolRegistry';
 import { ModelPreset, PROVIDERS } from './config/models';
 
 const logger = pino(

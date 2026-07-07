@@ -167,6 +167,8 @@
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/reset</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Clear conversation history</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/active</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Show current active model</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/models</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">List all available presets</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/mcp list</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">List MCP servers</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/mcp toggle</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Disable/enable MCP tools</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/exit</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">End the session</td></tr>
     </table>
     <p style="margin-top:16px;font-size:12px;color:#484f58">For full documentation, see the README or visit the GitHub repository.</p>
@@ -331,6 +333,27 @@ async function handleCommand(msg) {
       body: JSON.stringify({ path: p }),
     });
     addMessage('assistant', `📁 Path allowed: <code>${escapeHtml(p)}</code>`);
+    return true;
+  }
+  if (lower === '/mcp list') {
+    try {
+      const res = await fetch('/api/mcp');
+      const data = await res.json();
+      if (data.servers && data.servers.length > 0) {
+        let text = '🔌 MCP Servers:<br>';
+        for (const s of data.servers)
+          text += `  ${escapeHtml(s.name)} (${s.tools} tools)<br>`;
+        addMessage('assistant', text);
+      } else {
+        addMessage('assistant', 'No MCP servers connected.');
+      }
+    } catch { addMessage('error', '⚠️ Failed to list MCP servers'); }
+    return true;
+  }
+  if (lower === '/mcp toggle') {
+    const res = await fetch('/api/mcp/toggle', { method: 'POST' });
+    const data = await res.json();
+    addMessage('assistant', `MCP ${data.enabled ? 'enabled' : 'disabled'}`);
     return true;
   }
   return false;

@@ -201,6 +201,7 @@ The agent reads the relevant file, analyzes the code, suggests and applies a fix
 - **Structured logging** — via `pino` (stderr, doesn't interfere with UI)
 - **Diff Viewer (Web UI)** — line-level LCS diffs for `write_file`, `replace_in_file`, `append_file`
 - **Session Manager (Web UI)** — create/switch/list sessions with auto-title & metadata
+- **MCP Support (Model Context Protocol)** — connect external MCP servers to extend agent capabilities (filesystem, GitHub API, databases, custom tools). Configured via `.coding-agent.json`
 - **Slash Commands (Web UI)** — `/active`, `/model <n>`, `/safe`, `/allow`, `/reset`, `/models`, `/exit`
 - **Help Modal (Web UI)** — usage guide, commands reference, diff viewer explanation
 
@@ -221,6 +222,7 @@ The agent reads the relevant file, analyzes the code, suggests and applies a fix
 | `search_content` | Search for exact text in files. Supports `filePattern` (e.g. `*.ts`) and `maxResults` (default 50). Skips files >1MB |
 | `replace_in_file` | Replace the first occurrence of exact text (case‑sensitive) |
 | `run_command` | Run a shell command in the workspace |
+| *(MCP tools)* | Tools from connected MCP servers appear automatically alongside built-in tools |
 
 ## Commands
 
@@ -235,8 +237,62 @@ The agent reads the relevant file, analyzes the code, suggests and applies a fix
 | `/models` | Show all presets |
 | `/active` | Show current active model |
 | `/reset` | Clear conversation history (start fresh) |
+| `/mcp list` | List connected MCP servers and their tool count |
+| `/mcp connect <name> <cmd>` | Connect a new MCP server by command |
+| `/mcp disconnect <name>` | Disconnect an MCP server |
+| `/mcp toggle` | Enable / disable MCP tools |
 | `/list-providers` | Show providers with valid keys (and local providers) |
 | `/exit` | Quit |
+
+## MCP (Model Context Protocol)
+
+Connect external tools to the agent via MCP servers. The agent can discover and call tools from any MCP-compatible server automatically.
+
+### Quick Start
+
+1. Install an MCP server:
+   ```bash
+   npm install -g @modelcontextprotocol/server-filesystem
+   ```
+
+2. Add it to `.coding-agent.json` in your project root:
+   ```json
+   {
+     "mcpServers": {
+       "filesystem": {
+         "command": "npx",
+         "args": ["-y", "@modelcontextprotocol/server-filesystem", "./workspace"]
+       }
+     }
+   }
+   ```
+
+3. Start the agent — it connects automatically on launch:
+   ```
+   🔌 MCP "filesystem" connected (2 tools)
+   ```
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `/mcp list` | List connected servers and their available tools |
+| `/mcp connect <name> <cmd> [args...]` | Connect a server on-the-fly |
+| `/mcp disconnect <name>` | Disconnect a server |
+| `/mcp toggle` | Temporarily enable/disable all MCP tools |
+
+### Example MCP Servers
+
+| Server | Install | Purpose |
+|--------|---------|---------|
+| Filesystem | `@modelcontextprotocol/server-filesystem` | Safe file operations with path boundaries |
+| GitHub | `@modelcontextprotocol/server-github` | Repository management, PRs, issues |
+| PostgreSQL | `@modelcontextprotocol/server-postgres` | Read-only database queries |
+| Sqlite | `@modelcontextprotocol/server-sqlite` | Query local SQLite databases |
+| Puppeteer | `@modelcontextprotocol/server-puppeteer` | Browser automation, screenshots |
+| Memory | `@modelcontextprotocol/server-memory` | Persistent knowledge graph |
+
+> **Tip:** Create your own MCP server — see [`examples/mcp-echo-server.js`](examples/mcp-echo-server.js) for a minimal example.
 
 ## Multi-Provider Usage
 

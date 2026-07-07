@@ -5,7 +5,9 @@ import * as dotenv from 'dotenv';
 import * as path from 'path';
 import pino from 'pino';
 import pinoPretty from 'pino-pretty';
-import { tools, allowExtraPath, setSafeMode, isSafeModeEnabled } from './tools/fileManager';
+import { getAllTools, executeTool, allowExtraPath, setSafeMode, isSafeModeEnabled, setMCPEnabled, isMCPEnabled } from './tools/toolRegistry';
+import { mcpManager } from './mcp/MCPManager';
+import { loadMCPConfig } from './mcp/config';
 import { ModelPreset, PROVIDERS, FIXED_PRESETS, SYSTEM_PROMPT } from './config/models';
 import { ChatMessage } from './types';
 import { CodingAgent } from './CodingAgent';
@@ -97,8 +99,12 @@ async function startChat() {
   console.log('    /list-providers  Show available providers');
   console.log('    /models      Show all presets');
   console.log('    /active      Show current active model');
-  console.log('    /exit        Quit');
-  console.log('═══════════════════════════════════════════════');
+    console.log('    /mcp list    Show connected MCP servers');
+    console.log('    /mcp connect <name> <cmd>  Connect MCP server');
+    console.log('    /mcp disconnect <name>     Disconnect MCP server');
+    console.log('    /mcp toggle  Enable/disable MCP tools');
+    console.log('    /exit        Quit');
+    console.log('═══════════════════════════════════════════════');
   console.log(`  💡 Tip: Set ALLOWED_DIR=. in .env to access the project root.`);
   console.log('');
 
@@ -128,7 +134,23 @@ async function startChat() {
   }
 
   const rl = readline.createInterface({ input: stdin, output: stdout, prompt: 'You: ' });
-  const typedTools = tools as OpenAITool[];
+
+  // Initialize MCP servers from config
+  const mcpConfig = loadMCPConfig();
+  const mcpNames = Object.keys(mcpConfig);
+  if (mcpNames.length > 0) {
+    for (const [name, def] of Object.entries(mcpConfig)) {
+      try {
+        await mcpManager.connectServer(name, def);
+        const n = mcpManager.getServerToolCount(name);
+        console.log(`  🔌 MCP "${name}" connected (${n} tools)`);
+      } catch (err: any) {
+        console.log(`  ⚠️  MCP "${name}" failed: ${err.message}`);
+      }
+    }
+  }
+
+  const typedTools = getAllTools() as OpenAITool[];
   const projectContext = loadProjectContext();
   const systemPrompt = projectContext
     ? `${SYSTEM_PROMPT}\n\n${projectContext}`
@@ -317,6 +339,63 @@ async function startChat() {
       agent = new CodingAgent(client, typedTools, activeModelConfig, systemPrompt);
       await clearConversation();
       console.log('\n🧹 Conversation cleared. Starting fresh.\n');
+      rl.prompt();
+      continue;
+    }
+
+    const mcpCommand = input.match(/^\/mcp\s+(.+)$/i);
+    if (mcpCommand) {
+      const sub = mcpCommand[1].trim().toLowerCase();
+      if (sub === 'list') {
+        const names = mcpManager.getServerNames();
+        if (names.length === 0) {
+          console.log('\n  No MCP servers connected.\n');
+        } else {
+          console.log('\n── MCP Servers ──────────────────────────────');
+          for (const name of names) {
+            const n = mcpManager.getServerToolCount(name);
+            console.log(`  ${name} (${n} tools)`);
+          }
+          console.log('──────────────────────────────────────────────\n');
+        }
+      } else if (sub.startsWith('connect ')) {
+        const args = sub.slice(8).trim();
+        const spaceIdx = args.indexOf(' ');
+        if (spaceIdx === -1) {
+          console.log('\n  Usage: /mcp connect <name> <command> [args...]\n');
+        } else {
+          const name = args.slice(0, spaceIdx);
+          const rest = args.slice(spaceIdx + 1).split(' ');
+          const command = rest[0];
+          const cargs = rest.slice(1);
+          try {
+            await mcpManager.connectServer(name, { command, args: cargs });
+            const n = mcpManager.getServerToolCount(name);
+            const oldTools = typedTools.slice();
+            const newTools = getAllTools() as OpenAITool[];
+            typedTools.length = 0;
+            typedTools.push(...newTools);
+            console.log(`\n✅ MCP "${name}" connected (${n} tools). Recreate agent? (tools available for next turn)\n`);
+          } catch (err: any) {
+            console.log(`\n❌ MCP "${name}" failed: ${err.message}\n`);
+          }
+        }
+      } else if (sub.startsWith('disconnect ')) {
+        const name = sub.slice(11).trim();
+        await mcpManager.disconnectServer(name);
+        const newTools = getAllTools() as OpenAITool[];
+        typedTools.length = 0;
+        typedTools.push(...newTools);
+        console.log(`\n✅ MCP "${name}" disconnected.\n`);
+      } else if (sub === 'toggle') {
+        setMCPEnabled(!isMCPEnabled());
+        const newTools = getAllTools() as OpenAITool[];
+        typedTools.length = 0;
+        typedTools.push(...newTools);
+        console.log(`\n MCP ${isMCPEnabled() ? 'enabled' : 'disabled'}.\n`);
+      } else {
+        console.log('\n  Commands: list, connect <name> <cmd> [args], disconnect <name>, toggle\n');
+      }
       rl.prompt();
       continue;
     }

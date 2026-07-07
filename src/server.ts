@@ -2,7 +2,9 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import * as dotenv from 'dotenv';
 import OpenAI from 'openai';
-import { tools, executeTool, setSafeMode, isSafeModeEnabled, allowExtraPath } from './tools/fileManager';
+import { getAllTools, executeTool, setSafeMode, isSafeModeEnabled, allowExtraPath, setMCPEnabled, isMCPEnabled } from './tools/toolRegistry';
+import { mcpManager } from './mcp/MCPManager';
+import { loadMCPConfig } from './mcp/config';
 import { PROVIDERS, FIXED_PRESETS, SYSTEM_PROMPT } from './config/models';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -202,6 +204,20 @@ app.post('/api/allow', (req, res) => {
   res.json({ allowedPath: allowPath });
 });
 
+app.get('/api/mcp', (_req, res) => {
+  const servers = mcpManager.getServerNames().map(name => ({
+    name,
+    tools: mcpManager.getServerToolCount(name),
+  }));
+  res.json({ servers });
+});
+
+app.post('/api/mcp/toggle', (_req, res) => {
+  const enabled = !isMCPEnabled();
+  setMCPEnabled(enabled);
+  res.json({ enabled });
+});
+
 app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res: Response) => {
   const s = sessions.get(req.params.sessionId);
   if (!s) return res.status(404).json({ error: 'Session not found' });
@@ -239,7 +255,7 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
     const base: any = {
       model: s.modelConfig.primary,
       messages: s.messages,
-      tools: tools,
+      tools: getAllTools(),
       tool_choice: 'auto',
       stream: true,
     };
@@ -422,6 +438,20 @@ app.post('/v1/chat/completions', async (req: Request, res: Response) => {
 });
 
 if (process.env.NODE_ENV !== 'test') {
+  // Initialize MCP servers from config
+  (async () => {
+    const mcpConfig = loadMCPConfig();
+    for (const [name, def] of Object.entries(mcpConfig)) {
+      try {
+        await mcpManager.connectServer(name, def);
+        const n = mcpManager.getServerToolCount(name);
+        console.log(`   🔌 MCP "${name}" connected (${n} tools)`);
+      } catch (err: any) {
+        console.log(`   ⚠️  MCP "${name}" failed: ${err.message}`);
+      }
+    }
+  })();
+
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`🌐 Web interface: http://localhost:${PORT}`);
     console.log(`   OpenAI-compatible API: http://localhost:${PORT}/v1/chat/completions`);
