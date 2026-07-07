@@ -187,6 +187,7 @@ The agent reads the relevant file, analyzes the code, suggests and applies a fix
 - **Automatic retry** — exponential backoff + 120s timeout (300s for local models)
 - **Zod validation** — runtime type-checking of every tool input and output
 - **CLI &amp; Web unified** — shared model config, system prompt, tool engine, provider definitions, and user presets across both interfaces
+- **AGENTS.md support** — drop `AGENTS.md` in your project root to give the agent project-specific context automatically
 - **opencode.json** — comprehensive permission rules (100+ safe command patterns auto-allowed) and truncated tool output for cleaner prompts
 - **Tool output truncation** — all tool results capped at 5000 chars (`MAX_TOOL_RESULT_LENGTH`) to keep context clean
 - **Conversation persistence** — auto-save/restore sessions across restarts
@@ -490,6 +491,7 @@ coding-agent-free/
 ├── .env                        # API keys (gitignored)
 ├── presets.json                # User presets (gitignored)
 ├── tsconfig.json
+├── AGENTS.md                   # Project-specific agent context (auto-loaded)
 ├── run-cli.bat                 # CLI launcher (Windows)
 ├── run-cli-rtl.bat             # CLI launcher with RTL support (WezTerm)
 └── run-web.bat                 # Web UI launcher (Windows)

@@ -7,6 +7,7 @@ import { PROVIDERS, FIXED_PRESETS, SYSTEM_PROMPT } from './config/models';
 import * as path from 'path';
 import * as fs from 'fs';
 import { v4 as uuidv4 } from 'uuid';
+import { loadProjectContext } from './loadProjectContext';
 
 dotenv.config();
 
@@ -80,10 +81,14 @@ app.use(express.static(PUBLIC_DIR));
 app.post('/api/session', (_req, res) => {
   const id = uuidv4();
   const modelConfig = { ...FIXED_PRESETS['1'] };
+  const projectContext = loadProjectContext();
+  const systemContent = projectContext
+    ? `${SYSTEM_PROMPT}\n\n${projectContext}`
+    : SYSTEM_PROMPT;
   sessions.set(id, {
     client: createClient(modelConfig.provider),
     modelConfig,
-    messages: [{ role: 'system', content: SYSTEM_PROMPT }],
+    messages: [{ role: 'system', content: systemContent }],
   });
   res.json({
     sessionId: id,

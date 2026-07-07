@@ -1,6 +1,6 @@
 {
   "name": "coding-agent-free",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "Interactive AI coding agent using free OpenRouter models with real tool calling",
   "main": "src/agent.ts",
   "scripts": {
