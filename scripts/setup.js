@@ -69,6 +69,29 @@ async function main() {
     envLines.push(`ALLOWED_DIR=${dir.trim()}`);
   }
 
+  // LSP servers (optional)
+  console.log('\n── LSP Servers ────────────────────────────\n');
+  console.log('  LSP enables code_definition, code_references, code_hover tools.');
+  console.log('  Install npm-based LSP servers globally? (optional, skip if offline)\n');
+
+  const lspServers = [
+    { pkg: 'typescript-language-server', lang: 'TypeScript/JavaScript' },
+    { pkg: 'pyright', lang: 'Python' },
+    { pkg: 'sql-language-server', lang: 'SQL' },
+  ];
+
+  for (const srv of lspServers) {
+    const answer = await rl.question(`  Install ${srv.pkg} (${srv.lang})? (Y/n): `);
+    if (answer.toLowerCase() === 'n' || answer.toLowerCase() === 'no') continue;
+    try {
+      const { execSync } = require('child_process');
+      execSync(`npm install -g ${srv.pkg}`, { stdio: 'inherit', timeout: 120000 });
+      console.log(`  ✅ ${srv.pkg} installed\n`);
+    } catch (err) {
+      console.log(`  ⚠️  ${srv.pkg} skipped (${err.message})\n`);
+    }
+  }
+
   // Write .env
   try {
     fs.writeFileSync(envPath, envLines.join('\n') + '\n', 'utf-8');
