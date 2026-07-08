@@ -18,9 +18,19 @@
    - [Project 3: Code Explorer with LSP](#project-3-code-explorer-with-lsp)
    - [Project 4: MCP-Powered File Manager](#project-4-mcp-powered-file-manager)
    - [Project 5: Full-Stack Todo Application](#project-5-full-stack-todo-application)
-7. [Web Interface Guide](#web-interface-guide)
-8. [Troubleshooting](#troubleshooting)
-9. [Glossary](#glossary)
+7. [Complex & Large Projects: Step-by-Step Guide](#complex--large-projects-step-by-step-guide)
+   - [Why Complex Projects Need a Different Approach](#why-complex-projects-need-a-different-approach)
+   - [Phase 1: Planning & Architecture](#phase-1-planning--architecture)
+   - [Phase 2: Build the Foundation](#phase-2-build-the-foundation)
+   - [Phase 3: Feature-by-Feature Development](#phase-3-feature-by-feature-development)
+   - [Phase 4: Integration & Testing](#phase-4-integration--testing)
+   - [Strategies for Success](#strategies-for-success)
+   - [Limitations & How to Work Around Them](#limitations--how-to-work-around-them)
+   - [Real-World Workflow Example](#real-world-workflow-example)
+   - [Checklist for Complex Projects](#checklist-for-complex-projects)
+8. [Web Interface Guide](#web-interface-guide)
+9. [Troubleshooting](#troubleshooting)
+10. [Glossary](#glossary)
 
 ---
 
@@ -994,6 +1004,564 @@ When you start the agent next time:
 Your conversation continues from where you left off.
 
 **What you learned**: Full-stack development with the agent, multi-language projects, REST API testing, session management for long-running projects.
+
+---
+
+## Complex & Large Projects: Step-by-Step Guide
+
+This section is for when you're building something **serious** — not a calculator or todo app, but a real-world project with multiple modules, external dependencies, databases, and dozens of files. These strategies work for projects that take days or weeks to complete.
+
+### Why Complex Projects Need a Different Approach
+
+The agent is powerful, but it has limits:
+- **Context window**: The AI can only "see" about 128K tokens (~50K words) of conversation at once
+- **One-shot limits**: The agent can't design the entire architecture in a single response
+- **Stuck detection**: If you give too broad a task, the agent may loop or lose focus
+
+For simple scripts, you can say "build a calculator" and get results. For a real project, you need to **scaffold, iterate, and verify** — just like a human developer.
+
+---
+
+### Phase 1: Planning & Architecture
+
+**Goal**: Define the project structure before writing any code.
+
+**Step 1: Start a dedicated session**
+
+```bash
+npm start
+/session rename my-project-name
+```
+
+Each major project gets its own session — this keeps context clean and lets you resume work later.
+
+**Step 2: Define the architecture first**
+
+Prompt the agent to design the structure:
+
+```
+I want to build a URL shortening service. Before writing code, help me plan:
+1. What files and folders will I need? List them.
+2. What's the data flow? (request → backend → database → response)
+3. What dependencies are needed?
+4. What's the order to build things in?
+```
+
+The agent will suggest an architecture. **Review it** and adjust before proceeding.
+
+**Step 3: Capture decisions in AGENTS.md**
+
+The agent reads `AGENTS.md` from the project root at startup. Use this to store architectural decisions:
+
+Say:
+```
+Create AGENTS.md in the project root with:
+- Project name and purpose
+- Technology stack (language, frameworks, database)
+- Project structure (folders and key files)
+- Build and run commands
+```
+
+Now every time you start the agent in this project, it reads this file and knows the context.
+
+**Step 4: Create the folder structure**
+
+```
+Create all the folders and empty placeholder files based on the structure we planned.
+```
+
+This gives the agent a "map" of the project to work with.
+
+---
+
+### Phase 2: Build the Foundation
+
+**Goal**: Get a working skeleton — not all features, just enough to prove the architecture works.
+
+**Strategy: One module at a time**
+
+Pick the **most independent** module first and complete it fully. For a web app, the order is typically:
+
+1. Database schema & models
+2. API layer (routes, controllers)
+3. Core business logic
+4. Frontend (if applicable)
+5. Integration & tests
+
+```
+Let's start with the database layer. Create:
+- A SQLite database initialization file
+- A table for shortened URLs (id, original_url, short_code, created_at)
+- Functions to insert and lookup URLs
+Test it by inserting a record and querying it.
+```
+
+**Why this works**: Each step is small enough for the agent to handle well. Each step can be tested immediately. Changes are isolated to one module.
+
+---
+
+### Phase 3: Feature-by-Feature Development
+
+**Goal**: Add features one at a time, testing each before moving on.
+
+**Step 1: Start each feature with a clear goal**
+
+```
+Feature: URL shortening endpoint.
+Create a POST /api/shorten endpoint that:
+1. Accepts { "url": "https://..." } in the request body
+2. Validates the URL is well-formed
+3. Generates a random 6-character short code
+4. Stores it in the database
+5. Returns { "shortUrl": "http://localhost:3000/abc123" }
+```
+
+**Step 2: Run and test immediately**
+
+```
+Start the server and test:
+curl -X POST http://localhost:3000/api/shorten \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://example.com"}'
+```
+
+If it fails, the agent sees the error and can fix it:
+
+```
+The POST request returned a 404 error. Check the route registration and fix it.
+```
+
+**Step 3: Iterate, don't restart**
+
+When you need changes, be specific:
+
+❌ **Too vague**: "Fix the URL shortener"
+✅ **Specific**: "The short code generation sometimes produces codes with ambiguous characters (0/O, 1/l/I). Update the generateShortCode function to exclude these characters."
+
+**Step 4: Add features incrementally**
+
+```
+Now add a GET /:shortCode endpoint that:
+1. Looks up the short code in the database
+2. Redirects (302) to the original URL
+3. Returns 404 if the code doesn't exist
+```
+
+Test again:
+
+```
+curl -v http://localhost:3000/abc123
+```
+
+---
+
+### Phase 4: Integration & Testing
+
+**Goal**: Verify all parts work together and handle edge cases.
+
+**Integration testing workflow:**
+
+```
+Let's run through all the features end-to-end:
+1. Create a short URL via POST
+2. Follow the redirect via GET
+3. Verify the redirect status is 302
+4. Test with a non-existent short code (expect 404)
+5. Test with an invalid URL (expect validation error)
+```
+
+**Adding automated tests:**
+
+```
+Write a test file that covers:
+- URL validation (valid, invalid, empty)
+- Short code generation (uniqueness, length)
+- API endpoints (create, redirect, 404)
+- Database operations (insert, lookup, missing)
+Run the tests to verify.
+```
+
+**Stress-test the agent's understanding:**
+
+```
+Search for all places where we handle HTTP status codes. Are we using the right codes for each situation?
+```
+
+This uses `search_content` across your project — the agent will analyze all your error handling at once.
+
+---
+
+### Strategies for Success
+
+#### 1. Keep context windows manageable
+
+After 15–20 exchanges in a feature conversation, the agent's context gets crowded. When you start a new feature:
+
+```
+/reset
+```
+
+This clears the conversation but the AGENTS.md file still provides project context on restart.
+
+> **Tip**: After `/reset`, remind the agent of your current task: "We're building a URL shortener. Next feature: add click tracking to each shortened URL."
+
+#### 2. Pick the right model for the job
+
+| Task | Recommended Model | Why |
+|------|------------------|-----|
+| Architecture & planning | `/model 1` (deepseek) | Large context, good reasoning |
+| Simple CRUD code | `/model 4` (qwen) or `/model 5` (gemini) | Fast, good quality |
+| Debugging tricky bugs | `/model 3` (qwen-32k) or `/model 1` (deepseek) | Better analysis |
+| Quick edits & refactoring | `/model 2` (qwen-fast) | Fastest response |
+| Large refactoring | `/model 3` (qwen-32k) | 32K context fits more files |
+| Learning / exploration | Any model — no wrong choice | Experiment and learn |
+
+Use `/model <n>` to switch mid-session. For example: plan with deepseek, code with qwen-fast, debug with deepseek.
+
+> **Model strategy for complex projects**: Don't use one model for everything.
+> - **Morning (planning/design)**: deepseek — think through the hard problems when you're fresh
+> - **Midday (implementation)**: qwen-fast — crank out CRUD code quickly
+> - **Afternoon (debugging)**: deepseek or gemini — solve the bugs that emerged during implementation
+> - **Code review**: qwen-32k — load larger context for cross-file analysis
+
+#### 3. Use LSP across multiple languages
+
+A complex project rarely uses one language. You might have:
+- **Python** backend (Django/FastAPI)
+- **TypeScript/JavaScript** frontend (React, Vue)
+- **SQL** for database queries
+- **Rust** or **Go** for performance-critical microservices
+- **Ruby** for scripting or legacy code
+- **C/C++** for native modules
+
+The agent auto-detects the language for each file and routes LSP queries to the correct server:
+
+```
+/lsp
+```
+
+Install the LSP servers you need:
+
+```bash
+# Python backend
+pip install pyright
+
+# TypeScript/JS frontend
+npm install -g typescript-language-server
+
+# SQL queries
+npm install -g sql-language-server
+
+# Rust microservices
+rustup component add rust-analyzer
+
+# Go services
+go install golang.org/x/tools/gopls@latest
+
+# Ruby scripts
+gem install solargraph
+
+# Lua configs
+brew install lua-language-server   # macOS
+winget install LuaLanguageServer   # Windows
+apt install lua-language-server    # Linux
+```
+
+Now the agent can navigate your entire polyglot project:
+
+```
+Find all references to the User model across Python backend, TypeScript frontend, and SQL schema.
+```
+
+```
+Show me the definition of "authenticate" — I need to see how it's implemented in the Python API vs how it's called in the JS client.
+```
+
+```
+What does the function "calculateFee" expect as input? Check across all languages.
+```
+
+The agent parses file extensions and calls the right LSP server automatically. If a server isn't installed for a language, the agent falls back to file search (`search_content`) instead.
+
+> **Windows note**: LSP servers installed via npm global packages use `.cmd` wrappers. The agent handles this automatically on Windows, but if you see "LSP server exited" errors, the server may not be installed or may need a PATH refresh. Run `npm install -g typescript-language-server` in a new terminal.
+
+#### 4. Connect multiple MCP servers
+
+Complex projects integrate with external systems. MCP (Model Context Protocol) lets the agent use those directly.
+
+**Typical MCP setup for a complex project:**
+
+```json
+{
+  "mcpServers": {
+    "database": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://user:pass@localhost/db"]
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/project"]
+    },
+    "search": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-web-search"]
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_TOKEN": "ghp_..."
+      }
+    }
+  }
+}
+```
+
+Put this in `.coding-agent.json` at your project root. The agent loads it on startup.
+
+**What each server enables:**
+
+| MCP Server | The agent can now... | Example prompt |
+|-----------|---------------------|----------------|
+| **database** | Query your live database directly | "Show me all users who registered in the last 7 days" |
+| **filesystem** | Access any file on disk (outside the project) | "Read the server config from /etc/app/config.json" |
+| **search** | Search the web | "Find the latest FastAPI documentation for dependency injection" |
+| **github** | Manage repos, issues, PRs | "Create a PR with these changes and tag @reviewer" |
+| **custom** | Anything you can script | "Deploy the latest build to staging" |
+
+**Build your own MCP server** for project-specific needs:
+
+Write a simple script that reads JSON-RPC from stdin and writes responses to stdout:
+
+```javascript
+// mcp-servers/deploy.js
+const readline = require('readline');
+const rl = readline.createInterface({ input: process.stdin });
+rl.on('line', (line) => {
+  const msg = JSON.parse(line);
+  if (msg.method === 'tools/list') {
+    process.stdout.write(JSON.stringify({
+      jsonrpc: '2.0', id: msg.id,
+      result: {
+        tools: [{
+          name: 'deploy_staging',
+          description: 'Deploy the current branch to staging server',
+          inputSchema: {
+            type: 'object',
+            properties: { branch: { type: 'string' } },
+            required: ['branch'],
+          },
+        }],
+      },
+    }) + '\n');
+  }
+});
+// ... handle tools/call
+```
+
+Then register it in `.coding-agent.json`:
+
+```json
+{
+  "mcpServers": {
+    "deploy": { "command": "node", "args": ["mcp-servers/deploy.js"] }
+  }
+}
+```
+
+**Multi-MCP workflow example:**
+
+```
+/mcp list                    # See connected servers
+/mcp toggle database         # Enable database access
+/mcp toggle search           # Enable web search too
+```
+
+Then:
+
+```
+Query the database for recent orders, search the web for the latest shipping API docs, then write an integration script for the new API.
+```
+
+The agent orchestrates multiple MCP tools in sequence — query DB → get results → search docs → write code → optionally create a GitHub PR via the github MCP server.
+
+#### 5. Cross-cutting concerns in polyglot projects
+
+When you have multiple languages, some tasks cross boundaries. The agent handles these naturally:
+
+**Shared data model changes:**
+```
+I changed the User model in the Python backend — it now has a "phone" field.
+Update the TypeScript types, the SQL schema migration, and the validation in the frontend form.
+```
+
+**End-to-end feature across languages:**
+```
+Add a "forgot password" feature:
+1. Python backend: new POST /auth/forgot-password endpoint
+2. SQL: add reset_token and reset_expires columns to users table
+3. JavaScript frontend: forgot password form + reset password page
+4. MCP: send the reset email via the SMTP MCP server
+```
+
+The agent reads files by extension, routes LSP queries per language, calls MCP servers, and integrates results — all in one conversation.
+
+#### 6. Save checkpoints
+
+```
+Before making this big change, let's save the current state:
+1. /session rename url-shortener-v1
+2. I'll create a new session for the refactoring
+```
+
+Then when you start the refactoring:
+
+```
+/session new
+/session rename url-shortener-v2-with-analytics
+```
+
+If the refactoring goes wrong, you can always switch back:
+
+```
+/session switch url-shortener-v1
+```
+
+#### 7. Break work into atomic tasks
+
+Each prompt should ask for **exactly one logical change**. Signs your task is too big:
+
+- The agent takes longer than 30 seconds to respond
+- The agent writes 5+ files in one response
+- The agent says "Let me do X, then Y, then Z" (too much planning)
+- The result has multiple bugs that are hard to isolate
+
+Fix: split your request into smaller pieces.
+
+---
+
+### Limitations & How to Work Around Them
+
+#### Context Window Saturation
+
+**Problem**: After ~20 exchanges, the agent forgets details from the start of the conversation.
+
+**Workarounds**:
+- `/reset` between feature work
+- Store key decisions in `AGENTS.md` (the agent reads this on every start)
+- Use specific filenames: "Read src/utils/urlValidator.ts and tell me..." (refreshes the agent's memory of that file)
+- `/session new` for each major feature
+
+#### Stuck Detection False Positives
+
+**Problem**: If the agent makes 3 similar tool calls in a row (e.g., `read_file` 3 times to understand a problem), it may trigger stuck detection and force a `/reset`.
+
+**Workarounds**:
+- Give more context in your prompt so the agent doesn't need to explore
+- If stuck detection triggers, the agent auto-recovers and asks you to rephrase
+- Use `/safe` mode to disable stuck detection (not recommended long-term)
+
+#### Token Consumption
+
+**Problem**: Each exchange costs tokens (even if the model is "free"). Long conversations with large file reads consume your rate limit.
+
+**Workarounds**:
+- Read only the relevant parts of files, not entire large files
+- Use `/model 2` (qwen-fast) for quick iterations, switch to smarter models only when needed
+- Keep file contents small when asking the agent to review them
+- Use `grep` / `search_content` instead of reading entire files
+
+#### Model Capability Differences
+
+**Problem**: Some models handle complex reasoning well; others are better at simple tasks. Using the wrong model wastes time.
+
+**Workarounds**:
+- Switch models mid-session with `/model <n>`
+- Default preset (5 models) covers most scenarios
+- Add custom presets if you need a specific model: `/add 6 openrouter/qwen-2.5-coder-32b-instruct`
+
+#### Rate Limits on Free Tiers
+
+**Problem**: Free APIs (OpenRouter, Google) enforce rate limits. You might get "429 Rate limited" after heavy use.
+
+**Workarounds**:
+- Wait 30–60 seconds and retry
+- Switch providers: `/model 1` → deepseek, `/model 5` → google
+- Use local models (see [Configuration](#configuration))
+- The agent retries automatically up to 3 times with backoff
+
+---
+
+### Real-World Workflow Example
+
+Here's how a full project session looks with these strategies:
+
+```
+# Day 1 — Planning
+You: I want to build a personal finance tracker web app.
+/session rename finance-tracker
+You: Help me plan the architecture...
+You: Create AGENTS.md with our decisions.
+You: Create the folder structure.
+
+# Day 2 — Database & Backend
+/reset (new context for today's work)
+You: We're building the finance tracker (AGENTS.md has details).
+         Step 1: Create SQLite schema for transactions.
+         Step 2: Create the Express API with CRUD endpoints.
+         Step 3: Test each endpoint with curl.
+
+# Day 3 — Frontend (same session or new)
+/reset
+You: Continuing the finance tracker from AGENTS.md.
+         Step 1: Create the React app structure.
+         Step 2: Build the transaction list component.
+/model 4 (switch to qwen for faster frontend work)
+You: Step 3: Build the "Add Transaction" form.
+         Step 4: Connect to the API.
+
+# Day 3 — Debugging
+/model 1 (switch to deepseek for hard problem)
+You: The form submits but the data doesn't persist after page refresh.
+         Check the API response and database flow. Fix the issue.
+
+# Day 4 — Polish
+/reset
+/model 2 (switch to fast model for small changes)
+You: Add input validation to the transaction form.
+         - Amount must be a positive number
+         - Description is required, max 200 chars
+         - Date defaults to today
+/session rename finance-tracker-v1 (checkpoint)
+
+# Done! Later, for v2:
+/session new
+/session rename finance-tracker-v2
+You: Build on the existing finance tracker (read AGENTS.md).
+         Add category analytics with charts.
+```
+
+This workflow takes 3–4 days of real work with an agent — about the same as a solo human developer for the same project. The key difference: you're **directing** the work, not typing the code.
+
+---
+
+### Checklist for Complex Projects
+
+Use this checklist to stay on track:
+
+- [ ] **Session created** (`/session rename <project>`)
+- [ ] **Architecture planned** (files, data flow, dependencies)
+- [ ] **AGENTS.md written** (captures all decisions)
+- [ ] **Folder structure created** (empty placeholder files)
+- [ ] **Base module built and tested** independently
+- [ ] **Features added one at a time**, tested after each
+- [ ] **Session checkpointed** after each feature (`/session rename <project>-featureX`)
+- [ ] **Context reset** between major features (`/reset`)
+- [ ] **Appropriate model selected** for each task (`/model <n>`)
+- [ ] **LSP enabled** for cross-file analysis (`/lsp`)
+- [ ] **Integration tested** end-to-end
+- [ ] **Edge cases handled** (errors, invalid input, missing data)
+- [ ] **Tests written** for core functionality
 
 ---
 
