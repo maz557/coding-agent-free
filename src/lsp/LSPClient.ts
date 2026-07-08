@@ -1,4 +1,4 @@
-import { spawn, ChildProcess, execSync } from 'child_process';
+import { spawn, ChildProcess } from 'child_process';
 
 interface PendingRequest {
   resolve: (value: unknown) => void;
@@ -95,14 +95,17 @@ export class LSPClient {
   }
 
   private processBuffer(): void {
-    const lines = this.buffer.split('\n');
-    this.buffer = lines.pop() || '';
-
-    for (const line of lines) {
-      if (!line.trim()) continue;
+    const headerMatch = /Content-Length: (\d+)\r\n\r\n/;
+    while (true) {
+      const m = this.buffer.match(headerMatch);
+      if (!m) break;
+      const headerEnd = m.index! + m[0].length;
+      const bodyLen = parseInt(m[1], 10);
+      if (this.buffer.length < headerEnd + bodyLen) break;
+      const body = this.buffer.slice(headerEnd, headerEnd + bodyLen);
+      this.buffer = this.buffer.slice(headerEnd + bodyLen);
       try {
-        const msg = JSON.parse(line);
-        this.handleMessage(msg);
+        this.handleMessage(JSON.parse(body));
       } catch { /* ignore malformed */ }
     }
   }
