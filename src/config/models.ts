@@ -2,6 +2,7 @@ export interface ProviderInfo {
   name: string;
   baseURL: string;
   apiKeyEnv: string;
+  defaultModel?: string;
 }
 
 export interface ModelPreset {
@@ -13,15 +14,15 @@ export interface ModelPreset {
 
 export const PROVIDERS: Record<string, ProviderInfo> = {
   openrouter: { name: 'OpenRouter', baseURL: 'https://openrouter.ai/api/v1', apiKeyEnv: 'OPENROUTER_API_KEY' },
-  google:     { name: 'Google AI Studio', baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/', apiKeyEnv: 'GOOGLE_API_KEY' },
-  groq:       { name: 'Groq', baseURL: 'https://api.groq.com/openai/v1', apiKeyEnv: 'GROQ_API_KEY' },
-  deepseek:   { name: 'DeepSeek', baseURL: 'https://api.deepseek.com', apiKeyEnv: 'DEEPSEEK_API_KEY' },
-  mistral:    { name: 'Mistral', baseURL: 'https://api.mistral.ai/v1', apiKeyEnv: 'MISTRAL_API_KEY' },
-  anthropic:  { name: 'Anthropic', baseURL: 'https://api.anthropic.com/v1', apiKeyEnv: 'ANTHROPIC_API_KEY' },
-  together:   { name: 'Together AI', baseURL: 'https://api.together.xyz/v1', apiKeyEnv: 'TOGETHER_API_KEY' },
-  perplexity: { name: 'Perplexity', baseURL: 'https://api.perplexity.ai', apiKeyEnv: 'PERPLEXITY_API_KEY' },
-  xai:        { name: 'xAI (Grok)', baseURL: 'https://api.x.ai/v1', apiKeyEnv: 'XAI_API_KEY' },
-  cohere:     { name: 'Cohere', baseURL: 'https://api.cohere.com/v2', apiKeyEnv: 'COHERE_API_KEY' },
+  google:     { name: 'Google AI Studio', baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/', apiKeyEnv: 'GOOGLE_API_KEY', defaultModel: 'gemini-2.0-flash' },
+  groq:       { name: 'Groq', baseURL: 'https://api.groq.com/openai/v1', apiKeyEnv: 'GROQ_API_KEY', defaultModel: 'mixtral-8x7b-32768' },
+  deepseek:   { name: 'DeepSeek', baseURL: 'https://api.deepseek.com', apiKeyEnv: 'DEEPSEEK_API_KEY', defaultModel: 'deepseek-chat' },
+  mistral:    { name: 'Mistral', baseURL: 'https://api.mistral.ai/v1', apiKeyEnv: 'MISTRAL_API_KEY', defaultModel: 'mistral-small-latest' },
+  anthropic:  { name: 'Anthropic', baseURL: 'https://api.anthropic.com/v1', apiKeyEnv: 'ANTHROPIC_API_KEY', defaultModel: 'claude-3-haiku-20240307' },
+  together:   { name: 'Together AI', baseURL: 'https://api.together.xyz/v1', apiKeyEnv: 'TOGETHER_API_KEY', defaultModel: 'mistralai/Mixtral-8x7B-Instruct-v0.1' },
+  perplexity: { name: 'Perplexity', baseURL: 'https://api.perplexity.ai', apiKeyEnv: 'PERPLEXITY_API_KEY', defaultModel: 'llama-3.1-sonar-small-128k-online' },
+  xai:        { name: 'xAI (Grok)', baseURL: 'https://api.x.ai/v1', apiKeyEnv: 'XAI_API_KEY', defaultModel: 'grok-beta' },
+  cohere:     { name: 'Cohere', baseURL: 'https://api.cohere.com/v2', apiKeyEnv: 'COHERE_API_KEY', defaultModel: 'command-r-plus' },
   ollama:     { name: 'Ollama', baseURL: process.env.OLLAMA_HOST || 'http://localhost:11434/v1', apiKeyEnv: '' },
   lmstudio:   { name: 'LM Studio', baseURL: process.env.LMSTUDIO_HOST || 'http://localhost:1234/v1', apiKeyEnv: '' },
   llamacpp:   { name: 'Llama.cpp', baseURL: process.env.LLAMACPP_HOST || 'http://localhost:8080/v1', apiKeyEnv: '' },
@@ -38,6 +39,9 @@ Rules:
 - Keep tool calls to a minimum. Plan before you act.
 - If a tool returns an error (e.g. access denied), tell the user and stop — do NOT retry with different paths.
 - When done, summarize what you did and the results.
+- This system runs on Windows with PowerShell 7+. Use PowerShell commands, not Unix/bash commands.
+  For example: Get-Date instead of date, Get-ChildItem instead of ls, Select-String instead of grep.
+  Do NOT use bash syntax like $(), TZ=, $(date), or pipes with | unless they are PowerShell-safe.
 
 Clarifying questions:
 - Only ask if the request is truly ambiguous (e.g. "delete something" without specifying what).

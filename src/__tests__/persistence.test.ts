@@ -129,8 +129,13 @@ describe('persistence - save/load conversation (default)', () => {
 });
 
 describe('persistence - user presets', () => {
+  let origPresets = '';
+  before(async () => {
+    try { origPresets = await fs.readFile(path.join(__dirname, '..', '..', 'presets.json'), 'utf-8'); } catch { }
+  });
   after(async () => {
-    await saveUserPresets({});
+    if (origPresets) await fs.writeFile(path.join(__dirname, '..', '..', 'presets.json'), origPresets, 'utf-8');
+    else try { await fs.writeFile(path.join(__dirname, '..', '..', 'presets.json'), '{}', 'utf-8'); } catch { }
   });
 
   it('should save and load user presets', async () => {
@@ -148,6 +153,5 @@ describe('persistence - user presets', () => {
     await fs.writeFile(presetsFile, '{invalid}', 'utf-8');
     const loaded = await loadUserPresets();
     assert.deepEqual(loaded, {});
-    await fs.writeFile(presetsFile, '{}', 'utf-8');
   });
 });

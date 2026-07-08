@@ -41,6 +41,11 @@ export function createClient(providerId: string): OpenAI {
     headers['HTTP-Referer'] = 'https://github.com';
     headers['X-Title'] = 'coding-agent-pro';
   }
+  let baseURL = info.baseURL;
+  if (providerId === 'google' && apiKey) {
+    baseURL += (baseURL.endsWith('/') ? '' : '/') + '?key=' + encodeURIComponent(apiKey);
+    return new OpenAI({ baseURL, apiKey: 'unused', defaultHeaders: headers });
+  }
   return new OpenAI({ baseURL: info.baseURL, apiKey, defaultHeaders: headers });
 }
 

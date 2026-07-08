@@ -7,12 +7,13 @@ import { mcpManager } from './mcp/MCPManager';
 import { loadMCPConfig } from './mcp/config';
 import { loadLSPConfig } from './lsp/config';
 import { lspManager } from './lsp/index';
-import { PROVIDERS, FIXED_PRESETS, SYSTEM_PROMPT } from './config/models';
+import { PROVIDERS, FIXED_PRESETS, SYSTEM_PROMPT, ModelPreset } from './config/models';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as fsp from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
 import { loadProjectContext } from './loadProjectContext';
+import { ChatMessage } from './types';
 
 dotenv.config();
 
@@ -35,13 +36,80 @@ interface SessionData {
   messages: any[];
   meta: {
     createdAt: string;
+    updatedAt: string;
     title: string;
     modelLabel: string;
     firstUserMessage: string;
   };
 }
 
+const SESSIONS_DIR = path.join(__dirname, '..', 'sessions');
 const sessions = new Map<string, SessionData>();
+
+async function ensureSessionsDir(): Promise<void> {
+  try { await fsp.mkdir(SESSIONS_DIR, { recursive: true }); } catch { /* exists */ }
+}
+
+async function saveSessionToDisk(id: string, s: SessionData): Promise<void> {
+  s.meta.updatedAt = new Date().toISOString();
+  await ensureSessionsDir();
+  const meta = {
+    name: s.meta.title,
+    createdAt: s.meta.createdAt,
+    updatedAt: s.meta.updatedAt,
+    messageCount: s.messages.length,
+    modelPreset: { provider: s.modelConfig.provider, primary: s.modelConfig.primary, fallbacks: s.modelConfig.fallbacks, contextWindow: s.modelConfig.contextWindow },
+  };
+  await fsp.writeFile(path.join(SESSIONS_DIR, `${id}.json`), JSON.stringify({ messages: s.messages, meta }, null, 2), 'utf-8');
+}
+
+async function deleteSessionFromDisk(id: string): Promise<void> {
+  try { await fsp.unlink(path.join(SESSIONS_DIR, `${id}.json`)); } catch { /* not found */ }
+}
+
+async function loadSessionsFromDisk(): Promise<void> {
+  await ensureSessionsDir();
+  try {
+    const entries = await fsp.readdir(SESSIONS_DIR);
+    for (const entry of entries) {
+      if (!entry.endsWith('.json')) continue;
+      const id = entry.slice(0, -5);
+      try {
+        const raw = await fsp.readFile(path.join(SESSIONS_DIR, entry), 'utf-8');
+        const data = JSON.parse(raw);
+        if (!data.messages || !data.meta) continue;
+        const m = data.meta;
+        const userMessages = data.messages.filter((m: any) => m.role !== 'system');
+        if (userMessages.length === 0) {
+          await deleteSessionFromDisk(id);
+          continue;
+        }
+        const mc = m.modelPreset || FIXED_PRESETS['1'];
+        sessions.set(id, {
+          client: createClient(mc.provider),
+          modelConfig: { provider: mc.provider, primary: mc.primary, fallbacks: mc.fallbacks || [], contextWindow: mc.contextWindow },
+          messages: data.messages,
+          meta: {
+            createdAt: m.createdAt,
+            updatedAt: m.updatedAt || m.createdAt,
+            title: m.name || 'Session',
+            modelLabel: `${PROVIDERS[mc.provider]?.name || mc.provider} — ${mc.primary}`,
+            firstUserMessage: '',
+          },
+        });
+        // Restore firstUserMessage
+        const firstUser = userMessages.find((m: any) => m.role === 'user');
+        const savedSession = sessions.get(id);
+        if (savedSession && firstUser && typeof firstUser.content === 'string') {
+          savedSession.meta.firstUserMessage = firstUser.content;
+        }
+      } catch (err) {
+        console.log(`   ⚠️  Skipping corrupt session: ${entry}`);
+      }
+    }
+    console.log(`   📂 Loaded ${sessions.size} session(s) from disk`);
+  } catch { /* empty */ }
+}
 
 function createClient(providerId: string): OpenAI {
   const info = PROVIDERS[providerId] ?? PROVIDERS.openrouter;
@@ -97,17 +165,19 @@ app.post('/api/session', (req, res) => {
     ? `${SYSTEM_PROMPT}\n\n${projectContext}`
     : SYSTEM_PROMPT;
   const provName = PROVIDERS[modelConfig.provider]?.name || modelConfig.provider;
-  sessions.set(id, {
+  const sessionObj: SessionData = {
     client: createClient(modelConfig.provider),
     modelConfig,
     messages: [{ role: 'system', content: systemContent }],
     meta: {
       createdAt: new Date().toISOString(),
-      title: req.body?.title || 'New Session',
+      updatedAt: new Date().toISOString(),
+      title: req.body?.title || `Session ${new Date().toLocaleString()}`,
       modelLabel: `${provName} — ${modelConfig.primary}`,
       firstUserMessage: '',
     },
-  });
+  };
+  sessions.set(id, sessionObj);
   res.json({
     sessionId: id,
     models: Object.entries(getAllPresets()).map(([k, v]) => ({ id: k, name: `${PROVIDERS[v.provider]?.name || v.provider}/${v.primary}` })),
@@ -115,14 +185,17 @@ app.post('/api/session', (req, res) => {
 });
 
 app.get('/api/sessions', (_req, res) => {
-  const list = [...sessions.entries()].map(([id, s]) => ({
-    id,
-    title: s.meta.title,
-    createdAt: s.meta.createdAt,
-    modelLabel: s.meta.modelLabel,
-    messageCount: s.messages.filter(m => m.role !== 'system').length,
-  }));
-  list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const list = [...sessions.entries()]
+    .filter(([, s]) => s.messages.filter(m => m.role !== 'system').length > 0)
+    .map(([id, s]) => ({
+      id,
+      title: s.meta.title,
+      createdAt: s.meta.createdAt,
+      updatedAt: s.meta.updatedAt,
+      modelLabel: s.meta.modelLabel,
+      messageCount: s.messages.filter(m => m.role !== 'system').length,
+    }));
+  list.sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime());
   res.json(list);
 });
 
@@ -178,6 +251,7 @@ app.post('/api/model/:sessionId', (req, res) => {
   }
   s.client = createClient(s.modelConfig.provider);
   s.meta.modelLabel = `${PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider} — ${s.modelConfig.primary}`;
+  saveSessionToDisk(req.params.sessionId, s).catch(() => {});
   res.json({ provider: PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider, model: s.modelConfig.primary });
 });
 
@@ -185,6 +259,26 @@ app.post('/api/reset/:sessionId', (req, res) => {
   const s = sessions.get(req.params.sessionId);
   if (!s) return res.status(404).json({ error: 'Session not found' });
   s.messages = [{ role: 'system', content: SYSTEM_PROMPT }];
+  saveSessionToDisk(req.params.sessionId, s).catch(() => {});
+  res.json({ status: 'ok' });
+});
+
+app.post('/api/sessions/:sessionId/rename', async (req, res) => {
+  const s = sessions.get(req.params.sessionId);
+  if (!s) return res.status(404).json({ error: 'Session not found' });
+  const { title } = req.body;
+  if (!title || typeof title !== 'string' || !title.trim()) {
+    return res.status(400).json({ error: 'title is required' });
+  }
+  s.meta.title = title.trim();
+  await saveSessionToDisk(req.params.sessionId, s);
+  res.json({ title: s.meta.title });
+});
+
+app.delete('/api/sessions/:sessionId', async (req, res) => {
+  const id = req.params.sessionId;
+  sessions.delete(id);
+  await deleteSessionFromDisk(id);
   res.json({ status: 'ok' });
 });
 
@@ -214,16 +308,24 @@ app.get('/api/mcp', (_req, res) => {
   res.json({ servers });
 });
 
+app.get('/api/mcp/status', (_req, res) => {
+  res.json({ enabled: isMCPEnabled() });
+});
+
 app.post('/api/mcp/toggle', (_req, res) => {
   const enabled = !isMCPEnabled();
   setMCPEnabled(enabled);
   res.json({ enabled });
 });
 
+app.get('/api/lsp/status', (_req, res) => {
+  res.json({ enabled: isLSPEnabled(), ready: lspManager.isAvailable(), languages: lspManager.getActiveLanguages() });
+});
+
 app.post('/api/lsp/toggle', (_req, res) => {
   const enabled = !isLSPEnabled();
   setLSPEnabled(enabled);
-  res.json({ enabled, ready: lspManager.isAvailable() });
+  res.json({ enabled, ready: lspManager.isAvailable(), languages: lspManager.getActiveLanguages() });
 });
 
 app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res: Response) => {
@@ -254,10 +356,13 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
   s.messages.push({ role: 'user', content: message });
   if (!s.meta.firstUserMessage) {
     s.meta.firstUserMessage = message;
-    if (s.meta.title === 'New Session') {
+    if (s.meta.title.startsWith('Session ')) {
       s.meta.title = message.slice(0, 60) + (message.length > 60 ? '...' : '');
     }
   }
+  saveSessionToDisk(req.params.sessionId, s).catch(() => {});
+
+  const toolErrorCount = new Map<string, number>();
 
   for (let depth = 0; depth < MAX_DEPTH; depth++) {
     const base: any = {
@@ -308,6 +413,7 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
       s.messages.push({ role: 'assistant', content: content || null });
 
       if (tcs.size === 0) {
+        saveSessionToDisk(req.params.sessionId, s).catch(() => {});
         send('done', { toolCallsCount: 0, model: `${PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider} — ${model}` });
         res.end();
         return;
@@ -356,6 +462,13 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
         } catch (err: any) {
           send('error', { message: `${tc.name}: ${err.message}` });
           s.messages.push({ role: 'tool', tool_call_id: tc.id, content: `Error: ${err.message}`, name: tc.name });
+          const prev = (toolErrorCount.get(tc.name) || 0) + 1;
+          toolErrorCount.set(tc.name, prev);
+          if (prev >= 3) {
+            send('error', { message: `Tool "${tc.name}" failed ${prev} times — aborting` });
+            depth = MAX_DEPTH;
+            break;
+          }
         }
       }
     } catch (err: any) {
@@ -365,6 +478,7 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
     }
   }
 
+  saveSessionToDisk(req.params.sessionId, s).catch(() => {});
   if (!res.destroyed) {
     send('done', { toolCallsCount: 0, model: `${PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider} — ${s.modelConfig.primary}` });
     res.end();
@@ -448,6 +562,8 @@ app.post('/v1/chat/completions', async (req: Request, res: Response) => {
 if (process.env.NODE_ENV !== 'test') {
   // Initialize services
   (async () => {
+    await loadSessionsFromDisk();
+
     const mcpConfig = loadMCPConfig();
     for (const [name, def] of Object.entries(mcpConfig)) {
       try {
@@ -467,16 +583,17 @@ if (process.env.NODE_ENV !== 'test') {
       const allowedDir = path.resolve(process.env.ALLOWED_DIR || './workspace');
       await lspManager.startForProject(allowedDir);
       if (lspManager.isAvailable()) {
-        console.log(`   🔬 LSP ready (code_definition, code_references, code_hover)`);
+        const langs = lspManager.getActiveLanguages().join(', ') || 'TypeScript';
+        console.log(`   🔬 LSP ready (${langs}): code_definition, code_references, code_hover`);
       }
     } catch { /* LSP optional */ }
-  })();
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🌐 Web interface: http://localhost:${PORT}`);
-    console.log(`   OpenAI-compatible API: http://localhost:${PORT}/v1/chat/completions`);
-    console.log(`   Workspace: ${path.resolve(process.env.ALLOWED_DIR || './workspace')}`);
-  });
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🌐 Web interface: http://localhost:${PORT}`);
+      console.log(`   OpenAI-compatible API: http://localhost:${PORT}/v1/chat/completions`);
+      console.log(`   Workspace: ${path.resolve(process.env.ALLOWED_DIR || './workspace')}`);
+    });
+  })();
 }
 
 export { app, createClient, sessions };

@@ -1,4 +1,5 @@
 import * as fs from 'fs/promises';
+import * as fsSync from 'fs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { exec } from 'child_process';
@@ -48,7 +49,7 @@ export class ReplaceContentError extends Error {
 const DENYLISTED_COMMANDS = [
   'rm -rf', 'rm -fr',
   'dd',
-  'mkfs', 'mkfs.ext', 'mkfs.ntfs', 'mkfs.fat', 'format',
+  'mkfs', 'mkfs.ext', 'mkfs.ntfs', 'mkfs.fat',
   'fdisk', 'parted', 'mkswap',
   'chmod -R 0',
   'chown -R 0:0',
@@ -62,6 +63,7 @@ const DENYLISTED_COMMANDS = [
   'sudo rm', 'sudo dd', 'sudo mkfs', 'sudo fdisk', 'sudo shutdown',
   'reg delete', 'reg add',
   'diskpart',
+  ' format ', ' format:', ' format,',
   'Stop-Computer', 'Restart-Computer',
   'Remove-Item -Recurse -Force',
 ];
@@ -138,16 +140,30 @@ export type ToolArguments =
 
 // --- 2. Workspace Manager Class (Encapsulation) ---
 class WorkspaceManager {
-  private allowedDir: string;
+  private writeDir: string;
+  private readDir: string;
   private extraAllowedPaths: string[] = [];
 
   constructor() {
-    // Resolve and normalize the base directory once
-    this.allowedDir = path.resolve(process.env.ALLOWED_DIR || './workspace');
+    this.writeDir = path.resolve(process.env.ALLOWED_DIR || './workspace');
+    this.readDir = path.resolve(process.env.READ_ALLOWED_DIR || '.');
+    const scratch = process.env.SCRATCH_DIR;
+    if (scratch) {
+      const resolved = path.resolve(scratch);
+      if (!this.extraAllowedPaths.includes(resolved)) {
+        this.extraAllowedPaths.push(resolved);
+      }
+    }
   }
 
   setAllowedDir(dir: string): void {
-    this.allowedDir = path.resolve(dir);
+    const resolved = path.resolve(dir);
+    this.writeDir = resolved;
+    this.readDir = resolved;
+  }
+
+  setWriteDir(dir: string): void {
+    this.writeDir = path.resolve(dir);
   }
 
   allowExtraPath(p: string): void {
@@ -157,35 +173,52 @@ class WorkspaceManager {
     }
   }
 
+  private isInside(base: string, target: string): boolean {
+    const norm = base + path.sep;
+    return target === base || target.startsWith(norm);
+  }
+
   /**
-   * Secures the path to prevent directory traversal attacks
+   * Secures the path: reads allowed from readDir, writes only inside writeDir
    */
-  private sanitizePath(inputPath: string): string {
+  private sanitizePath(inputPath: string, mode: 'read' | 'write' = 'write'): string {
     if (!inputPath) throw new Error('Path cannot be empty.');
-    
-    const resolvedPath = path.resolve(this.allowedDir, inputPath);
-    const normalizedAllowed = this.allowedDir + path.sep;
-    
-    // Check if the resolved path is strictly inside the allowed directory
-    if (resolvedPath !== this.allowedDir && !resolvedPath.startsWith(normalizedAllowed)) {
-      // Check user-approved extra paths
-      for (const extra of this.extraAllowedPaths) {
-        const normalizedExtra = extra + path.sep;
-        if (resolvedPath === extra || resolvedPath.startsWith(normalizedExtra)) {
-          return resolvedPath;
-        }
-      }
-      throw new Error(`Access denied: "${inputPath}" is outside the allowed directory "${this.allowedDir}". Use command: /allow "${inputPath}"`);
+    const isRead = mode === 'read';
+    const baseDir = isRead ? this.readDir : this.writeDir;
+
+    // If inputPath already contains baseDir name (e.g. workspace/file when baseDir is workspace),
+    // resolve from parent to avoid double prefix
+    const fromParent = path.resolve(baseDir, '..', inputPath);
+    let resolvedPath = path.resolve(baseDir, inputPath);
+    if (this.isInside(baseDir, fromParent) && fromParent !== resolvedPath) {
+      resolvedPath = fromParent;
     }
-    
-    return resolvedPath;
+
+    if (this.isInside(baseDir, resolvedPath)) {
+      if (isRead && this.writeDir !== this.readDir) {
+        try {
+          if (!fsSync.existsSync(resolvedPath)) {
+            const wsPath = path.resolve(this.writeDir, inputPath);
+            if (this.isInside(this.writeDir, wsPath) && fsSync.existsSync(wsPath)) {
+              return wsPath;
+            }
+          }
+        } catch { /* ignore and use readDir path */ }
+      }
+      return resolvedPath;
+    }
+    for (const extra of this.extraAllowedPaths) {
+      if (this.isInside(extra, resolvedPath)) return resolvedPath;
+    }
+    const label = isRead ? 'read' : 'write';
+    throw new Error(`Access denied: cannot ${label} "${inputPath}"`);
   }
 
   // --- Tool Implementations ---
 
   async readFile(args: ReadFileArgs): Promise<string> {
     try {
-      const fullPath = this.sanitizePath(args.path);
+      const fullPath = this.sanitizePath(args.path, 'read');
       return await fs.readFile(fullPath, 'utf-8');
     } catch (err: any) {
       return `Error reading file: ${err.message}`;
@@ -194,7 +227,7 @@ class WorkspaceManager {
 
   async writeFile(args: WriteFileArgs): Promise<string> {
     try {
-      const fullPath = this.sanitizePath(args.path);
+      const fullPath = this.sanitizePath(args.path, 'write');
       await fs.mkdir(path.dirname(fullPath), { recursive: true });
       await fs.writeFile(fullPath, args.content, 'utf-8');
       return `File written successfully: ${args.path}`;
@@ -205,7 +238,7 @@ class WorkspaceManager {
 
   async listFiles(args: ListFilesArgs): Promise<string> {
     try {
-      const dirPath = this.sanitizePath(args.directory || '.');
+      const dirPath = this.sanitizePath(args.directory || '.', 'read');
       const entries = await fs.readdir(dirPath, { withFileTypes: true });
       if (entries.length === 0) return '(empty directory)';
 
@@ -235,7 +268,7 @@ class WorkspaceManager {
 
   async createFolder(args: CreateFolderArgs): Promise<string> {
     try {
-      const fullPath = this.sanitizePath(args.path);
+      const fullPath = this.sanitizePath(args.path, 'write');
       await fs.mkdir(fullPath, { recursive: true });
       return `Folder created successfully: ${args.path}`;
     } catch (err: any) {
@@ -245,7 +278,7 @@ class WorkspaceManager {
 
   async deleteFile(args: DeleteFileArgs): Promise<string> {
     try {
-      const fullPath = this.sanitizePath(args.path);
+      const fullPath = this.sanitizePath(args.path, 'write');
       await fs.unlink(fullPath);
       return `File deleted successfully: ${args.path}`;
     } catch (err: any) {
@@ -257,7 +290,7 @@ class WorkspaceManager {
 
   async appendFile(args: AppendFileArgs): Promise<string> {
     try {
-      const fullPath = this.sanitizePath(args.path);
+      const fullPath = this.sanitizePath(args.path, 'write');
       await fs.mkdir(path.dirname(fullPath), { recursive: true });
       await fs.appendFile(fullPath, args.content, 'utf-8');
       return `Content appended successfully to: ${args.path}`;
@@ -268,8 +301,8 @@ class WorkspaceManager {
 
   async copyFile(args: CopyFileArgs): Promise<string> {
     try {
-      const sourcePath = this.sanitizePath(args.source);
-      const destPath = this.sanitizePath(args.destination);
+      const sourcePath = this.sanitizePath(args.source, 'read');
+      const destPath = this.sanitizePath(args.destination, 'write');
       await fs.mkdir(path.dirname(destPath), { recursive: true });
       await fs.copyFile(sourcePath, destPath);
       return `File copied from ${args.source} to ${args.destination}`;
@@ -282,8 +315,8 @@ class WorkspaceManager {
 
   async moveFile(args: MoveFileArgs): Promise<string> {
     try {
-      const sourcePath = this.sanitizePath(args.source);
-      const destPath = this.sanitizePath(args.destination);
+      const sourcePath = this.sanitizePath(args.source, 'write');
+      const destPath = this.sanitizePath(args.destination, 'write');
       await fs.mkdir(path.dirname(destPath), { recursive: true });
       await fs.rename(sourcePath, destPath);
       return `File moved from ${args.source} to ${args.destination}`;
@@ -298,7 +331,7 @@ class WorkspaceManager {
 
   async deleteFolder(args: DeleteFolderArgs): Promise<string> {
     try {
-      const fullPath = this.sanitizePath(args.path);
+      const fullPath = this.sanitizePath(args.path, 'write');
       await fs.rm(fullPath, { recursive: args.recursive ?? false, force: false });
       return `Folder deleted successfully: ${args.path}${args.recursive ? ' (recursively)' : ''}`;
     } catch (err: any) {
@@ -310,7 +343,7 @@ class WorkspaceManager {
 
   async fileInfo(args: FileInfoArgs): Promise<string> {
     try {
-      const fullPath = this.sanitizePath(args.path);
+      const fullPath = this.sanitizePath(args.path, 'read');
       const stat = await fs.stat(fullPath);
       return JSON.stringify({
         path: args.path,
@@ -336,7 +369,7 @@ class WorkspaceManager {
     const filePattern = args.filePattern;
     let results: string[] = [];
 
-    const dirPath = this.sanitizePath(directory);
+    const dirPath = this.sanitizePath(directory, 'read');
 
     const matchesPattern = (fileName: string): boolean => {
       if (!filePattern) return true;
@@ -366,7 +399,7 @@ class WorkspaceManager {
             for (let i = 0; i < lines.length; i++) {
               if (results.length >= maxResults) break;
               if (lines[i].includes(args.pattern)) {
-                results.push(`${path.relative(this.allowedDir, full)}:${i + 1}: ${lines[i].trim()}`);
+                results.push(`${path.relative(this.readDir, full)}:${i + 1}: ${lines[i].trim()}`);
               }
             }
           } catch {
@@ -383,7 +416,7 @@ class WorkspaceManager {
 
   async replaceInFile(args: ReplaceInFileArgs): Promise<string> {
     try {
-      const fullPath = this.sanitizePath(args.path);
+      const fullPath = this.sanitizePath(args.path, 'write');
       const content = await fs.readFile(fullPath, 'utf-8');
       const index = content.indexOf(args.old_str);
       if (index === -1) {
@@ -409,7 +442,7 @@ class WorkspaceManager {
     }
     try {
       const { stdout, stderr } = await execAsync(args.command, { 
-        cwd: this.allowedDir, 
+        cwd: this.writeDir, 
         timeout,
         maxBuffer: 10 * 1024 * 1024 // Increase buffer to 10MB for large outputs
       });
@@ -669,4 +702,8 @@ export function allowExtraPath(p: string): void {
 
 export function setAllowedDir(dir: string): void {
   workspace.setAllowedDir(dir);
+}
+
+export function setWriteDir(dir: string): void {
+  workspace.setWriteDir(dir);
 }

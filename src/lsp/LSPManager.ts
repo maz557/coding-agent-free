@@ -11,69 +11,31 @@ export interface LSPServerConfig {
 
 const DEFAULT_LSP_SERVERS: LSPServerConfig[] = [
   {
-    command: 'typescript-language-server',
-    args: ['--stdio'],
+    command: 'npx',
+    args: ['--yes', 'typescript-language-server', '--stdio'],
     languageId: 'typescript',
     filePatterns: ['**/*.ts', '**/*.tsx'],
   },
-  {
-    command: 'typescript-language-server',
-    args: ['--stdio'],
-    languageId: 'javascript',
-    filePatterns: ['**/*.js', '**/*.jsx', '**/*.mjs'],
-  },
-  {
-    command: 'pyright',
-    args: ['--stdio'],
-    languageId: 'python',
-    filePatterns: ['**/*.py'],
-  },
-  {
-    command: 'rust-analyzer',
-    args: [],
-    languageId: 'rust',
-    filePatterns: ['**/*.rs'],
-  },
-  {
-    command: 'gopls',
-    args: [],
-    languageId: 'go',
-    filePatterns: ['**/*.go'],
-  },
-  {
-    command: 'sql-language-server',
-    args: ['up', '--method', 'stream'],
-    languageId: 'sql',
-    filePatterns: ['**/*.sql'],
-  },
-  {
-    command: 'clangd',
-    args: [],
-    languageId: 'c',
-    filePatterns: ['**/*.c', '**/*.h'],
-  },
-  {
-    command: 'clangd',
-    args: [],
-    languageId: 'cpp',
-    filePatterns: ['**/*.cpp', '**/*.hpp', '**/*.cc', '**/*.cxx'],
-  },
-  {
-    command: 'solargraph',
-    args: ['stdio'],
-    languageId: 'ruby',
-    filePatterns: ['**/*.rb'],
-  },
-  {
-    command: 'lua-language-server',
-    args: ['--stdio'],
-    languageId: 'lua',
-    filePatterns: ['**/*.lua'],
-  },
 ];
 
+export const KNOWN_LSP_SERVERS = [
+  { name: 'TypeScript/JavaScript', binary: 'typescript-language-server', install: 'npm install -g typescript-language-server', patterns: '**/*.ts, **/*.tsx, **/*.js' },
+  { name: 'Python', binary: 'pyright', install: 'npm install -g pyright', patterns: '**/*.py' },
+  { name: 'Rust', binary: 'rust-analyzer', install: 'rustup component add rust-analyzer', patterns: '**/*.rs' },
+  { name: 'Go', binary: 'gopls', install: 'go install golang.org/x/tools/gopls@latest', patterns: '**/*.go' },
+  { name: 'C/C++', binary: 'clangd', install: 'Download from https://clangd.llvm.org/installation.html', patterns: '**/*.c, **/*.h, **/*.cpp' },
+  { name: 'Ruby', binary: 'solargraph', install: 'gem install solargraph', patterns: '**/*.rb' },
+  { name: 'Lua', binary: 'lua-language-server', install: 'Download from https://github.com/LuaLS/lua-language-server', patterns: '**/*.lua' },
+  { name: 'SQL', binary: 'sql-language-server', install: 'npm install -g sql-language-server', patterns: '**/*.sql' },
+];
+
+interface ClientEntry {
+  client: LSPClient;
+  config: LSPServerConfig;
+}
+
 export class LSPManager {
-  private clients: LSPClient[] = [];
+  private entries: ClientEntry[] = [];
   private configs: LSPServerConfig[];
 
   constructor(configs?: LSPServerConfig[]) {
@@ -84,7 +46,7 @@ export class LSPManager {
     this.configs.push(config);
   }
 
-  async startForProject(projectRoot: string): Promise<void> {
+  async startForProject(projectRoot: string, quiet?: boolean): Promise<void> {
     const files = this.findProjectFiles(projectRoot);
     if (files.length === 0) return;
 
@@ -96,11 +58,11 @@ export class LSPManager {
           const client = new LSPClient(config.command, config.args, uri);
           client.onDiagnostics = (docUri: string, diagnostics: any[]) => {
             if (diagnostics.length > 0) {
-              console.log(`  📋 LSP diagnostics for ${path.basename(uriToPath(docUri))}: ${diagnostics.length} issue(s)`);
+              if (!quiet) console.log(`  📋 LSP diagnostics for ${path.basename(uriToPath(docUri))}: ${diagnostics.length} issue(s)`);
             }
           };
           await client.start();
-          this.clients.push(client);
+          this.entries.push({ client, config });
 
           for (const file of matches.slice(0, 50)) {
             const fileUri = pathToUri(file);
@@ -111,7 +73,7 @@ export class LSPManager {
             } catch { /* skip unreadable */ }
           }
         } catch (err: any) {
-          console.log(`  ⚠️  LSP "${config.command}" failed: ${err.message}`);
+          if (!quiet) console.log(`  ⚠️  LSP "${config.command}" failed: ${err.message}`);
         }
       }
     }
@@ -145,11 +107,13 @@ export class LSPManager {
   }
 
   getClientForFile(filePath: string): LSPClient | null {
-    const uri = pathToUri(filePath);
-    for (const client of this.clients) {
-      if (client.ready) return client;
+    const normPath = filePath.replace(/\\/g, '/');
+    for (const { client, config } of this.entries) {
+      if (!client.ready) continue;
+      if (this.matchesPattern(normPath, config.filePatterns)) return client;
     }
-    return this.clients.find(c => c.ready) || null;
+    // fallback: first ready client
+    return this.entries.find(e => e.client.ready)?.client || null;
   }
 
   async goToDefinition(filePath: string, line: number, column: number): Promise<string> {
@@ -212,19 +176,70 @@ export class LSPManager {
     }
   }
 
-  getActiveLanguages(): string[] {
-    return [...new Set(this.clients.map(c => c.ready ? 'active' : 'inactive'))];
+  async lookupSymbol(query: string): Promise<string> {
+    const ready = this.entries.filter(e => e.client.ready);
+    if (ready.length === 0) return 'LSP not available';
+
+    let results: string[] = [];
+    for (const { client, config } of ready) {
+      try {
+        const result = await client.workspaceSymbol(query);
+        if (result && result.length > 0) {
+          const lang = config.languageId;
+          for (const s of result.slice(0, 10)) {
+            const loc = s.location;
+            const p = uriToPath(loc.uri);
+            const start = loc.range?.start || { line: 0, character: 0 };
+            const kind = s.kind !== undefined ? symbolKindLabel(s.kind) : 'unknown';
+            results.push(`${s.name} (${kind}) [${lang}] — ${p}:${start.line + 1}:${start.character + 1}`);
+          }
+        }
+      } catch { /* skip */ }
+    }
+    return results.length > 0 ? results.join('\n') : 'No symbols found';
+  }
+
+  async getFileDiagnostics(filePath: string): Promise<string> {
+    const client = this.getClientForFile(filePath);
+    if (!client) return 'LSP not available for this file';
+
+    const uri = pathToUri(filePath);
+    try {
+      const result = await client.getDiagnostics(uri);
+      if (!result || result.length === 0) return 'No diagnostics';
+
+      return result.map((d: any) => {
+        const start = d.range?.start || { line: 0, character: 0 };
+        const sev = d.severity === 1 ? 'Error' : d.severity === 2 ? 'Warning' : 'Info';
+        return `  ${sev} at ${start.line + 1}:${start.character + 1} — ${d.message}`;
+      }).join('\n');
+    } catch (err: any) {
+      return `LSP error: ${err.message}`;
+    }
+  }
+
+  getClientInfo(): { command: string; languageId: string; ready: boolean; openFiles: number }[] {
+    return this.entries.map(e => ({
+      command: e.client.serverCommand,
+      languageId: e.config.languageId,
+      ready: e.client.ready,
+      openFiles: e.client.openDocCount,
+    }));
   }
 
   isAvailable(): boolean {
-    return this.clients.some(c => c.ready);
+    return this.entries.some(e => e.client.ready);
+  }
+
+  getActiveLanguages(): string[] {
+    return this.entries.filter(e => e.client.ready).map(e => e.config.languageId);
   }
 
   async shutdown(): Promise<void> {
-    for (const client of this.clients) {
+    for (const { client } of this.entries) {
       await client.shutdown();
     }
-    this.clients = [];
+    this.entries = [];
   }
 }
 
@@ -236,4 +251,17 @@ function pathToUri(filePath: string): string {
 function uriToPath(uri: string): string {
   const decoded = decodeURIComponent(uri);
   return decoded.replace(/^file:\/\//, '').replace(/\//g, path.sep);
+}
+
+const SYMBOL_KINDS: Record<number, string> = {
+  1: 'File', 2: 'Module', 3: 'Namespace', 4: 'Package', 5: 'Class',
+  6: 'Method', 7: 'Property', 8: 'Field', 9: 'Constructor', 10: 'Enum',
+  11: 'Interface', 12: 'Function', 13: 'Variable', 14: 'Constant',
+  15: 'String', 16: 'Number', 17: 'Boolean', 18: 'Array',
+  19: 'Object', 20: 'Key', 21: 'Null', 22: 'EnumMember',
+  23: 'Struct', 24: 'Event', 25: 'Operator', 26: 'TypeParameter',
+};
+
+function symbolKindLabel(kind: number): string {
+  return SYMBOL_KINDS[kind] || `kind_${kind}`;
 }

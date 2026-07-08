@@ -7,7 +7,7 @@ export const lspToolDefinitions = [
     type: 'function' as const,
     function: {
       name: 'code_definition',
-      description: 'Find where a symbol (function, class, variable) is defined. Returns file path and line number.',
+      description: 'Find where a symbol (function, class, variable) is defined at a specific file/line/column. Returns file path and line number.',
       parameters: {
         type: 'object',
         properties: {
@@ -23,7 +23,7 @@ export const lspToolDefinitions = [
     type: 'function' as const,
     function: {
       name: 'code_references',
-      description: 'Find all references to a symbol throughout the project. Returns file:line:column entries.',
+      description: 'Find all references to a symbol throughout the project at a specific file/line/column. Returns file:line:column entries.',
       parameters: {
         type: 'object',
         properties: {
@@ -39,7 +39,7 @@ export const lspToolDefinitions = [
     type: 'function' as const,
     function: {
       name: 'code_hover',
-      description: 'Get detailed information (type signature, documentation) about a symbol at a position in a file.',
+      description: 'Get detailed information (type signature, documentation) about a symbol at a specific file/line/column.',
       parameters: {
         type: 'object',
         properties: {
@@ -51,21 +51,59 @@ export const lspToolDefinitions = [
       } as Record<string, unknown>,
     },
   },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'code_lookup_symbol',
+      description: 'Search the project for a symbol (function, class, variable, interface, etc.) by name using the language server. Does NOT need file/line/column — just the symbol name. Use this when you need to find where a symbol is defined but do not know its exact location.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Symbol name to search for (partial match supported)' },
+        },
+        required: ['name'],
+      } as Record<string, unknown>,
+    },
+  },
+  {
+    type: 'function' as const,
+    function: {
+      name: 'code_get_diagnostics',
+      description: 'Get TypeScript/JavaScript errors and warnings for a given file. Use this after editing code to check for type errors, missing imports, etc.',
+      parameters: {
+        type: 'object',
+        properties: {
+          file: { type: 'string', description: 'Path to the file (relative to workspace)' },
+        },
+        required: ['file'],
+      } as Record<string, unknown>,
+    },
+  },
 ];
 
 export async function executeLSPServerTool(name: string, args: Record<string, unknown>): Promise<string> {
+  const pathMod = require('path');
   const allowedDir = process.env.ALLOWED_DIR || './workspace';
-  const absFile = require('path').resolve(allowedDir, args.file as string);
-  const line = args.line as number;
-  const column = args.column as number;
 
   switch (name) {
-    case 'code_definition':
-      return lspManager.goToDefinition(absFile, line, column);
-    case 'code_references':
-      return lspManager.findReferences(absFile, line, column);
-    case 'code_hover':
-      return lspManager.hoverInfo(absFile, line, column);
+    case 'code_definition': {
+      const absFile = pathMod.resolve(allowedDir, args.file as string);
+      return lspManager.goToDefinition(absFile, args.line as number, args.column as number);
+    }
+    case 'code_references': {
+      const absFile = pathMod.resolve(allowedDir, args.file as string);
+      return lspManager.findReferences(absFile, args.line as number, args.column as number);
+    }
+    case 'code_hover': {
+      const absFile = pathMod.resolve(allowedDir, args.file as string);
+      return lspManager.hoverInfo(absFile, args.line as number, args.column as number);
+    }
+    case 'code_lookup_symbol':
+      return lspManager.lookupSymbol(args.name as string);
+    case 'code_get_diagnostics': {
+      const absFile = pathMod.resolve(allowedDir, args.file as string);
+      return lspManager.getFileDiagnostics(absFile);
+    }
     default:
       throw new Error(`Unknown LSP tool "${name}"`);
   }

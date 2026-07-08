@@ -1637,7 +1637,7 @@ Open http://localhost:3000 in your browser.
 │  Done! Created hello.py and verified it runs.             │
 │  ──────────────────────────────────────────────────────── │
 │  [Message input...                        ] [Send]       │
-│  [?] Help  [model 1/5]  [🔒 Safe]  [Sessions]           │
+│  [?] Help  [model 1/5]  [🔒 Safe]  [Sessions]  ⚙️       │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -1645,9 +1645,39 @@ Open http://localhost:3000 in your browser.
 
 1. **Streaming**: Responses appear token-by-token as the AI generates them
 2. **Diff Viewer**: When files are written/edited, click the tool call to see line-level diffs (green = added, red = removed)
-3. **Session Manager**: Click "Sessions" to create, switch, or rename sessions
-4. **Help Modal**: Click `?` for quick reference
-5. **Model Selector**: Shows current model; click to switch
+3. **Session Manager**: Click "Sessions" to create, switch, rename, or delete sessions. Persisted to disk — survives server restart. Empty sessions (no messages) are filtered from the list
+4. **Settings Panel** (⚙️): Adjust font size, toggle compact mode, enable auto-scroll. Settings persisted in localStorage
+5. **Keyboard Shortcuts**:
+   - `Ctrl+N` — New session
+   - `Ctrl+D` or `Ctrl+B` — Toggle session panel
+   - `Ctrl+K` — Focus message input
+   - `Ctrl+L` — Reset conversation
+   - `Ctrl+Shift+C` — Copy entire session as markdown
+   - `Escape` — Close panels / cancel
+   - `PgUp` / `PgDn` — Scroll chat
+   - `Home` / `End` — Jump to top / bottom
+6. **Collapsible Tool Calls**: Click ▶/▼ to expand or collapse tool call details (both during streaming and in history)
+7. **Stop Button**: Click 🛑 to abort AI generation mid-stream via AbortController
+8. **Auto-scroll Toggle**: A floating ⬇ button appears when you scroll up; click it to jump back to the latest message
+9. **Per-message Copy Button**: 📋 on every user & assistant message — preserved during streaming (uses `.msg-content` wrapper)
+10. **Copy Session**: 📄 Copy button or `Ctrl+Shift+C` formats the entire conversation as clean markdown-like text
+11. **Toast Notifications**: Feedback messages auto-dismiss after 3 seconds
+12. **Welcome Screen**: An empty-state guide shown before the first message; disappears once you send a message
+13. **Help Modal**: Click `?` for usage guide, commands reference, keyboard shortcuts, and diff viewer explanation
+14. **Model Selector**: Shows current model; click to switch
+15. **LSP Toggle**: 🟢ON/⚫OFF status with active programming languages shown
+16. **MCP Toggle**: 🟢ON/⚫OFF status of Model Context Protocol servers
+
+### Session Persistence
+
+Sessions are automatically saved to the `sessions/` directory as `{uuid}.json` after:
+- Each user message
+- Each AI response completion
+- Model switches
+- Session resets
+- Session renames
+
+On server startup, sessions are loaded from disk and restored. Sessions with zero non-system messages are not persisted or displayed in the list.
 
 ### Using as an OpenAI-compatible API
 

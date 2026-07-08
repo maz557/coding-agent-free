@@ -4,9 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Coding Agent Web</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; height: 100vh; display: flex; flex-direction: column; }
+  body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; height: 100vh; display: flex; flex-direction: column; --msg-font-size: 14px; }
+  body.compact .msg { margin-bottom: 2px !important; }
+  body.compact #chat { gap: 4px !important; }
+  body.compact .msg.tool { font-size: 11px !important; }
   #header { background: #161b22; border-bottom: 1px solid #30363d; padding: 8px 16px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
   #header h1 { font-size: 16px; font-weight: 600; color: #f0f6fc; }
   #model-info { font-size: 12px; color: #8b949e; margin-left: auto; cursor: default; padding: 2px 8px; background: #0d1117; border-radius: 4px; border: 1px solid #21262d; }
@@ -14,12 +18,21 @@
   #reset-btn { background: #21262d; color: #f85149; border: 1px solid #30363d; border-radius: 6px; padding: 4px 12px; font-size: 12px; cursor: pointer; }
   #reset-btn:hover { background: #30363d; }
   #chat { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-  .msg { max-width: 85%; padding: 10px 14px; border-radius: 12px; line-height: 1.5; font-size: 14px; white-space: pre-wrap; word-wrap: break-word; }
+  .msg { max-width: 85%; padding: 10px 14px; border-radius: 12px; line-height: 1.5; font-size: var(--msg-font-size); white-space: pre-wrap; word-wrap: break-word; }
   .msg.user { align-self: flex-start; background: #1f6feb; color: #fff; border-bottom-left-radius: 4px; }
   .msg.assistant { align-self: flex-end; background: #161b22; border: 1px solid #30363d; border-bottom-right-radius: 4px; }
   .msg.tool { align-self: flex-end; background: #0d1117; border: 1px solid #21262d; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 12px; color: #8b949e; max-width: 100%; }
   .msg.tool .tool-name { color: #58a6ff; font-weight: 600; }
   .msg.tool .tool-result { color: #7ee787; margin-top: 4px; }
+  /* Collapsible tool calls */
+  .tool-call { align-self: flex-end; background: #0d1117; border: 1px solid #21262d; border-radius: 8px; font-family: 'Cascadia Code','Fira Code',monospace; font-size: 12px; color: #8b949e; max-width: 100%; width: 100%; margin: 4px 0; overflow: hidden; }
+  .tool-call-header { display: flex; align-items: center; gap: 6px; padding: 6px 10px; cursor: pointer; user-select: none; }
+  .tool-call-header:hover { background: #161b22; }
+  .tool-call-header .collapse-icon { font-size: 10px; color: #484f58; width: 14px; flex-shrink: 0; transition: transform 0.15s; }
+  .tool-call-header .collapse-icon.expanded { transform: rotate(90deg); }
+  .tool-call-header .tool-name { color: #58a6ff; font-weight: 600; }
+  .tool-call-header .tool-args { color: #ffa657; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .tool-call-body { padding: 8px 10px 10px 24px; border-top: 1px solid #21262d; color: #7ee787; white-space: pre-wrap; word-wrap: break-word; max-height: 400px; overflow-y: auto; }
   .msg.error { align-self: flex-end; background: #3d1f1f; border: 1px solid #f85149; color: #ff7b72; }
   .msg.model { align-self: flex-end; font-size: 11px; color: #8b949e; background: transparent; border: none; padding: 2px 14px; }
   .msg .timestamp { font-size: 10px; color: #484f58; margin-top: 4px; text-align: left; direction: ltr; }
@@ -33,15 +46,13 @@
   #send-btn:hover { background: #2ea043; }
   #send-btn:disabled { background: #21262d; color: #484f58; cursor: not-allowed; }
   #status { font-size: 12px; color: #8b949e; padding: 4px 16px 8px; flex-shrink: 0; }
-   pre { background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 12px; overflow-x: auto; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 13px; direction: ltr; text-align: left; margin: 8px 0; position: relative; }
+   pre { background: #0d1117; border: 1px solid #21262d; border-radius: 8px; padding: 32px 12px 12px; overflow-x: auto; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 13px; direction: ltr; text-align: left; margin: 8px 0; position: relative; }
    code { font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 13px; background: #21262d; padding: 2px 6px; border-radius: 4px; }
    pre code { background: none; padding: 0; }
    .code-block { position: relative; margin: 8px 0; }
-   .code-block .copy-btn { position: absolute; top: 4px; inset-inline-end: 4px; z-index: 1; background: #0d1117; color: #58a6ff; border: 1px solid #58a6ff; border-radius: 4px; padding: 3px 10px; font-size: 11px; cursor: pointer; font-family: inherit; font-weight: 600; transition: 0.15s; }
-   .code-block .copy-btn:hover { background: #1f6feb; color: #fff; }
-   .code-block .copy-btn.copied { color: #7ee787; border-color: #7ee787; background: #0d1117; }
-   .code-block .copy-btn:hover { background: #30363d; color: #c9d1d9; }
-   .code-block .copy-btn.copied { color: #7ee787; border-color: #7ee787; }
+   .code-block .copy-btn { position: absolute; top: 4px; inset-inline-start: 4px; z-index: 1; background: rgba(13,17,23,0.6); color: #58a6ff; border: 1px solid #58a6ff; border-radius: 4px; padding: 3px 10px; font-size: 11px; cursor: pointer; font-family: inherit; font-weight: 600; transition: 0.15s; backdrop-filter:blur(2px); }
+   .code-block .copy-btn:hover { background: rgba(48,54,61,0.8); color: #c9d1d9; }
+   .code-block .copy-btn.copied { color: #7ee787; border-color: #7ee787; background: rgba(13,17,23,0.6); }
   .cmd { color: #ffa657; }
   .output { color: #7ee787; }
   /* Diff viewer */
@@ -71,10 +82,54 @@
   #session-list { flex: 1; overflow-y: auto; padding: 8px; }
   .session-item { padding: 8px 10px; border-radius: 6px; cursor: pointer; margin-bottom: 4px; border: 1px solid transparent; }
   .session-item:hover { background: #21262d; border-color: #30363d; }
+  .s-rename { cursor:pointer; opacity:0; font-size:11px; margin-left:4px; user-select:none; }
+  .session-item:hover .s-rename { opacity:0.5; }
+  .s-rename:hover { opacity:1 !important; }
   .session-item.active { background: #1f6feb20; border-color: #1f6feb; }
   .session-item .s-title { font-size: 13px; color: #c9d1d9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .session-item .s-meta { font-size: 11px; color: #8b949e; margin-top: 2px; display: flex; gap: 8px; }
   .session-item .s-model { color: #58a6ff; }
+  /* Settings modal */
+  #settings-modal { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; }
+  #settings-modal.show { display: flex; }
+  #settings-content { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 24px; max-width: 360px; width: 90%; }
+  #settings-content h2 { font-size: 16px; color: #f0f6fc; margin-bottom: 16px; }
+  .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #21262d; }
+  .setting-row:last-child { border-bottom: none; }
+  .setting-label { font-size: 13px; color: #c9d1d9; }
+  .setting-desc { font-size: 11px; color: #8b949e; }
+  #font-slider { width: 120px; accent-color: #58a6ff; }
+  #settings-close-btn { background: #21262d; color: #8b949e; border: 1px solid #30363d; border-radius: 6px; padding: 6px 16px; font-size: 12px; cursor: pointer; margin-top: 12px; font-family: inherit; }
+  #settings-close-btn:hover { background: #30363d; color: #c9d1d9; }
+  .checkbox-toggle { appearance: none; width: 36px; height: 20px; background: #21262d; border-radius: 10px; border: 1px solid #30363d; cursor: pointer; position: relative; transition: 0.15s; flex-shrink: 0; }
+  .checkbox-toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #8b949e; transition: 0.15s; }
+  .checkbox-toggle:checked { background: #1f6feb; border-color: #1f6feb; }
+  .checkbox-toggle:checked::after { left: 18px; background: #fff; }
+  /* Stop button */
+  #stop-btn { display:none; background:#f85149; color:#fff; border:none; border-radius:6px; padding:6px 14px; font-size:12px; cursor:pointer; font-family:inherit; font-weight:600; flex-shrink:0; }
+  #stop-btn:hover { background:#da3633; }
+  /* Welcome screen */
+  #welcome { display:flex; flex-direction:column; align-items:center; justify-content:center; flex:1; color:#484f58; padding:40px 20px; text-align:center; user-select:none; }
+  #welcome h2 { font-size:24px; color:#8b949e; margin:0 0 8px; font-weight:400; }
+  #welcome p { font-size:13px; color:#484f58; margin:0 0 16px; line-height:1.5; }
+  #welcome .commands { display:flex; flex-wrap:wrap; gap:4px; justify-content:center; }
+  #welcome .commands span { background:#161b22; border:1px solid #21262d; border-radius:4px; padding:4px 10px; font-size:11px; color:#8b949e; font-family:monospace; }
+  /* Toast container */
+  #toast-container { position:fixed; bottom:80px; right:16px; z-index:999; display:flex; flex-direction:column; gap:6px; pointer-events:none; }
+  .toast { background:#21262d; border:1px solid #30363d; border-radius:8px; padding:10px 16px; font-size:12px; color:#c9d1d9; box-shadow:0 4px 12px rgba(0,0,0,0.4); animation:toast-in 0.2s ease-out; max-width:300px; pointer-events:auto; }
+  .toast.info { border-color:#1f6feb; }
+  .toast.error { border-color:#f85149; }
+  .toast.success { border-color:#3fb950; }
+  @keyframes toast-in { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+  /* Per-message copy */
+  .msg:hover .msg-copy-btn { opacity:1; }
+  .msg-copy-btn { opacity:0; position:absolute; top:6px; right:6px; background:rgba(13,17,23,0.6); border:1px solid #30363d; border-radius:4px; padding:2px 6px; font-size:10px; cursor:pointer; color:#8b949e; transition:opacity 0.15s; line-height:1.4; backdrop-filter:blur(2px); }
+  .msg-copy-btn:hover { background:#30363d; color:#c9d1d9; }
+  .msg { position:relative; }
+  /* Auto-scroll float button */
+  #auto-scroll-btn { display:none; position:fixed; bottom:100px; right:16px; z-index:50; width:32px; height:32px; border-radius:50%; background:#21262d; border:1px solid #30363d; color:#8b949e; font-size:14px; cursor:pointer; align-items:center; justify-content:center; transition:0.15s; }
+  #auto-scroll-btn:hover { background:#30363d; }
+  #auto-scroll-btn.active { color:#58a6ff; border-color:#1f6feb; }
 </style>
 </head>
 <body>
@@ -87,23 +142,31 @@
   <button id="safe-mode-btn" style="background:#21262d;color:#ffa657;border:1px solid #30363d;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer" title="Toggle safe mode (restrict shell commands)">🛡️</button>
   <button id="sessions-btn" style="background:#21262d;color:#58a6ff;border:1px solid #30363d;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer" title="Sessions">📋</button>
   <button id="reset-btn" style="background:#21262d;color:#f85149;border:1px solid #30363d;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer">Reset</button>
+  <button id="settings-btn" style="background:#21262d;color:#8b949e;border:1px solid #30363d;border-radius:4px;padding:4px 8px;font-size:13px;cursor:pointer" title="Settings">⚙️</button>
   <button id="help-btn" style="background:#21262d;color:#8b949e;border:1px solid #30363d;border-radius:4px;padding:4px 8px;font-size:13px;cursor:pointer;font-weight:600">?</button>
 </div>
-<div id="toolbar" style="background:#0d1117;border-bottom:1px solid #30363d;padding:4px 16px;display:flex;align-items:center;gap:8px;font-size:11px;flex-shrink:0">
+<div id="toolbar" style="background:#0d1117;border-bottom:1px solid #30363d;padding:4px 16px;display:flex;align-items:center;gap:8px;font-size:11px;flex-shrink:0;flex-wrap:wrap">
   <span id="safe-status" style="color:#8b949e">Safe: OFF</span>
+  <button id="mcp-toggle-btn" style="background:#21262d;color:#58a6ff;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer" title="Toggle MCP tools">🔌 MCP</button>
+  <span id="mcp-status" style="color:#8b949e;font-size:10px"></span>
+  <button id="lsp-toggle-btn" style="background:#21262d;color:#58a6ff;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer" title="Toggle LSP code understanding">🔬 LSP</button>
+  <span id="lsp-status" style="color:#8b949e;font-size:10px"></span>
   <input id="allow-input" type="text" placeholder="/allow path..." style="background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:4px;padding:2px 6px;font-size:11px;width:200px;direction:ltr">
   <button id="allow-btn" style="background:#21262d;color:#58a6ff;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer">Allow</button>
   <span id="model-badge" style="margin-left:auto;font-size:11px;color:#58a6ff;background:#0d1117;padding:2px 8px;border-radius:4px;border:1px solid #21262d;direction:ltr"></span>
 </div>
 <div id="session-overlay"></div>
 <div id="session-panel" class="hidden">
-  <h2>📋 Sessions <button id="new-session-btn">+ New</button></h2>
+  <h2>📋 Sessions <button id="new-session-btn">+ New</button><button id="copy-session-btn" style="background:#21262d;color:#8b949e;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:4px" title="Copy current session">📄 Copy</button></h2>
   <div id="session-list"></div>
 </div>
-<div id="chat"></div>
+<div id="chat"><div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands"><span>/model 1</span><span>/safe</span><span>/reset</span><span>/active</span><span>/models</span><span>/help</span></div></div></div>
+<div id="toast-container"></div>
+<button id="auto-scroll-btn" title="Auto-scroll">⬇</button>
 <div id="status">Ready</div>
 <div id="input-area">
   <textarea id="input" rows="2" placeholder="Type your message..." dir="ltr"></textarea>
+  <button id="stop-btn">■ Stop</button>
   <button id="send-btn">Send</button>
 </div>
 
@@ -130,6 +193,7 @@
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;color:#ffa657">🛡️</td><td style="padding:4px 8px;border-bottom:1px solid #21262d"><strong>Safe mode</strong> — restricts shell commands to a whitelist. ON = green, OFF = yellow</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;color:#58a6ff">📋</td><td style="padding:4px 8px;border-bottom:1px solid #21262d"><strong>Sessions</strong> — opens panel to create, switch, or manage conversations. Sessions are independent; each has its own history and model</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;color:#8b949e">📄 Copy</td><td style="padding:4px 8px;border-bottom:1px solid #21262d"><strong>Copy session</strong> — copies entire conversation as formatted text to clipboard</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;color:#f85149">Reset</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Clears conversation history. Agent loses context of previous messages</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;color:#8b949e">?</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Opens this help panel</td></tr>
     </table>
@@ -172,7 +236,39 @@
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/lsp</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Toggle LSP code understanding</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/exit</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">End the session</td></tr>
     </table>
+
+    <h3 style="color:#58a6ff;font-size:15px;margin:16px 0 8px">Keyboard Shortcuts</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">Ctrl+N</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">New session</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">Ctrl+D / Ctrl+B</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Toggle sessions panel</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">Ctrl+K</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Focus input box</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">Ctrl+L</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Clear conversation (reset)</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">Ctrl+Shift+C</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Copy entire session to clipboard</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">Escape</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Close panels / Cancel streaming</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">PgUp / PgDn</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Scroll up / down</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">Home / End</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Scroll to top / bottom</td></tr>
+    </table>
     <p style="margin-top:16px;font-size:12px;color:#484f58">For full documentation, see the README or visit the GitHub repository.</p>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settings-modal">
+  <div id="settings-content">
+    <h2>⚙️ Settings</h2>
+    <div class="setting-row">
+      <div><div class="setting-label">Font Size</div><div class="setting-desc">Message text size</div></div>
+      <div style="display:flex;align-items:center;gap:8px"><span id="font-size-label" style="font-size:11px;color:#8b949e;min-width:32px">14px</span><input type="range" id="font-slider" min="10" max="24" value="14"></div>
+    </div>
+    <div class="setting-row">
+      <div><div class="setting-label">Compact Mode</div><div class="setting-desc">Tighter message spacing</div></div>
+      <input type="checkbox" class="checkbox-toggle" id="settings-compact">
+    </div>
+    <div class="setting-row">
+      <div><div class="setting-label">Auto-scroll</div><div class="setting-desc">Follow new messages</div></div>
+      <input type="checkbox" class="checkbox-toggle" id="settings-auto-scroll" checked>
+    </div>
+    <div style="text-align:center;margin-top:8px"><button id="settings-close-btn">Close</button></div>
   </div>
 </div>
 
@@ -180,6 +276,10 @@
 let sessionId = null;
 let isStreaming = false;
 let safeModeOn = false;
+let autoScroll = true;
+let currentAbortController = null;
+let mcpEnabled = true;
+let lspEnabled = true;
 const chat = document.getElementById('chat');
 const input = document.getElementById('input');
 const sendBtn = document.getElementById('send-btn');
@@ -219,20 +319,29 @@ async function populateModels() {
 }
 
 async function init() {
+  loadSettings();
   const res = await fetch('/api/session', { method: 'POST' });
   const data = await res.json();
   sessionId = data.sessionId;
   await populateModels();
   await refreshSessionList();
 
-  const [activeRes, safeRes] = await Promise.all([
+  const [activeRes, safeRes, mcpRes, lspRes] = await Promise.all([
     fetch(`/api/active/${sessionId}`),
     fetch('/api/safe-mode'),
+    fetch('/api/mcp/status').catch(() => ({ json: () => ({ enabled: true }) })),
+    fetch('/api/lsp/status').catch(() => ({ json: () => ({ enabled: true, ready: false, languages: [] }) })),
   ]);
   const active = await activeRes.json();
   const safe = await safeRes.json();
+  const mcpData = await mcpRes.json();
+  const lspData = await lspRes.json();
   safeModeOn = safe.enabled;
+  mcpEnabled = mcpData.enabled;
+  lspEnabled = lspData.enabled;
   updateSafeUI();
+  updateMCPUI();
+  updateLSPUI(lspData.ready ? (lspData.languages || ['TypeScript']).join(', ') : '');
   const modelText = `${active.provider} / ${active.model}`;
   modelInfo.textContent = modelText;
   document.getElementById('model-badge').textContent = `🧠 ${modelText}`;
@@ -246,14 +355,51 @@ function updateSafeUI() {
   safeModeBtn.style.color = safeModeOn ? '#7ee787' : '#ffa657';
 }
 
+function updateMCPUI() {
+  const btn = document.getElementById('mcp-toggle-btn');
+  const statusEl = document.getElementById('mcp-status');
+  if (!btn || !statusEl) return;
+  btn.style.color = mcpEnabled ? '#7ee787' : '#8b949e';
+  btn.style.borderColor = mcpEnabled ? '#3fb950' : '#30363d';
+  statusEl.textContent = mcpEnabled ? 'ON' : 'OFF';
+  statusEl.style.color = mcpEnabled ? '#7ee787' : '#484f58';
+}
+
+function updateLSPUI(langHint) {
+  const btn = document.getElementById('lsp-toggle-btn');
+  const statusEl = document.getElementById('lsp-status');
+  if (!btn || !statusEl) return;
+  btn.style.color = lspEnabled ? '#7ee787' : '#8b949e';
+  btn.style.borderColor = lspEnabled ? '#3fb950' : '#30363d';
+  statusEl.textContent = (lspEnabled && langHint) ? langHint : (lspEnabled ? 'ready' : 'OFF');
+  statusEl.style.color = lspEnabled ? '#7ee787' : '#484f58';
+}
+
 function addMessage(role, html) {
+  const welcome = document.getElementById('welcome');
+  if (welcome) welcome.remove();
   const div = document.createElement('div');
   div.className = `msg ${role}`;
   div.innerHTML = html;
-  if (role === 'assistant' || role === 'user') div.dir = 'auto';
+  if (role === 'assistant' || role === 'user') {
+    div.dir = 'auto';
+    const cb = document.createElement('button');
+    cb.className = 'msg-copy-btn';
+    cb.textContent = '📋';
+    cb.onclick = () => copyMsg(cb);
+    div.appendChild(cb);
+  }
   chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
+  if (autoScroll) chat.scrollTop = chat.scrollHeight;
+  highlightCode();
   return div;
+}
+
+function highlightCode() {
+  if (typeof hljs === 'undefined') return;
+  document.querySelectorAll('pre code:not(.hljs)').forEach(el => {
+    hljs.highlightElement(el);
+  });
 }
 
 function updateLastMessage(role, html) {
@@ -360,7 +506,9 @@ async function handleCommand(msg) {
   if (lower === '/lsp') {
     const res = await fetch('/api/lsp/toggle', { method: 'POST' });
     const data = await res.json();
-    addMessage('assistant', `LSP ${data.enabled ? 'enabled' : 'disabled'} ${data.ready ? '(ready)' : '(no server)'}`);
+    const langs = data.languages || [];
+    const langInfo = data.ready ? ` (${langs.join(', ')})` : ' (no server)';
+    addMessage('assistant', `LSP ${data.enabled ? 'enabled' : 'disabled'}${langInfo}`);
     return true;
   }
   return false;
@@ -376,10 +524,12 @@ async function sendMessage() {
   }
   isStreaming = true;
   sendBtn.disabled = true;
+  document.getElementById('stop-btn').style.display = 'inline';
   status.textContent = 'Processing...';
   addMessage('user', `${escapeHtml(msg)}<div class="timestamp">${new Date().toLocaleTimeString()}</div>`);
 
   const controller = new AbortController();
+  currentAbortController = controller;
   const timeoutId = setTimeout(() => { controller.abort(); status.textContent = 'Timed out (180s)'; }, 180000);
 
   try {
@@ -398,7 +548,7 @@ async function sendMessage() {
     const decoder = new TextDecoder();
     let buffer = '';
     let assistantContent = '';
-    const msgDiv = addMessage('assistant', '');
+    const msgDiv = addMessage('assistant', '<div class="msg-content"></div>');
 
     while (true) {
       const { done, value } = await reader.read();
@@ -421,14 +571,39 @@ async function sendMessage() {
           switch (event) {
             case 'token':
               assistantContent += parsed.token;
-              msgDiv.innerHTML = renderContent(assistantContent) + '<span class="streaming-cursor"></span>';
+              msgDiv.querySelector('.msg-content').innerHTML = renderContent(assistantContent) + '<span class="streaming-cursor"></span>';
               break;
-            case 'tool_call':
-              addMessage('tool', `<span class="tool-name">🔧 ${escapeHtml(parsed.name)}</span><br><span class="cmd">${escapeHtml(parsed.args)}</span>`);
+            case 'tool_call': {
+              const toolDiv = document.createElement('div');
+              toolDiv.className = 'tool-call msg';
+              toolDiv.innerHTML = `<div class="tool-call-header"><span class="collapse-icon">▶</span><span class="tool-name">🔧 ${escapeHtml(parsed.name)}</span><span class="tool-args">${escapeHtml(parsed.args)}</span></div><div class="tool-call-body" style="display:none"></div>`;
+              toolDiv.querySelector('.tool-call-header').addEventListener('click', () => {
+                const icon = toolDiv.querySelector('.collapse-icon');
+                const body = toolDiv.querySelector('.tool-call-body');
+                const expanded = body.style.display !== 'none';
+                body.style.display = expanded ? 'none' : 'block';
+                icon.classList.toggle('expanded', !expanded);
+              });
+              chat.appendChild(toolDiv);
+              chat.scrollTop = chat.scrollHeight;
+              highlightCode();
               break;
-            case 'tool_result':
-              updateLastMessage('tool', `<span class="tool-name">✅ ${escapeHtml(parsed.name)}</span><br><span class="tool-result">${escapeHtml(parsed.content.slice(0, 300))}${parsed.content.length > 300 ? '...' : ''}</span>`);
+            }
+            case 'tool_result': {
+              const tools = chat.querySelectorAll('.tool-call');
+              const lastTool = tools[tools.length - 1];
+              if (lastTool) {
+                const body = lastTool.querySelector('.tool-call-body');
+                if (body) {
+                  body.textContent = parsed.content.slice(0, 5000);
+                  body.style.display = 'block';
+                  lastTool.querySelector('.collapse-icon')?.classList.add('expanded');
+                }
+                const header = lastTool.querySelector('.tool-call-header .tool-name');
+                if (header) header.innerHTML = '✅ ' + escapeHtml(parsed.name);
+              }
               break;
+            }
             case 'diff':
               console.log('🔍 diff event received:', parsed.path, parsed.before?.length, parsed.after?.length);
               try {
@@ -449,17 +624,30 @@ async function sendMessage() {
               clearTimeout(timeoutId);
               const modelName = parsed.model || '';
               const modelLine = modelName ? `<div class="timestamp" style="color:#58a6ff;font-size:11px;margin-top:6px">🤖 ${escapeHtml(modelName)}</div>` : '';
-              msgDiv.innerHTML = renderContent(assistantContent) || '✅ Done';
-              if (parsed.toolCallsCount > 0)
-                msgDiv.innerHTML += `<div class="timestamp">${parsed.toolCallsCount} tool call(s)</div>`;
-              if (modelLine) msgDiv.innerHTML += modelLine;
+              const inner = msgDiv.querySelector('.msg-content');
+              if (inner) {
+                inner.innerHTML = renderContent(assistantContent) || '✅ Done';
+                if (parsed.toolCallsCount > 0)
+                  inner.innerHTML += `<div class="timestamp">${parsed.toolCallsCount} tool call(s)</div>`;
+                if (modelLine) inner.innerHTML += modelLine;
+              } else {
+                msgDiv.innerHTML = renderContent(assistantContent) || '✅ Done';
+                if (parsed.toolCallsCount > 0)
+                  msgDiv.innerHTML += `<div class="timestamp">${parsed.toolCallsCount} tool call(s)</div>`;
+                if (modelLine) msgDiv.innerHTML += modelLine;
+              }
               streamDone(); return;
           }
         } catch (e) { /* skip malformed json */ }
       }
     }
     clearTimeout(timeoutId);
-    msgDiv.innerHTML = escapeHtml(assistantContent) || '✅ Done';
+    const inner = msgDiv.querySelector('.msg-content');
+    if (inner) {
+      inner.innerHTML = escapeHtml(assistantContent) || '✅ Done';
+    } else {
+      msgDiv.innerHTML = escapeHtml(assistantContent) || '✅ Done';
+    }
     streamDone();
   } catch (err) {
     clearTimeout(timeoutId);
@@ -470,6 +658,8 @@ async function sendMessage() {
 
 function streamDone() {
   isStreaming = false; sendBtn.disabled = false; status.textContent = 'Ready'; input.focus();
+  currentAbortController = null;
+  document.getElementById('stop-btn').style.display = 'none';
   refreshSessionList();
 }
 
@@ -479,6 +669,48 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+function showToast(text, type) {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const el = document.createElement('div');
+  el.className = 'toast' + (type ? ' ' + type : '');
+  el.textContent = text;
+  container.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity 0.3s'; setTimeout(() => el.remove(), 300); }, 3000);
+}
+async function copySession() {
+  try {
+    const res = await fetch(`/api/sessions/${sessionId}`);
+    if (!res.ok) { showToast('Failed to load session', 'error'); return; }
+    const data = await res.json();
+    const title = data.title || 'Session';
+    const model = data.modelLabel || '';
+    const date = new Date(data.createdAt).toLocaleString();
+    let text = `Session: ${title}\nModel: ${model}\nDate: ${date}\n${'='.repeat(40)}\n\n`;
+    for (const m of data.messages) {
+      if (m.role === 'user') {
+        text += `🧑 User:\n${m.content || ''}\n\n`;
+      } else if (m.role === 'assistant') {
+        text += `🤖 Assistant:\n${m.content || ''}\n\n`;
+        if (m.tool_calls && m.tool_calls.length) {
+          for (const tc of m.tool_calls) {
+            text += `🔧 Tool: ${tc.function.name}(${tc.function.arguments})\n`;
+          }
+        }
+      } else if (m.role === 'tool') {
+        text += `⚙️ Result (${m.name || 'tool'}):\n${(m.content || '').slice(0, 1000)}\n\n`;
+      }
+    }
+    await navigator.clipboard.writeText(text);
+    showToast('Session copied!', 'success');
+  } catch { showToast('Copy failed', 'error'); }
+}
+
+function copyMsg(btn) {
+  const msg = btn.closest('.msg');
+  const text = msg ? msg.textContent : '';
+  navigator.clipboard.writeText(text).then(() => { btn.textContent = '✅'; setTimeout(() => { btn.textContent = '📋'; }, 1500); });
+}
 function renderContent(text) {
   const escaped = escapeHtml(text);
   // Replace ```lang ... ``` blocks with styled pre + copy button
@@ -557,15 +789,37 @@ async function refreshSessionList() {
       const active = s.id === sessionId ? ' active' : '';
       const title = escapeHtml(s.title || 'Session');
       const model = escapeHtml(s.modelLabel || '');
-      const time = new Date(s.createdAt).toLocaleString();
+      const time = new Date(s.updatedAt || s.createdAt).toLocaleString();
       html += `<div class="session-item${active}" data-id="${s.id}">
-        <div class="s-title">${title}</div>
+        <div class="s-title">${title} <span class="s-rename" title="Rename">✏️</span></div>
         <div class="s-meta"><span class="s-model">${model}</span><span>${s.messageCount} msgs</span><span>${time}</span></div>
       </div>`;
     }
     sessionListEl.innerHTML = html || '<div style="padding:16px;color:#8b949e;font-size:13px">No sessions</div>';
     sessionListEl.querySelectorAll('.session-item').forEach(el => {
-      el.addEventListener('click', () => switchToSession(el.dataset.id));
+      el.addEventListener('click', (e) => {
+        if (e.target.classList.contains('s-rename')) return;
+        switchToSession(el.dataset.id);
+      });
+    });
+    sessionListEl.querySelectorAll('.s-rename').forEach(el => {
+      el.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const item = el.closest('.session-item');
+        if (!item) return;
+        const id = item.dataset.id;
+        const currentTitle = item.querySelector('.s-title')?.textContent?.replace('✏️', '').trim() || '';
+        const newTitle = prompt('Rename session:', currentTitle);
+        if (!newTitle || !newTitle.trim()) return;
+        try {
+          const res = await fetch(`/api/sessions/${id}/rename`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: newTitle.trim() }),
+          });
+          if (res.ok) refreshSessionList();
+        } catch {}
+      });
     });
   } catch {}
 }
@@ -587,16 +841,43 @@ async function switchToSession(id) {
         addMessage('assistant', renderContent(m.content || '') || '✅ Done');
         if (m.tool_calls && m.tool_calls.length) {
           const tc = m.tool_calls[0];
-          addMessage('tool', `<span class="tool-name">🔧 ${escapeHtml(tc.function.name)}</span><br><span class="cmd">${escapeHtml(tc.function.arguments)}</span>`);
+          const toolDiv = document.createElement('div');
+          toolDiv.className = 'tool-call msg';
+          toolDiv.innerHTML = `<div class="tool-call-header"><span class="collapse-icon">▶</span><span class="tool-name">🔧 ${escapeHtml(tc.function.name)}</span><span class="tool-args">${escapeHtml(tc.function.arguments)}</span></div><div class="tool-call-body" style="display:none"></div>`;
+          toolDiv.querySelector('.tool-call-header').addEventListener('click', () => {
+            const icon = toolDiv.querySelector('.collapse-icon');
+            const body = toolDiv.querySelector('.tool-call-body');
+            const expanded = body.style.display !== 'none';
+            body.style.display = expanded ? 'none' : 'block';
+            icon.classList.toggle('expanded', !expanded);
+          });
+          chat.appendChild(toolDiv);
+          highlightCode();
         }
       } else if (m.role === 'tool') {
-        updateLastMessage('tool', `<span class="tool-name">✅ ${escapeHtml(m.name || 'tool')}</span><br><span class="tool-result">${escapeHtml((m.content || '').slice(0, 300))}${(m.content || '').length > 300 ? '...' : ''}</span>`);
+        const tools = chat.querySelectorAll('.tool-call');
+        const lastTool = tools[tools.length - 1];
+        if (lastTool) {
+          const body = lastTool.querySelector('.tool-call-body');
+          if (body) {
+            body.textContent = (m.content || '').slice(0, 5000);
+            lastTool.querySelector('.collapse-icon')?.classList.add('expanded');
+          }
+          const header = lastTool.querySelector('.tool-call-header .tool-name');
+          if (header) header.innerHTML = '✅ ' + escapeHtml(m.name || 'tool');
+        }
       }
     }
     status.textContent = `Switched to session`;
     if (data.modelLabel) {
       modelInfo.textContent = data.modelLabel;
       document.getElementById('model-badge').textContent = `🧠 ${data.modelLabel}`;
+      // select matching dropdown option
+      const normLabel = data.modelLabel.replace(/\s*[—–-]\s*/g, ' / ');
+      for (const opt of modelSelect.options) {
+        const optText = opt.textContent.replace(/\s*[—–-]\s*/g, ' / ');
+        if (normLabel === optText) { opt.selected = true; break; }
+      }
     }
     await refreshSessionList();
   } catch {}
@@ -612,6 +893,13 @@ document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggleHelp
 
 // Events
 sendBtn.addEventListener('click', sendMessage);
+document.getElementById('stop-btn').addEventListener('click', () => {
+  if (currentAbortController) {
+    currentAbortController.abort();
+    status.textContent = 'Cancelled';
+    showToast('Request cancelled', 'info');
+  }
+});
 
 input.addEventListener('keydown', (e) => {
   if (e.key === 'Enter' && !e.shiftKey) {
@@ -686,6 +974,24 @@ safeModeBtn.addEventListener('click', async () => {
   addMessage('assistant', `🛡️ Safe mode ${safeModeOn ? 'enabled' : 'disabled'}`);
 });
 
+document.getElementById('mcp-toggle-btn').addEventListener('click', async () => {
+  const res = await fetch('/api/mcp/toggle', { method: 'POST' });
+  const data = await res.json();
+  mcpEnabled = data.enabled;
+  updateMCPUI();
+  addMessage('assistant', `🔌 MCP ${mcpEnabled ? 'enabled' : 'disabled'}`);
+});
+
+document.getElementById('lsp-toggle-btn').addEventListener('click', async () => {
+  const res = await fetch('/api/lsp/toggle', { method: 'POST' });
+  const data = await res.json();
+  lspEnabled = data.enabled;
+  const langs = data.languages || [];
+  updateLSPUI(data.ready ? langs.join(', ') : '');
+  const langInfo = data.ready ? ` (${langs.join(', ')})` : ' (no server)';
+  addMessage('assistant', `🔬 LSP ${lspEnabled ? 'enabled' : 'disabled'}${langInfo}`);
+});
+
 allowBtn.addEventListener('click', async () => {
   const p = allowInput.value.trim();
   if (!p) return;
@@ -714,6 +1020,19 @@ sessionsBtn.addEventListener('click', () => {
 
 sessionOverlay.addEventListener('click', () => toggleSessionPanel(false));
 
+// Auto-scroll button
+const autoScrollBtn = document.getElementById('auto-scroll-btn');
+autoScrollBtn.addEventListener('click', () => {
+  autoScroll = !autoScroll;
+  autoScrollBtn.classList.toggle('active', autoScroll);
+  if (autoScroll) chat.scrollTop = chat.scrollHeight;
+});
+chat.addEventListener('scroll', () => {
+  const atBottom = chat.scrollTop + chat.clientHeight >= chat.scrollHeight - 20;
+  autoScrollBtn.style.display = atBottom ? 'none' : 'flex';
+  if (atBottom) { autoScroll = true; autoScrollBtn.classList.remove('active'); }
+});
+
 newSessionBtn.addEventListener('click', async () => {
   toggleSessionPanel(false);
   const res = await fetch('/api/session', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({title:'New Session'}) });
@@ -730,7 +1049,95 @@ newSessionBtn.addEventListener('click', async () => {
   document.getElementById('model-badge').textContent = `🧠 ${modelText}`;
 });
 
+document.getElementById('copy-session-btn').addEventListener('click', copySession);
+
+// Settings
+const settingsBtn = document.getElementById('settings-btn');
+const settingsModal = document.getElementById('settings-modal');
+const fontSlider = document.getElementById('font-slider');
+const fontSizeLabel = document.getElementById('font-size-label');
+const settingsCompact = document.getElementById('settings-compact');
+const settingsAutoScroll = document.getElementById('settings-auto-scroll');
+
+function toggleSettings(show) {
+  settingsModal.classList.toggle('show', show);
+}
+
+function loadSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('coding-agent-settings') || '{}');
+    if (saved.fontSize) {
+      fontSlider.value = saved.fontSize;
+      fontSizeLabel.textContent = saved.fontSize + 'px';
+      document.body.style.setProperty('--msg-font-size', saved.fontSize + 'px');
+    }
+    if (saved.autoScroll !== undefined) {
+      settingsAutoScroll.checked = saved.autoScroll;
+      autoScroll = saved.autoScroll;
+    }
+    if (saved.compact) {
+      settingsCompact.checked = saved.compact;
+      document.body.classList.add('compact');
+    }
+  } catch {}
+}
+
+function saveSettings() {
+  const settings = {
+    fontSize: fontSlider.value,
+    autoScroll: settingsAutoScroll.checked,
+    compact: settingsCompact.checked,
+  };
+  localStorage.setItem('coding-agent-settings', JSON.stringify(settings));
+}
+
+if (settingsBtn) settingsBtn.addEventListener('click', () => toggleSettings(true));
+if (fontSlider) fontSlider.addEventListener('input', () => {
+  const val = fontSlider.value;
+  fontSizeLabel.textContent = val + 'px';
+  document.body.style.setProperty('--msg-font-size', val + 'px');
+  saveSettings();
+});
+if (settingsCompact) settingsCompact.addEventListener('change', () => {
+  document.body.classList.toggle('compact', settingsCompact.checked);
+  saveSettings();
+});
+if (settingsAutoScroll) settingsAutoScroll.addEventListener('change', () => {
+  autoScroll = settingsAutoScroll.checked;
+  if (autoScroll) chat.scrollTop = chat.scrollHeight;
+  autoScrollBtn.classList.toggle('active', autoScroll);
+  saveSettings();
+});
+const settingsCloseBtn = document.getElementById('settings-close-btn');
+if (settingsCloseBtn) settingsCloseBtn.addEventListener('click', () => toggleSettings(false));
+if (settingsModal) settingsModal.addEventListener('click', (e) => { if (e.target === settingsModal) toggleSettings(false); });
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if (document.activeElement === input || document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') {
+    if (e.key === 'Escape' && isStreaming && currentAbortController) {
+      e.preventDefault();
+      currentAbortController.abort();
+      status.textContent = 'Cancelled';
+    }
+    return;
+  }
+  const ctrl = e.ctrlKey || e.metaKey;
+  if (ctrl && e.key === 'n') { e.preventDefault(); newSessionBtn?.click(); }
+  else if (ctrl && e.key === 'd') { e.preventDefault(); sessionsBtn?.click(); }
+  else if (ctrl && e.key === 'k') { e.preventDefault(); input?.focus(); }
+  else if (ctrl && e.key === 'b') { e.preventDefault(); sessionsBtn?.click(); }
+  else if (ctrl && e.key === 'l') { e.preventDefault(); resetBtn?.click(); }
+  else if (e.key === 'c' && e.ctrlKey && e.shiftKey) { e.preventDefault(); copySession(); }
+  else if (e.key === 'Escape') { toggleSettings(false); toggleSessionPanel(false); toggleHelp?.(false); }
+  else if (e.key === 'PageUp') { e.preventDefault(); chat.scrollTop -= chat.clientHeight * 0.8; }
+  else if (e.key === 'PageDown') { e.preventDefault(); chat.scrollTop += chat.clientHeight * 0.8; }
+  else if (e.key === 'Home') { e.preventDefault(); chat.scrollTop = 0; }
+  else if (e.key === 'End') { e.preventDefault(); chat.scrollTop = chat.scrollHeight; }
+});
+
 init();
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 </body>
 </html>

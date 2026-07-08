@@ -57,6 +57,17 @@ An interactive AI coding assistant that runs in your **terminal** or **web brows
 - **Zod validation** — runtime type-checking of every tool input and output
 - **CLI & Web unified** — shared model config, system prompt, tool engine
 - **AGENTS.md support** — drop `AGENTS.md` in project root for project-specific context
+- **Session disk persistence** (Web UI) — sessions saved to `sessions/` dir, survive restarts
+- **Session rename** — rename sessions in Web UI via ✏️ button or API
+- **Collapsible tool calls** — ▶/▼ toggle for streaming & history in Web UI
+- **Stop button** — abort AI generation mid-stream via AbortController
+- **Per-message copy** — 📋 button on every user/assistant message
+- **Copy session** — 📄 Copy session as markdown via button or Ctrl+Shift+C
+- **Keyboard shortcuts** — Ctrl+N/D/K/B/L, PgUp/PgDn, Home/End, Escape
+- **Settings panel** — font-size slider, compact mode, auto-scroll (localStorage)
+- **Auto-scroll toggle** — floating ⬇ button when scrolled up
+- **Toast notifications** — 3s auto-dismiss feedback
+- **Welcome screen** — empty-state guide, removed on first message
 - **Diff Viewer** (Web UI) — line-level LCS diffs for file operations
 - **Standalone binary** — compile with `npm run build:binary` (no Node.js required)
 
@@ -160,7 +171,8 @@ coding-agent-free/
 │   ├── ConversationState.ts    # Sliding window, context trimming
 │   ├── server.ts               # Express web server (SSE, sessions, API)
 │   ├── persistence.ts          # Multi-session save/load
-│   ├── config/models.ts        # Provider definitions, presets, system prompt
+│   ├── config/models.ts        # Provider definitions, presets, system prompt (no tool names)
+│   ├── validation.ts            # Zod schemas for tool I/O validation
 │   ├── tools/
 │   │   ├── fileManager.ts      # 13 file/shell tools + safe mode
 │   │   └── toolRegistry.ts     # Central registry (builtin + MCP + LSP)
@@ -172,10 +184,10 @@ coding-agent-free/
 │   │   └── config.ts           # Load MCP servers from .coding-agent.json
 │   ├── lsp/                    # LSP support
 │   │   ├── LSPClient.ts        # JSON-RPC LSP client over stdio
-│   │   ├── LSPManager.ts       # Multi-language LSP server management
+│   │   ├── LSPManager.ts       # Multi-language LSP server management (entries[] w/ filePatterns)
 │   │   ├── config.ts           # Load LSP servers from .coding-agent.json
-│   │   └── index.ts            # Tool definitions + execution router
-│   └── __tests__/              # 181 unit tests
+│   │   └── index.ts            # Tool definitions: code_definition/references/hover/lookup_symbol/get_diagnostics
+│   └── __tests__/              # 13 test files, 220+ unit tests
 ├── public/index.html           # Web UI (plain JS)
 ├── sessions/                   # Session storage
 ├── workspace/                  # Default working directory
@@ -212,9 +224,20 @@ npm run web
 Web UI features:
 - **Streaming responses** — token-by-token via SSE
 - **Diff Viewer** — line-level LCS diffs for write/replace/append operations
-- **Session Manager** — create, switch, list sessions with auto-title & metadata
-- **Slash Commands** — `/active`, `/model <n>`, `/safe`, `/allow`, `/reset`, `/models`, `/exit`, `/mcp list`, `/mcp toggle`, `/lsp`
-- **Help Modal** — click `?` for usage guide, commands reference
+- **Session Manager** — create, switch, list, rename sessions; disk persistence across restarts
+- **Settings Panel** — font-size slider, compact mode, auto-scroll toggle (localStorage)
+- **Keyboard Shortcuts** — Ctrl+N (new), Ctrl+D/B (sessions), Ctrl+K (focus), Ctrl+L (reset), Ctrl+Shift+C (copy session), Escape (close), PgUp/PgDn/Home/End
+- **Collapsible Tool Calls** — ▶/▼ toggle header + body for streaming and history
+- **Stop Button** — abort streaming via AbortController
+- **Auto-scroll Toggle** — floating ⬇ button when scrolled up
+- **Per-message Copy** — 📋 button on every user/assistant message (preserved during streaming)
+- **Copy Session** — 📄 button + Ctrl+Shift+C formats conversation as markdown
+- **Toast Notifications** — 3s auto-dismiss feedback
+- **Welcome Screen** — shown on empty chat, removed on first message
+- **LSP Toggle** — 🟢ON/⚫OFF status with active languages
+- **MCP Toggle** — 🟢ON/⚫OFF status
+- **Slash Commands** — `/active`, `/model <n>`, `/safe`, `/allow`, `/reset`, `/models`, `/exit`, `/mcp list/toggle`, `/lsp`
+- **Help Modal** — click `?` for usage guide, commands reference, keyboard shortcuts
 - **OpenAI-compatible API** — `http://localhost:3000/v1/chat/completions`
 
 **Example session:**
@@ -488,7 +511,7 @@ Reset mid-session with `/reset` if context gets stale.
 
 ## Tests
 
-- `npm run test:unit` — **222** unit tests (12 files: ConversationState, comprehensive, CodingAgent, loadProjectContext, fileManager, agent, server, mcp, lsp, persistence, toolRegistry, models)
+- `npm run test:unit` — **220+** unit tests (13 files: ConversationState, comprehensive, CodingAgent, loadProjectContext, fileManager, agent, server, mcp, lsp, persistence, toolRegistry, models, validation)
 - `npm run test:integration` — 26 provider integration tests
 - `npm test` — 35 integration tests (provider connectivity)
 - CI: `.github/workflows/ci.yml` runs all tests on push/PR

@@ -1,4 +1,4 @@
-import { describe, it, mock } from 'node:test';
+import { describe, it, before, after, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -136,6 +136,15 @@ describe('commands', () => {
 // ─── Persistence ───────────────────────────────────────────────
 describe('persistence', () => {
   const { saveConversation, loadConversation, clearConversation, loadUserPresets, saveUserPresets } = require('../persistence');
+  const presetsFile = path.join(__dirname, '..', '..', 'presets.json');
+  let origPresets = '';
+  before(async () => {
+    try { origPresets = await fs.readFile(presetsFile, 'utf-8'); } catch { }
+  });
+  after(async () => {
+    if (origPresets) await fs.writeFile(presetsFile, origPresets, 'utf-8');
+    else try { await fs.writeFile(presetsFile, '{}', 'utf-8'); } catch { }
+  });
 
   it('save and load conversation round-trip', async () => {
     const messages: ChatMessage[] = [
@@ -190,17 +199,12 @@ describe('persistence', () => {
     assert.equal(loaded['10'].provider, 'groq');
     assert.equal(loaded['10'].primary, 'llama-3.3-70b-versatile');
     assert.deepEqual(loaded['10'].fallbacks, ['openrouter/free']);
-
-    const presetsFile = path.join(__dirname, '..', '..', 'presets.json');
-    await fs.writeFile(presetsFile, '{}', 'utf-8');
   });
 
   it('load presets with corrupted file returns empty', async () => {
-    const presetsFile = path.join(__dirname, '..', '..', 'presets.json');
     await fs.writeFile(presetsFile, 'not valid', 'utf-8');
     const loaded = await loadUserPresets();
     assert.deepEqual(loaded, {});
-    await fs.writeFile(presetsFile, '{}', 'utf-8');
   });
 });
 

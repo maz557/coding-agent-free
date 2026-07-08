@@ -1,4 +1,11 @@
 {
   "mcpServers": {},
-  "lspServers": []
+  "lspServers": [
+    {
+      "command": "pyright-langserver",
+      "args": ["--stdio"],
+      "languageId": "python",
+      "filePatterns": ["**/*.py"]
+    }
+  ]
 }

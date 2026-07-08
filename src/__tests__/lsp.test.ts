@@ -61,14 +61,16 @@ async function withLSPServer<T>(fn: (client: any) => Promise<T>): Promise<T> {
 }
 
 describe('LSP tool definitions', () => {
-  it('should export lspToolDefinitions with 3 tools', () => {
+  it('should export lspToolDefinitions with 5 tools', () => {
     const { lspToolDefinitions } = require('../lsp/index');
-    assert.equal(lspToolDefinitions.length, 3);
+    assert.equal(lspToolDefinitions.length, 5);
 
     const names = lspToolDefinitions.map((t: any) => t.function.name);
     assert(names.includes('code_definition'));
     assert(names.includes('code_references'));
     assert(names.includes('code_hover'));
+    assert(names.includes('code_lookup_symbol'));
+    assert(names.includes('code_get_diagnostics'));
 
     const desc = lspToolDefinitions[0].function.description;
     assert(typeof desc === 'string' && desc.length > 0);
@@ -489,8 +491,8 @@ describe('LSPManager - full operations with echo server', () => {
     assert(hoverResult);
     assert(!hoverResult.includes('not available'));
 
-    const activeLangs = manager.getActiveLanguages();
-    assert(activeLangs);
+    const info = manager.getClientInfo();
+    assert(info);
 
     await manager.shutdown();
     assert.equal(manager.isAvailable(), false);

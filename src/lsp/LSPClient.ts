@@ -15,6 +15,8 @@ export class LSPClient {
   private _onDiagnostics: ((uri: string, diagnostics: any[]) => void) | null = null;
 
   get ready(): boolean { return this._ready; }
+  get serverCommand(): string { return this.command; }
+  openDocCount = 0;
 
   constructor(
     private readonly command: string,
@@ -32,42 +34,53 @@ export class LSPClient {
 
   async start(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const trySpawn = (useShell: boolean) => {
-        if (useShell) {
-          const cmd = [this.command, ...this.args].map(a => a.includes(' ') ? `"${a}"` : a).join(' ');
-          return spawn(cmd, [], { stdio: ['pipe', 'pipe', 'pipe'], shell: true });
-        }
-        return spawn(this.command, this.args, { stdio: ['pipe', 'pipe', 'pipe'] });
-      };
-
-      this.process = trySpawn(false);
+      const useShell = process.platform === 'win32';
+      if (useShell) {
+        const cmd = [this.command, ...this.args].map(a => a.includes(' ') ? `"${a}"` : a).join(' ');
+        this.process = spawn(cmd, [], { stdio: ['pipe', 'pipe', 'pipe'], shell: true });
+      } else {
+        this.process = spawn(this.command, this.args, { stdio: ['pipe', 'pipe', 'pipe'] });
+      }
 
       let initialized = false;
+      let settled = false;
+      const timeout = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          reject(new Error(`LSP server timeout: ${this.command}`));
+        }
+      }, 15000);
+      const finish = (err?: Error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        if (err) reject(err);
+        else resolve();
+      };
 
       this.process.stdout!.on('data', (data: Buffer) => {
         this.buffer += data.toString();
         this.processBuffer();
       });
 
-      let isFallback = false;
       this.process.on('error', (err: any) => {
-        if (process.platform === 'win32' && err.code === 'ENOENT' && !isFallback) {
-          isFallback = true;
-          this.process = trySpawn(true);
+        if (!useShell && process.platform === 'win32' && err.code === 'ENOENT') {
+          const cmd = [this.command, ...this.args].map(a => a.includes(' ') ? `"${a}"` : a).join(' ');
+          this.process = spawn(cmd, [], { stdio: ['pipe', 'pipe', 'pipe'], shell: true });
           this.process.stdout!.on('data', (data: Buffer) => {
             this.buffer += data.toString();
             this.processBuffer();
           });
-          this.process.on('error', reject);
+          this.process.on('error', (e: any) => finish(e));
           this.process.on('close', () => {
-            if (!initialized) reject(new Error(`LSP server exited: ${this.command}`));
+            if (!initialized) finish(new Error(`LSP server exited: ${this.command}`));
           });
           return;
         }
-        reject(err);
+        finish(err);
       });
       this.process.on('close', () => {
-        if (!initialized && !isFallback) reject(new Error(`LSP server exited: ${this.command}`));
+        if (!initialized) finish(new Error(`LSP server exited: ${this.command}`));
       });
 
       // Initialize LSP
@@ -88,8 +101,8 @@ export class LSPClient {
         this.capabilities = result?.capabilities || {};
         this._ready = true;
         this.notify('initialized', {});
-        resolve();
-      }).catch(reject);
+        finish();
+      }).catch((e: any) => finish(e));
     });
   }
 
@@ -155,6 +168,7 @@ export class LSPClient {
     this.notify('textDocument/didOpen', {
       textDocument: { uri, languageId, version: 1, text },
     });
+    this.openDocCount++;
   }
 
   async changeDocument(uri: string, text: string, version: number): Promise<void> {
@@ -201,6 +215,11 @@ export class LSPClient {
     return this.request('textDocument/diagnostic', {
       textDocument: { uri },
     }).catch(() => []); // fallback if not supported
+  }
+
+  async workspaceSymbol(query: string): Promise<any> {
+    await this.waitForReady();
+    return this.request('workspace/symbol', { query });
   }
 
   private async waitForReady(): Promise<void> {
