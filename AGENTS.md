@@ -37,6 +37,10 @@ This is the Coding Agent Free project itself.
 - `src/persistence.ts` — multi-session persistence (sessions/ dir, auto-title, modelPreset)
 - `src/tools/toolRegistry.ts` — central tool registry combining builtin + MCP + LSP tools
 
+## Known limitations
+- **Windows LSP binary spawn** — `spawn()` can't find global npm `.cmd` files; shell fallback sometimes causes exit race. LSP works in tests (mock server) and on Linux/macOS. Tracked as issue for v1.18.0.
+- **CI timeout** — `CodingAgent.test.ts`, `agent.test.ts`, `server.test.ts` use real API keys and can timeout in CI when rate-limited. Mitigated with `--test-timeout=15000`.
+
 ## Conventions
 - No comments in code unless necessary
 - Use async/await, not raw promises
