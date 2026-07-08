@@ -4,12 +4,14 @@ import http from 'node:http';
 import * as path from 'path';
 import * as fsp from 'fs/promises';
 import * as fs from 'fs';
+import * as os from 'os';
 
 const BASE = 'http://localhost:0';
 const ORIGINAL_ENV = { ...process.env };
 
 let server: http.Server;
 let baseUrl: string;
+let sessionsDir: string;
 
 async function startServer(port = 0): Promise<{ server: http.Server; baseUrl: string }> {
   const { app } = await import('../server');
@@ -51,6 +53,8 @@ describe('server API', () => {
 
   beforeEach(async () => {
     process.env.NODE_ENV = 'test';
+    sessionsDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'server-test-'));
+    process.env.SESSIONS_DIR = sessionsDir;
     const started = await startServer();
     server = started.server;
     baseUrl = started.baseUrl;
@@ -58,11 +62,16 @@ describe('server API', () => {
 
   afterEach(async () => {
     server?.close();
+    // Clear in-memory sessions so next test starts fresh
+    const mod = await import('../server') as any;
+    if (mod.sessions) mod.sessions.clear();
     // Clear module cache so each test gets fresh state
     const sep = process.platform === 'win32' ? '\\src\\' : '/src/';
     for (const key of Object.keys(require.cache)) {
       if (key.includes(sep) || key.includes('/src/')) delete require.cache[key];
     }
+    delete process.env.SESSIONS_DIR;
+    await fsp.rm(sessionsDir, { recursive: true, force: true });
   });
 
   describe('GET /api/models', () => {

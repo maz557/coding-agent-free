@@ -98,8 +98,17 @@ export class StdioTransport implements Transport {
 
   async close(): Promise<void> {
     this.rl?.close();
+    this.rl = null;
     if (this.process) {
       this.process.kill();
+      this.process.stdout?.destroy();
+      this.process.stderr?.destroy();
+      this.process.stdin?.end();
+      // Wait briefly for process to exit (but don't block forever)
+      await Promise.race([
+        new Promise(resolve => this.process!.once('exit', resolve)),
+        new Promise(resolve => setTimeout(resolve, 2000)),
+      ]);
       this.process = null;
     }
   }

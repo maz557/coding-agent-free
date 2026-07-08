@@ -5,9 +5,9 @@
   "main": "src/agent.ts",
   "scripts": {
     "preweb": "node scripts/cleanup.js",
-    "web": "node node_modules/ts-node/dist/bin.js src/server.ts",
+    "web": "node --import tsx src/server.ts",
     "prestart": "node scripts/cleanup.js",
-    "start": "node node_modules/ts-node/dist/bin.js src/agent.ts",
+    "start": "node --import tsx src/agent.ts",
     "setup": "node scripts/setup.js",
     "setup-ide": "node scripts/setup-ide.js",
     "build": "tsc",
@@ -16,9 +16,9 @@
     "build:binary:web": "npm run build && pkg dist/server.js --targets node18-win-x64 --output coding-agent-web.exe",
     "test": "node scripts/comprehensive-test.js",
     "test:quick": "node scripts/test-improvements.js",
-    "test:tools": "node node_modules/ts-node/dist/bin.js scripts/tool-integration-test.ts",
-    "test:unit": "node -r ts-node/register --test --test-timeout=15000 src/__tests__/ConversationState.test.ts src/__tests__/comprehensive.test.ts src/__tests__/CodingAgent.test.ts src/__tests__/detectLocalModel.test.ts src/__tests__/loadProjectContext.test.ts src/__tests__/fileManager.test.ts src/__tests__/agent.test.ts src/__tests__/server.test.ts src/__tests__/mcp.test.ts src/__tests__/lsp.test.ts src/__tests__/persistence.test.ts src/__tests__/toolRegistry.test.ts src/__tests__/models.test.ts",
-    "test:integration": "node -r ts-node/register --test scripts/provider-integration-test.ts"
+    "test:tools": "node --import tsx scripts/tool-integration-test.ts",
+    "test:unit": "node --import tsx --test --test-timeout=15000 src/__tests__/ConversationState.test.ts src/__tests__/comprehensive.test.ts src/__tests__/CodingAgent.test.ts src/__tests__/detectLocalModel.test.ts src/__tests__/loadProjectContext.test.ts src/__tests__/fileManager.test.ts src/__tests__/agent.test.ts src/__tests__/server.test.ts src/__tests__/mcp.test.ts src/__tests__/lsp.test.ts src/__tests__/persistence.test.ts src/__tests__/toolRegistry.test.ts src/__tests__/models.test.ts",
+    "test:integration": "node --import tsx --test --test-timeout=15000 scripts/provider-integration-test.ts"
   },
   "keywords": [
     "openrouter",
@@ -47,6 +47,7 @@
     "@types/uuid": "^10.0.0",
     "pkg": "^5.8.1",
     "ts-node": "^10.9.2",
+    "tsx": "^4.23.0",
     "typescript": "^6.0.3"
   }
 }
