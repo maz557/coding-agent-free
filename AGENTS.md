@@ -40,6 +40,7 @@ This is the Coding Agent Free project itself.
 ## Known limitations
 - **Windows LSP binary spawn** — `spawn()` can't find global npm `.cmd` files; shell fallback sometimes causes exit race. LSP works in tests (mock server) and on Linux/macOS. Tracked as issue for v1.18.0.
 - **CI timeout** — `CodingAgent.test.ts`, `agent.test.ts`, `server.test.ts` use real API keys and can timeout in CI when rate-limited. Mitigated with `--test-timeout=15000`.
+- **Node 24 issue** — Node 24 test runner has IPC serialization issues with `ts-node/register` (`Unable to deserialize cloned data`). CI uses Node 22 only.
 
 ## Conventions
 - No comments in code unless necessary
