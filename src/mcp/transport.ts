@@ -28,19 +28,10 @@ export class StdioTransport implements Transport {
   set onError(fn) { this._onError = fn; }
 
   async start(): Promise<void> {
-    if (process.platform === 'win32') {
-      const cmd = [this.command, ...this.args].map(a => a.includes(' ') ? `"${a}"` : a).join(' ');
-      this.process = spawn(cmd, [], {
-        stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env, ...this.env },
-        shell: true,
-      });
-    } else {
-      this.process = spawn(this.command, this.args, {
-        stdio: ['pipe', 'pipe', 'pipe'],
-        env: { ...process.env, ...this.env },
-      });
-    }
+    this.process = spawn(this.command, this.args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env, ...this.env },
+    });
 
     this.rl = readline.createInterface({ input: this.process.stdout! });
 

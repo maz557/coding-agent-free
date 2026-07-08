@@ -34,16 +34,19 @@ export class LSPClient {
 
   async start(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const useShell = process.platform === 'win32';
-      if (useShell) {
-        const cmd = [this.command, ...this.args].map(a => a.includes(' ') ? `"${a}"` : a).join(' ');
-        this.process = spawn(cmd, [], { stdio: ['pipe', 'pipe', 'pipe'], shell: true });
-      } else {
-        this.process = spawn(this.command, this.args, { stdio: ['pipe', 'pipe', 'pipe'] });
-      }
+      const trySpawn = (useShell: boolean) => {
+        if (useShell) {
+          const cmd = [this.command, ...this.args].map(a => a.includes(' ') ? `"${a}"` : a).join(' ');
+          return spawn(cmd, [], { stdio: ['pipe', 'pipe', 'pipe'], shell: true });
+        }
+        return spawn(this.command, this.args, { stdio: ['pipe', 'pipe', 'pipe'] });
+      };
+
+      this.process = trySpawn(false);
 
       let initialized = false;
       let settled = false;
+      let isFallback = false;
       const timeout = setTimeout(() => {
         if (!settled) {
           settled = true;
@@ -64,9 +67,9 @@ export class LSPClient {
       });
 
       this.process.on('error', (err: any) => {
-        if (!useShell && process.platform === 'win32' && err.code === 'ENOENT') {
-          const cmd = [this.command, ...this.args].map(a => a.includes(' ') ? `"${a}"` : a).join(' ');
-          this.process = spawn(cmd, [], { stdio: ['pipe', 'pipe', 'pipe'], shell: true });
+        if (process.platform === 'win32' && err.code === 'ENOENT' && !isFallback) {
+          isFallback = true;
+          this.process = trySpawn(true);
           this.process.stdout!.on('data', (data: Buffer) => {
             this.buffer += data.toString();
             this.processBuffer();
@@ -79,9 +82,12 @@ export class LSPClient {
         }
         finish(err);
       });
-      this.process.on('close', () => {
-        if (!initialized) finish(new Error(`LSP server exited: ${this.command}`));
-      });
+
+      if (!isFallback) {
+        this.process.on('close', () => {
+          if (!initialized) finish(new Error(`LSP server exited: ${this.command}`));
+        });
+      }
 
       // Initialize LSP
       this.request('initialize', {
