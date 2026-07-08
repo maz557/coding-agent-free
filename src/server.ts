@@ -186,7 +186,6 @@ app.post('/api/session', (req, res) => {
 
 app.get('/api/sessions', (_req, res) => {
   const list = [...sessions.entries()]
-    .filter(([, s]) => s.messages.filter(m => m.role !== 'system').length > 0)
     .map(([id, s]) => ({
       id,
       title: s.meta.title,

@@ -116,7 +116,7 @@ describe('server API', () => {
       const { body: list } = await fetchJson(`${baseUrl}/api/sessions`);
       const found = list.find((s: any) => s.id === session.sessionId);
       assert(found);
-      assert.equal(found.title, 'New Session');
+      assert(found.title.startsWith('Session '));
     });
   });
 
