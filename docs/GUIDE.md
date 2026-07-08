@@ -196,13 +196,20 @@ If you see errors about missing API keys, run `npm run setup` again.
 
 The agent offers three ways to interact. Here's when to use each:
 
-| Interface | Start Command | Best For |
-|-----------|--------------|----------|
-| **CLI (terminal)** | `npm start` | Quick tasks, scripting, when you're already in the terminal, minimal resource usage |
-| **Web UI** | `npm run web` | Visual diff viewer, session manager, model switching UI, team collaboration via browser |
-| **OpenAI-compatible API** | `npm run web` | Integration with IDEs (Cline, Continue.dev, Cursor), custom tools, programmatic access |
+| Interface | Start Command | Best For | Most Features? |
+|-----------|--------------|----------|----------------|
+| **CLI (terminal)** | `npm start` | Quick tasks, scripting, terminal-centric workflows, CI/CD automation, RTL language support (Persian/Arabic) | ⭐⭐⭐ Full session CRUD, all slash commands, MCP/LSP management |
+| **Web UI** | `npm run web` | Visual diff viewer, session manager with persistence, keyboard shortcuts, team collaboration via browser, settings panel | ⭐⭐⭐⭐⭐ All CLI features + visual diffs, settings panel, collapsible tool calls, stop button, auto-scroll, per-message copy, copy session, toast notifications, welcome screen, LSP/MCP toggle indicators |
+| **OpenAI-compatible API** | `npm run web` | Integration with IDEs (Cline, Continue.dev, Cursor), custom tools, programmatic access | ⭐⭐ API-only (no chat interface) |
 
-**CLI or Web UI?** Start with CLI for simple edits and quick commands. Switch to Web UI when you need to review file diffs visually, manage multiple sessions, or prefer a graphical chat interface. The Web UI runs at http://localhost:3000.
+**Which to choose?**
+- **Developers already in the terminal**: Use CLI — it's fast, lightweight, and supports all features
+- **Visual learners & diff reviewers**: Use Web UI — the diff viewer, collapsible tool calls, and settings panel make it easier to track what the agent is doing
+- **Team collaboration**: Use Web UI — sessions persist on disk and can be shared
+- **RTL language users** (Persian, Arabic, Urdu): Use CLI with `run-cli-rtl.bat` + WezTerm
+- **IDE integration**: Use the OpenAI-compatible API endpoint at `http://localhost:3000/v1/chat/completions`
+
+> **The Web UI now has the most features overall**, including visual diff viewer, settings panel, collapsible tool calls, stop button, auto-scroll toggle, per-message copy buttons, keyboard shortcuts, and session persistence with rename. The CLI remains best for terminal-native workflows and automation.
 
 **When to build a standalone binary?**
 
@@ -1194,7 +1201,18 @@ This uses `search_content` across your project — the agent will analyze all yo
 
 ### Strategies for Success
 
-#### 1. Keep context windows manageable
+#### 1. Use separate sessions per project
+
+Treat each project as its own session. The agent supports named sessions with disk persistence:
+
+- **CLI**: `/session new my-project`, `/session list`, `/session rename`, `/session delete`
+- **Web UI**: Click "Sessions" panel → New / switch / rename (✏️) / delete
+
+Sessions are saved to `sessions/{uuid}.json` and survive server restarts. This keeps each project's context clean, prevents cross-project confusion, and lets you pick up exactly where you left off.
+
+> **Tip**: Name your session after the project (e.g., "e-commerce backend") so you can quickly switch between multiple projects. Empty sessions (no user messages) are automatically filtered from the list.
+
+#### 2. Keep context windows manageable
 
 After 15–20 exchanges in a feature conversation, the agent's context gets crowded. When you start a new feature:
 
@@ -1225,9 +1243,28 @@ Use `/model <n>` to switch mid-session. For example: plan with deepseek, code wi
 > - **Afternoon (debugging)**: deepseek or gemini — solve the bugs that emerged during implementation
 > - **Code review**: qwen-32k — load larger context for cross-file analysis
 
-#### 3. Use LSP across multiple languages
+#### 3. Use LSP for deep code intelligence
 
-A complex project rarely uses one language. You might have:
+The agent provides 5 LSP-powered tools for deep code understanding (toggle with `/lsp`):
+
+| Tool | Description |
+|------|-------------|
+| `code_definition` | Find where a symbol is defined (file:line:column) |
+| `code_references` | Find all references to a symbol across the project |
+| `code_hover` | Get type signature, documentation, and inline hints |
+| `lookup_symbol` | Search for symbols by name (e.g., "find all classes named `User*`") |
+| `get_diagnostics` | Get live errors/warnings for a file (like a linter on demand) |
+
+This goes beyond simple text search — LSP understands the **semantics** of your code, so "find references" finds real usages, not just string matches. For example:
+
+```
+Find all places where the authenticate() function is called.
+What does calculateFee() expect as input?
+Show me the definition of the User model.
+Are there any errors in src/main.ts?
+```
+
+The agent supports **multi-language LSP** — it auto-detects the language of each file and routes queries to the correct server. A polyglot project might have:
 - **Python** backend (Django/FastAPI)
 - **TypeScript/JavaScript** frontend (React, Vue)
 - **SQL** for database queries
@@ -1286,9 +1323,15 @@ The agent parses file extensions and calls the right LSP server automatically. I
 
 > **Windows note**: LSP servers installed via npm global packages use `.cmd` wrappers. The agent handles this automatically on Windows, but if you see "LSP server exited" errors, the server may not be installed or may need a PATH refresh. Run `npm install -g typescript-language-server` in a new terminal.
 
-#### 4. Connect multiple MCP servers
+#### 4. Connect multiple MCP servers for external tool access
 
-Complex projects integrate with external systems. MCP (Model Context Protocol) lets the agent use those directly.
+MCP (Model Context Protocol) is one of the project's most powerful features. It lets the agent use external tools — databases, APIs, filesystem, web search, GitHub, and custom tools — directly within your conversation. MCP servers connect via stdio (subprocess) or HTTP/SSE (remote), and their tools appear automatically alongside built-in tools.
+
+**What you can do with MCP:**
+- Query a PostgreSQL database directly: `Find all users who signed up in the last 24 hours`
+- Manage GitHub: `Create a PR with these changes`
+- Search the web: `Find the latest documentation for React 19`
+- Control a browser: `Take a screenshot of the homepage`
 
 **Typical MCP setup for a complex project:**
 

@@ -213,6 +213,9 @@ npm start
 
 The agent automatically connects MCP and LSP servers on startup, loads project context from `AGENTS.md`, and restores the last session.
 
+**Best for:** Quick tasks, terminal-centric workflows, CI/CD automation, RTL language support, low resource usage.
+**Has:** Full session CRUD, all slash commands, MCP/LSP management.
+
 ### 🌐 Web Interface
 
 ```bash
@@ -220,6 +223,9 @@ npm run web
 # Open http://localhost:3000 in your browser
 ```
 > On Windows, double-click `run-web.bat`.
+
+**Best for:** Visual diff review, session management with persistence, keyboard shortcuts, team collaboration, settings customization — **this interface has the most features overall**.
+**Has:** All CLI capabilities + visual diff viewer, settings panel, collapsible tool calls, stop button, auto-scroll toggle, per-message & session copy, welcome screen, toast notifications, keyboard shortcuts, LSP/MCP toggle indicators.
 
 Web UI features:
 - **Streaming responses** — token-by-token via SSE
@@ -282,8 +288,10 @@ Web UI features:
 | Tool | Description |
 |------|-------------|
 | `code_definition` | Find where a symbol is defined (file:line:column) |
-| `code_references` | Find all references to a symbol |
-| `code_hover` | Get type signature / documentation for a symbol |
+| `code_references` | Find all references to a symbol across the project |
+| `code_hover` | Get type signature, documentation, and inline hints |
+| `lookup_symbol` | Search for symbols by name (e.g., "find all classes named `User*`") |
+| `get_diagnostics` | Get live errors/warnings for a file (like a linter on demand) |
 
 #### MCP Tools (from connected servers)
 
