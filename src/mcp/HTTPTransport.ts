@@ -40,7 +40,7 @@ export class HTTPTransport implements Transport {
         },
       };
 
-      const req = httpModule.request(this.baseUrl, options, (res) => {
+      const req = httpModule.request(this.baseUrl, { ...options, signal: this.abortController!.signal }, (res) => {
         if (res.statusCode !== 200) {
           reject(new Error(`HTTP ${res.statusCode} connecting to ${this.baseUrl}`));
           return;
