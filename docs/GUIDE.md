@@ -27,6 +27,7 @@
    - [Strategies for Success](#strategies-for-success)
    - [Limitations & How to Work Around Them](#limitations--how-to-work-around-them)
    - [Real-World Workflow Example](#real-world-workflow-example)
+   - [Quick-Reference Summary Tables](#quick-reference-summary-tables)
    - [Checklist for Complex Projects](#checklist-for-complex-projects)
 8. [Web Interface Guide](#web-interface-guide)
 9. [Troubleshooting](#troubleshooting)
@@ -1545,6 +1546,48 @@ This workflow takes 3–4 days of real work with an agent — about the same as 
 
 ---
 
+### Quick-Reference Summary Tables
+
+#### Configuration Reference
+
+| What | Where | How |
+|------|-------|-----|
+| **Project context** | `AGENTS.md` (project root) | Create manually or ask agent. Read automatically on startup. Store architecture, tech stack, build commands. |
+| **LSP servers** | `.coding-agent.json` (project root) | Default config has 10 languages. Add custom: `{ "lspServers": [{ "command": "my-lsp", "args": ["--stdio"], "languageId": "mylang", "filePatterns": ["**/*.my"] }] }` |
+| **MCP servers** | `.coding-agent.json` (project root) | `{ "mcpServers": { "name": { "command": "npx", "args": ["-y", "@server"], "env": {} } } }` |
+| **Install MCP server** | Terminal | `npm install -g @modelcontextprotocol/server-<name>` |
+| **Install LSP server** | Terminal | `npm install -g typescript-language-server` (JS/TS), `pip install pyright` (Python), `gem install solargraph` (Ruby), `brew install lua-language-server` (Lua), `apt install clangd` (C/C++) |
+| **Environment variables** | `.env` (project root) | `OPENROUTER_API_KEY=sk-or-v1-...` (one line per key) |
+| **Session persistence** | `sessions/` directory | Auto-saved. List: `/session list`, Switch: `/session switch <name>`, Rename: `/session rename <name>` |
+
+#### Model Selection Guide
+
+| Phase / Task | Command | Best Model | Why |
+|-------------|---------|------------|-----|
+| Architecture planning | `/model 1` | deepseek-chat | Large 128K context, strong reasoning for design decisions |
+| CRUD / boilerplate code | `/model 4` | qwen-2.5-coder-32b | Fast, good code quality, cheap |
+| Frontend / UI work | `/model 2` | qwen-fast | Fastest response, good for iterative UI tweaks |
+| Debugging complex bugs | `/model 1` | deepseek-chat | Deep analysis, traces root causes |
+| Large refactoring | `/model 3` | qwen-32k-preview | 32K context loads more files at once |
+| Code review / audit | `/model 3` or `/model 5` | qwen-32k / gemini | Good at spotting inconsistencies |
+| Quick edits | `/model 2` | qwen-fast | Sub-second responses |
+| Learning / exploration | Any | — | Experiment freely |
+
+#### Limitations & Workarounds
+
+| Limitation | Symptom | Workaround |
+|-----------|---------|------------|
+| **Context saturation** | Agent forgets early conversation | `/reset` between features; store decisions in `AGENTS.md`; use `/session new` per feature |
+| **Stuck detection** | Agent resets mid-task after 3 similar tool calls | Be more specific in prompts; reduce `read_file` calls by including content in your message |
+| **Token consumption** | Rate limits hit after many exchanges | Use `/model 2` for cheap iterations; read only relevant file sections; use `search_content` instead of `read_file` |
+| **Rate limits (429)** | API returns "Rate limited" | Wait 30s; switch provider (`/model 1`→deepseek, `/model 5`→google); agent auto-retries 3× |
+| **Model too slow** | Response takes 30s+ | Switch to `/model 2` or `/model 4` (faster models) |
+| **Model can't do task** | Wrong tool calls or nonsense | Switch to a smarter model (`/model 1` or `/model 3`) |
+| **LSP server not found** | `LSP server exited: <name>` | Install the LSP server for that language (see config table above) |
+| **MCP connection fails** | `MCP server not connected` | Check `.coding-agent.json` syntax; verify server binary is installed; run `/mcp toggle` |
+| **Windows .cmd files** | LSP/MCP binary not found on Windows | Agent auto-detects ENOENT and retries via `cmd /c`. Install server in a fresh terminal to update PATH. |
+| **Large project navigation** | Agent reads wrong files | Refer to files by explicit path: "Read src/api/routes.py and tell me..." |
+
 ### Checklist for Complex Projects
 
 Use this checklist to stay on track:
@@ -1553,6 +1596,8 @@ Use this checklist to stay on track:
 - [ ] **Architecture planned** (files, data flow, dependencies)
 - [ ] **AGENTS.md written** (captures all decisions)
 - [ ] **Folder structure created** (empty placeholder files)
+- [ ] **LSP servers installed** for each language in the project
+- [ ] **MCP servers configured** for external integrations (DB, search, etc.)
 - [ ] **Base module built and tested** independently
 - [ ] **Features added one at a time**, tested after each
 - [ ] **Session checkpointed** after each feature (`/session rename <project>-featureX`)
