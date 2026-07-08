@@ -8,3 +8,5 @@ conversation.json
 *.log
 src/agent - Copy.ts
 local/
+sessions/
+workspace/.env
