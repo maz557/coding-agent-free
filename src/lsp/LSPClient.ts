@@ -49,12 +49,11 @@ export class LSPClient {
         this.processBuffer();
       });
 
+      let isFallback = false;
       this.process.on('error', (err: any) => {
-        if (process.platform === 'win32' && err.code === 'ENOENT' && !(this.process as any)?._shellFallback) {
-          (this.process as any)._shellFallback = true;
-          this.process!.kill();
+        if (process.platform === 'win32' && err.code === 'ENOENT' && !isFallback) {
+          isFallback = true;
           this.process = trySpawn(true);
-          (this.process as any)._shellFallback = true;
           this.process.stdout!.on('data', (data: Buffer) => {
             this.buffer += data.toString();
             this.processBuffer();
@@ -68,7 +67,7 @@ export class LSPClient {
         reject(err);
       });
       this.process.on('close', () => {
-        if (!initialized) reject(new Error(`LSP server exited: ${this.command}`));
+        if (!initialized && !isFallback) reject(new Error(`LSP server exited: ${this.command}`));
       });
 
       // Initialize LSP
