@@ -17,6 +17,21 @@ const LOCAL_PROVIDERS = [
   { id: 'llamacpp', name: 'Llama.cpp', keyEnv: 'LLAMACPP_HOST', defaultUrl: 'http://localhost:8080/v1' },
 ];
 
+const LSP_SERVER_DEFS = [
+  {
+    pkg: 'typescript-language-server', lang: 'TypeScript/JavaScript',
+    config: { command: 'typescript-language-server', args: ['--stdio'], languageId: 'typescript', filePatterns: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'] },
+  },
+  {
+    pkg: 'pyright', lang: 'Python',
+    config: { command: 'pyright-langserver', args: ['--stdio'], languageId: 'python', filePatterns: ['**/*.py'] },
+  },
+  {
+    pkg: 'sql-language-server', lang: 'SQL',
+    config: { command: 'sql-language-server', args: ['up', '--method', 'stdio'], languageId: 'sql', filePatterns: ['**/*.sql'] },
+  },
+];
+
 async function main() {
   const rl = readline.createInterface({ input: stdin, output: stdout });
 
@@ -62,30 +77,46 @@ async function main() {
     console.log(`  ✅ ${p.name} → ${p.defaultUrl}`);
   }
 
-  // ALLOWED_DIR
+  // Workspace
   console.log('\n── Workspace ─────────────────────────────\n');
   const dir = await rl.question('Workspace directory path (default: ./workspace): ');
   if (dir.trim()) {
     envLines.push(`ALLOWED_DIR=${dir.trim()}`);
+  } else {
+    envLines.push('ALLOWED_DIR=./workspace');
   }
+  envLines.push(`READ_ALLOWED_DIR=.`);
+  envLines.push(`SCRATCH_DIR=./scratch`);
+
+  // Performance
+  console.log('\n── Performance ────────────────────────────\n');
+  const maxExchanges = await rl.question('Max conversation exchanges (default: 40): ');
+  envLines.push(`MAX_EXCHANGES=${maxExchanges.trim() || '40'}`);
+  const maxToolResult = await rl.question('Max tool result length in chars (default: 20000): ');
+  envLines.push(`MAX_TOOL_RESULT_LENGTH=${maxToolResult.trim() || '20000'}`);
+
+  // Timeouts
+  console.log('\n── Timeouts ──────────────────────────────\n');
+  console.log('  Timeout resets on each streaming token — only fires when idle.\n');
+  const localTimeout = await rl.question('Local model timeout in ms (default: 600000 = 10 min): ');
+  envLines.push(`LOCAL_TIMEOUT=${localTimeout.trim() || '600000'}`);
+  const cloudTimeout = await rl.question('Cloud model timeout in ms (default: 120000 = 2 min): ');
+  envLines.push(`CLOUD_TIMEOUT=${cloudTimeout.trim() || '120000'}`);
 
   // LSP servers (optional)
   console.log('\n── LSP Servers ────────────────────────────\n');
   console.log('  LSP enables code_definition, code_references, code_hover tools.');
-  console.log('  Install npm-based LSP servers globally? (optional, skip if offline)\n');
+  console.log('  Installed servers are also added to .coding-agent.json.\n');
 
-  const lspServers = [
-    { pkg: 'typescript-language-server', lang: 'TypeScript/JavaScript' },
-    { pkg: 'pyright', lang: 'Python' },
-    { pkg: 'sql-language-server', lang: 'SQL' },
-  ];
+  const installedLspServers = [];
 
-  for (const srv of lspServers) {
+  for (const srv of LSP_SERVER_DEFS) {
     const answer = await rl.question(`  Install ${srv.pkg} (${srv.lang})? (Y/n): `);
     if (answer.toLowerCase() === 'n' || answer.toLowerCase() === 'no') continue;
     try {
       const { execSync } = require('child_process');
       execSync(`npm install -g ${srv.pkg}`, { stdio: 'inherit', timeout: 120000 });
+      installedLspServers.push(srv.config);
       console.log(`  ✅ ${srv.pkg} installed\n`);
     } catch (err) {
       console.log(`  ⚠️  ${srv.pkg} skipped (${err.message})\n`);
@@ -95,12 +126,38 @@ async function main() {
   // Write .env
   try {
     fs.writeFileSync(envPath, envLines.join('\n') + '\n', 'utf-8');
-    console.log(`\n✅ .env created with ${envLines.filter(l => l && !l.startsWith('OLLAMA_HOST') && !l.startsWith('LMSTUDIO_HOST') && !l.startsWith('LLAMACPP_HOST')).length} API key(s) and ${envLines.filter(l => l.startsWith('OLLAMA_HOST') || l.startsWith('LMSTUDIO_HOST') || l.startsWith('LLAMACPP_HOST')).length} local provider(s).`);
-    console.log('   Run `npm start` to begin.\n');
+    console.log(`✅ .env created with ${envLines.filter(l => l && !l.startsWith('OLLAMA_HOST') && !l.startsWith('LMSTUDIO_HOST') && !l.startsWith('LLAMACPP_HOST') && !l.startsWith('READ_ALLOWED_DIR') && !l.startsWith('SCRATCH_DIR') && !l.startsWith('MAX_EXCHANGES') && !l.startsWith('MAX_TOOL_RESULT_LENGTH') && !l.startsWith('LOCAL_TIMEOUT') && !l.startsWith('CLOUD_TIMEOUT')).length} API key(s) and ${envLines.filter(l => l.startsWith('OLLAMA_HOST') || l.startsWith('LMSTUDIO_HOST') || l.startsWith('LLAMACPP_HOST')).length} local provider(s).`);
   } catch (err) {
     console.error(`\n❌ Failed to write .env: ${err.message}\n`);
   }
 
+  // Write .coding-agent.json with LSP servers
+  const codingAgentPath = path.resolve('.coding-agent.json');
+  let codingAgentConfig = { mcpServers: {}, lspServers: [] };
+
+  if (fs.existsSync(codingAgentPath)) {
+    try {
+      const existing = JSON.parse(fs.readFileSync(codingAgentPath, 'utf-8'));
+      if (existing.mcpServers) codingAgentConfig.mcpServers = existing.mcpServers;
+      if (existing.lspServers) codingAgentConfig.lspServers = existing.lspServers;
+    } catch { /* start fresh */ }
+  }
+
+  // Merge new LSP servers (avoid duplicates by command name)
+  for (const cfg of installedLspServers) {
+    if (!codingAgentConfig.lspServers.some((s: any) => s.command === cfg.command)) {
+      codingAgentConfig.lspServers.push(cfg);
+    }
+  }
+
+  try {
+    fs.writeFileSync(codingAgentPath, JSON.stringify(codingAgentConfig, null, 2) + '\n', 'utf-8');
+    console.log(`✅ .coding-agent.json updated with ${installedLspServers.length} LSP server(s).`);
+  } catch (err) {
+    console.error(`\n❌ Failed to write .coding-agent.json: ${err.message}\n`);
+  }
+
+  console.log('\n   Run `npm start` to begin.\n');
   rl.close();
 }
 
