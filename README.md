@@ -444,7 +444,7 @@ By default, the agent can only access files inside `./workspace`. Change with:
 | 4 | OpenAI GPT-OSS 120B | OpenRouter | Strong reasoning |
 | 5 | Nemotron 3 Ultra 550B | OpenRouter | Largest free model with tools |
 | 6 | Gemini 2.0 Flash | Google | Fast, strong coding — needs `GOOGLE_API_KEY` |
-| 7 | Ornith 1.0 9B | Ollama | Local offline model — no API key needed |
+| 7 | Ornith Agent | Ollama | Local offline model — no API key needed |
 
 > **Auto-routes** (`/model auto/coding`, `/model auto/fast`, etc.) intelligently select the best available model based on quality tiers and API keys. Edit priorities in `route-presets.json`.
 
