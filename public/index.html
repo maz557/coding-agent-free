@@ -193,7 +193,7 @@
     <h3 style="color:#58a6ff;font-size:15px;margin:16px 0 8px">Header Buttons</h3>
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;color:#ffa657">🛡️</td><td style="padding:4px 8px;border-bottom:1px solid #21262d"><strong>Safe mode</strong> — restricts shell commands to a whitelist. ON = green, OFF = yellow</td></tr>
-      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;color:#58a6ff">📋</td><td style="padding:4px 8px;border-bottom:1px solid #21262d"><strong>Sessions</strong> — opens panel to create, switch, or manage conversations. Sessions are independent; each has its own history and model</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;color:#58a6ff">📋</td><td style="padding:4px 8px;border-bottom:1px solid #21262d"><strong>Sessions</strong> — opens panel to create, switch, rename (✏️), delete (❌), or manage conversations</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;color:#8b949e">📄 Copy</td><td style="padding:4px 8px;border-bottom:1px solid #21262d"><strong>Copy session</strong> — copies entire conversation as formatted text to clipboard</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;color:#f85149">Reset</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Clears conversation history. Agent loses context of previous messages</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;color:#8b949e">?</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Opens this help panel</td></tr>
@@ -218,9 +218,12 @@
       <li>The agent works autonomously — it reads files, runs commands, edits code without your manual help</li>
       <li>All file operations are restricted to the allowed directory (default: <code>./workspace</code>)</li>
       <li>Free-tier API rate limits cause automatic retries with exponential backoff</li>
-      <li>Each session is independent — multiple browser tabs have separate conversations</li>
+      <li>Each session is independent; tool messages are not stored in saved sessions</li>
       <li>Model switching is instant — no restart needed</li>
       <li>Tool output is truncated to keep context clean (configurable via <code>MAX_TOOL_RESULT_LENGTH</code>)</li>
+      <li>Tool calls start expanded so you can see what the agent is doing</li>
+      <li>Test artifacts go to a scratch directory (<code>SCRATCH_DIR</code>) and are cleaned up automatically</li>
+      <li>Sessions with test-like titles (e.g. <code>update test.txt</code>) are hidden from the session list</li>
     </ul>
 
     <h3 style="color:#58a6ff;font-size:15px;margin:16px 0 8px">Slash Commands (Chat Input)</h3>
@@ -232,6 +235,13 @@
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/reset</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Clear conversation history</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/active</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Show current active model</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/models</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">List all available presets</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/help</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Open this help panel</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/session list</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">List all sessions</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/session &lt;name&gt;</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Switch to a session</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/session new &lt;name&gt;</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Create a new session</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/session rename &lt;old&gt; &lt;new&gt;</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Rename a session</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/session delete &lt;name&gt;</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Delete a specific session</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/session clear</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Delete ALL sessions (with confirmation)</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/mcp list</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">List MCP servers</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/mcp toggle</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Disable/enable MCP tools</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/lsp</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Toggle LSP code understanding</td></tr>
