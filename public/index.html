@@ -1161,7 +1161,8 @@ newSessionBtn.addEventListener('click', async () => {
 document.getElementById('copy-session-btn').addEventListener('click', copySession);
 
 document.getElementById('clear-sessions-btn').addEventListener('click', async () => {
-  if (!confirm('Delete ALL sessions? This cannot be undone.')) return;
+  const sure = prompt('Type DELETE to confirm deleting ALL sessions:');
+  if (sure !== 'DELETE') return;
   try {
     const res = await fetch('/api/sessions', { method: 'DELETE' });
     if (res.ok) {

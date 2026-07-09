@@ -461,9 +461,15 @@ async function startChat() {
         if (sessions.length === 0) {
           console.log('\nℹ️  No sessions to clear.\n');
         } else {
-          const count = sessions.length;
-          for (const s of sessions) await deleteSession(s.name);
-          console.log(`\n✅ ${count} session(s) cleared.\n`);
+          const confirmRl = readline.createInterface({ input: stdin, output: stdout });
+          const ans = await confirmRl.question(`\n⚠️  Delete ALL ${sessions.length} session(s)? Type "yes" to confirm: `);
+          confirmRl.close();
+          if (ans.toLowerCase() !== 'yes') {
+            console.log('Cancelled.\n');
+          } else {
+            for (const s of sessions) await deleteSession(s.name);
+            console.log(`\n✅ ${sessions.length} session(s) cleared.\n`);
+          }
         }
       } else {
         // Assume it's a session name to switch to
