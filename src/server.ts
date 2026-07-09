@@ -224,7 +224,9 @@ app.post('/api/session', (req, res) => {
 });
 
 app.get('/api/sessions', (_req, res) => {
+  const testPatterns = [/^update \w+\.txt/, /^create \w+\.txt/, /^write \w+\.txt/, /^delete \w+\.txt/];
   const list = [...sessions.entries()]
+    .filter(([_, s]) => !testPatterns.some(p => p.test(s.meta.title)))
     .map(([id, s]) => ({
       id,
       title: s.meta.title,
