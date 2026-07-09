@@ -6,6 +6,7 @@ import { ConversationState } from './ConversationState';
 import { validateToolInput, validateToolOutput, isToolCallArray } from './validation';
 import { executeTool } from './tools/toolRegistry';
 import { ModelPreset, PROVIDERS } from './config/models';
+import { getUserConfig } from './config/userConfig';
 
 const logger = pino(
   { level: process.env.LOG_LEVEL || 'info' },
@@ -179,7 +180,7 @@ export class CodingAgent {
 
         const provInfo = PROVIDERS[this.modelConfig.provider];
         const isLocal = provInfo && !provInfo.apiKeyEnv;
-        const timeoutMs = isLocal ? (Number(process.env.LOCAL_TIMEOUT) || 600000) : 120000;
+        const timeoutMs = isLocal ? (Number(process.env.LOCAL_TIMEOUT) || getUserConfig().localTimeoutMs) : getUserConfig().cloudTimeoutMs;
 
         const stream = await withRetryAndTimeout(
           signal => this.client.chat.completions.create(
