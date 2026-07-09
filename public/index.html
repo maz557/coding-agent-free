@@ -1008,6 +1008,9 @@ async function switchModel(payload) {
   }
   const activeRes = await fetch(`/api/active/${sessionId}`);
   const active = await activeRes.json();
+  const configRes = await fetch(`/api/config/${sessionId}`).catch(() => ({ json: () => ({ timeoutMs: 300000 }) }));
+  const config = await configRes.json();
+  timeoutMs = config.timeoutMs;
   const routeBadge = document.getElementById('route-badge');
   const routeLabel = active.route ? (routeList.find(r => r.id === active.route)?.label || active.route) : '';
   const modelText = active.route ? routeLabel : `${active.provider} / ${active.model}`;
