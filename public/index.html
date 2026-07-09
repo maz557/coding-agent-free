@@ -941,6 +941,10 @@ async function switchToSession(id) {
       }
     }
     status.textContent = `Switched to session`;
+    // Re-fetch timeout config for the new session's model
+    const switchConfigRes = await fetch(`/api/config/${sessionId}`).catch(() => ({ json: () => ({ timeoutMs: 600000 }) }));
+    const switchConfig = await switchConfigRes.json();
+    timeoutMs = switchConfig.timeoutMs;
     if (data.modelLabel) {
       modelInfo.textContent = data.modelLabel;
       document.getElementById('model-badge').textContent = `🧠 ${data.modelLabel}`;

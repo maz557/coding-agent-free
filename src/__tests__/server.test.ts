@@ -207,6 +207,31 @@ describe('server API', () => {
     });
   });
 
+  describe('GET /api/config/:sessionId', () => {
+    it('should return 120s timeout for cloud provider (default)', async () => {
+      const { body: session } = await fetchJson(`${baseUrl}/api/session`, { method: 'POST' });
+      const { status, body } = await fetchJson(`${baseUrl}/api/config/${session.sessionId}`);
+      assert.equal(status, 200);
+      assert.equal(body.timeoutMs, 120000);
+    });
+
+    it('should return 600s timeout for local provider (ollama)', async () => {
+      const { body: session } = await fetchJson(`${baseUrl}/api/session`, { method: 'POST' });
+      await fetchJson(`${baseUrl}/api/model/${session.sessionId}`, {
+        method: 'POST',
+        body: JSON.stringify({ provider: 'ollama', model: 'ornith-agent' }),
+      });
+      const { status, body } = await fetchJson(`${baseUrl}/api/config/${session.sessionId}`);
+      assert.equal(status, 200);
+      assert.equal(body.timeoutMs, 600000);
+    });
+
+    it('should return 404 for missing session', async () => {
+      const { status } = await fetchJson(`${baseUrl}/api/config/nonexistent`);
+      assert.equal(status, 404);
+    });
+  });
+
   describe('GET /api/safe-mode', () => {
     it('should return safe mode status', async () => {
       const { status, body } = await fetchJson(`${baseUrl}/api/safe-mode`);
