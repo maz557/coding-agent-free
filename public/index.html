@@ -578,7 +578,7 @@ async function sendMessage() {
 
   const controller = new AbortController();
   currentAbortController = controller;
-  const timeoutId = setTimeout(() => { controller.abort(); status.textContent = 'Timed out (180s)'; }, 180000);
+  const timeoutId = setTimeout(() => { controller.abort(); status.textContent = 'Timed out (300s)'; }, 300000);
 
   try {
     const res = await fetch(`/api/chat/${sessionId}`, {
@@ -719,7 +719,7 @@ async function sendMessage() {
     streamDone();
   } catch (err) {
     clearTimeout(timeoutId);
-    addMessage('error', `🚨 ${err.name === 'AbortError' ? 'Request timed out (180s). Try a simpler request.' : err.message}`);
+    addMessage('error', `🚨 ${err.name === 'AbortError' ? 'Request timed out (300s). Try a simpler request or a faster model.' : err.message}`);
     streamDone();
   }
 }
