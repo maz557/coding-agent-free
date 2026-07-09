@@ -873,14 +873,14 @@ async function refreshSessionList() {
       const model = escapeHtml(s.modelLabel || '');
       const time = new Date(s.updatedAt || s.createdAt).toLocaleString();
       html += `<div class="session-item${active}" data-id="${s.id}">
-        <div class="s-title">${title} <span class="s-rename" title="Rename">✏️</span></div>
+        <div class="s-title">${title} <span class="s-rename" title="Rename">✏️</span> <span class="s-delete" title="Delete session">❌</span></div>
         <div class="s-meta"><span class="s-model">${model}</span><span>${s.messageCount} msgs</span><span>${time}</span></div>
       </div>`;
     }
     sessionListEl.innerHTML = html || '<div style="padding:16px;color:#8b949e;font-size:13px">No sessions</div>';
     sessionListEl.querySelectorAll('.session-item').forEach(el => {
       el.addEventListener('click', (e) => {
-        if (e.target.classList.contains('s-rename')) return;
+        if (e.target.classList.contains('s-rename') || e.target.classList.contains('s-delete')) return;
         switchToSession(el.dataset.id);
       });
     });
@@ -890,7 +890,7 @@ async function refreshSessionList() {
         const item = el.closest('.session-item');
         if (!item) return;
         const id = item.dataset.id;
-        const currentTitle = item.querySelector('.s-title')?.textContent?.replace('✏️', '').trim() || '';
+        const currentTitle = item.querySelector('.s-title')?.textContent?.replace('✏️', '').replace('❌', '').trim() || '';
         const newTitle = prompt('Rename session:', currentTitle);
         if (!newTitle || !newTitle.trim()) return;
         try {
@@ -900,6 +900,26 @@ async function refreshSessionList() {
             body: JSON.stringify({ title: newTitle.trim() }),
           });
           if (res.ok) refreshSessionList();
+        } catch {}
+      });
+    });
+    sessionListEl.querySelectorAll('.s-delete').forEach(el => {
+      el.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const item = el.closest('.session-item');
+        if (!item) return;
+        const id = item.dataset.id;
+        const title = item.querySelector('.s-title')?.textContent?.replace('✏️', '').replace('❌', '').trim() || 'this session';
+        if (!confirm(`Delete "${title}"?`)) return;
+        try {
+          const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
+          if (res.ok) {
+            if (id === sessionId) {
+              sessionId = '';
+              chat.innerHTML = '<div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands"><span>/model 1</span><span>/safe</span><span>/reset</span><span>/active</span><span>/models</span><span>/help</span></div></div>';
+            }
+            refreshSessionList();
+          }
         } catch {}
       });
     });

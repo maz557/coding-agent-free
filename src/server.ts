@@ -84,7 +84,13 @@ async function loadSessionsFromDisk(): Promise<void> {
         const data = JSON.parse(raw);
         if (!data.messages || !data.meta) continue;
         const m = data.meta;
-        const userMessages = data.messages.filter((m: any) => m.role !== 'system');
+        // Migrate: strip tool messages from existing sessions
+        if (data.messages.some((msg: any) => msg.role === 'tool')) {
+          data.messages = data.messages.filter((msg: any) => msg.role !== 'tool');
+          m.messageCount = data.messages.length;
+          await fsp.writeFile(path.join(SESSIONS_DIR, entry), JSON.stringify(data, null, 2), 'utf-8');
+        }
+        const userMessages = data.messages.filter((msg: any) => msg.role !== 'system');
         if (userMessages.length === 0) {
           await deleteSessionFromDisk(id);
           continue;
