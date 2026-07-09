@@ -582,7 +582,8 @@ async function sendMessage() {
 
   const controller = new AbortController();
   currentAbortController = controller;
-  const timeoutId = setTimeout(() => { controller.abort(); status.textContent = `Timed out (${timeoutMs / 1000}s)`; }, timeoutMs);
+  let timeoutId = setTimeout(() => { controller.abort(); status.textContent = `Timed out (${timeoutMs / 1000}s)`; }, timeoutMs);
+  function resetTimeout() { clearTimeout(timeoutId); timeoutId = setTimeout(() => { controller.abort(); status.textContent = `Timed out (${timeoutMs / 1000}s)`; }, timeoutMs); }
 
   try {
     const res = await fetch(`/api/chat/${sessionId}`, {
@@ -616,6 +617,7 @@ async function sendMessage() {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
+      resetTimeout();
 
       buffer += decoder.decode(value, { stream: true });
       const parts = buffer.split('\n\n');
