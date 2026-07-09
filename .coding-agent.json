@@ -7,7 +7,5 @@
       "languageId": "python",
       "filePatterns": ["**/*.py"]
     }
-  ],
-  "localTimeoutMs": 600000,
-  "cloudTimeoutMs": 120000
+  ]
 }

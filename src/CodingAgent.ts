@@ -180,7 +180,7 @@ export class CodingAgent {
 
         const provInfo = PROVIDERS[this.modelConfig.provider];
         const isLocal = provInfo && !provInfo.apiKeyEnv;
-        const timeoutMs = isLocal ? (Number(process.env.LOCAL_TIMEOUT) || getUserConfig().localTimeoutMs) : getUserConfig().cloudTimeoutMs;
+        const timeoutMs = isLocal ? getUserConfig().localTimeoutMs : getUserConfig().cloudTimeoutMs;
 
         const stream = await withRetryAndTimeout(
           signal => this.client.chat.completions.create(

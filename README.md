@@ -157,7 +157,8 @@ Configures **Cline**, **Continue.dev**, and **Cursor** to use the local API prox
 | `LMSTUDIO_HOST` | No | — | LM Studio URL (default: `http://localhost:1234/v1`) |
 | `LLAMACPP_HOST` | No | — | Llama.cpp URL (default: `http://localhost:8080/v1`) |
 | `ALLOWED_DIR` | No | — | Directory for file operations (default: `./workspace`) |
-| `LOCAL_TIMEOUT` | No | — | Override timeout (ms) for local models (default from `.coding-agent.json`) |
+| `LOCAL_TIMEOUT` | No | Timeout (ms) for local models (default: `600000` = 10 min) |
+| `CLOUD_TIMEOUT` | No | Timeout (ms) for cloud models (default: `120000` = 2 min) |
 | `LOG_LEVEL` | No | — | `debug`, `info`, `warn`, `error` (default: `info`) |
 | `MAX_EXCHANGES` | No | — | Max exchanges in sliding window (default: `20`) |
 | `MAX_TOOL_RESULT_LENGTH` | No | — | Max chars before truncation (default: `5000`) |
@@ -166,25 +167,26 @@ Configures **Cline**, **Continue.dev**, and **Cursor** to use the local API prox
 
 See [docs/GUIDE.md](docs/GUIDE.md#comprehensive-free-api-key-guide) for step-by-step key registration guides.
 
-### User Configuration (`.coding-agent.json`)
+### User Configuration (`.env`)
 
-Hardware-dependent settings go in `.coding-agent.json` (in project root):
+All hardware/network settings go in `.env` (project root) — **this is the only file you need to edit** for your machine-specific setup:
 
-```json
-{
-  "mcpServers": {},
-  "lspServers": [...],
-  "localTimeoutMs": 600000,
-  "cloudTimeoutMs": 120000
-}
-```
+| Variable | Default | Description |
+|---|---|---|
+| `LOCAL_TIMEOUT` | `600000` (10 min) | Max wait for local model responses. Increase if running on slow hardware |
+| `CLOUD_TIMEOUT` | `120000` (2 min) | Max wait for cloud API responses |
+| `OLLAMA_HOST` | `http://localhost:11434/v1` | Ollama server URL |
+| `LMSTUDIO_HOST` | `http://localhost:1234/v1` | LM Studio URL |
+| `LLAMACPP_HOST` | `http://localhost:8080/v1` | Llama.cpp URL |
+| `ALLOWED_DIR` | `./workspace` | Directory scope for file operations |
 
-| Setting | Default | Description |
-|---------|---------|-------------|
-| `localTimeoutMs` | `600000` (10 min) | Max wait for local model responses. Increase if running on slow hardware |
-| `cloudTimeoutMs` | `120000` (2 min) | Max wait for cloud API responses |
+The timeout resets on each streaming token — it only fires when no data arrives for the full duration.
 
-The `LOCAL_TIMEOUT` env var overrides `localTimeoutMs` if set. The timeout resets on each streaming token — it only fires when no data arrives for the full duration.
+> **MCP & LSP server configuration** still goes in `.coding-agent.json` (project root) since it uses structured JSON. Everything else is in `.env`.
+
+### User Presets (`presets.json`)
+
+Route priorities and model lists go in `route-presets.json`. Built-in model definitions are in `presets.json`. See [Changing the default local model](#changing-the-default-local-model) below.
 
 ### Project Structure
 
@@ -197,7 +199,7 @@ coding-agent-free/
 │   ├── server.ts               # Express web server (SSE, sessions, API)
 │   ├── persistence.ts          # Multi-session save/load
 │   ├── config/models.ts        # Provider definitions, presets, system prompt (no tool names)
-│   ├── config/userConfig.ts    # User configuration loader (.coding-agent.json)
+│   ├── config/userConfig.ts    # User configuration loader (.env)
 │   ├── validation.ts            # Zod schemas for tool I/O validation
 │   ├── tools/
 │   │   ├── fileManager.ts      # 13 file/shell tools + safe mode
@@ -219,7 +221,9 @@ coding-agent-free/
 ├── workspace/                  # Default working directory
 ├── scripts/                    # Setup, build, test, cleanup scripts
 ├── examples/mcp-echo-server.js # Minimal MCP server example
-├── .coding-agent.json          # MCP + LSP server configuration
+├── .env                        # API keys, timeouts, host ports (gitignored)
+├── .env.example                # Template with all variables explained
+├── .coding-agent.json          # MCP + LSP server configuration (structured JSON)
 ├── AGENTS.md                   # Auto-loaded project context
 ├── tsconfig.json
 └── package.json
@@ -470,9 +474,10 @@ If you want `auto/offline` (or the fallback chain) to use your model automatical
    ```json
    "offline": { "presets": ["llamacpp:MyModel"], "minQuality": "low" }
    ```
-2. **`.coding-agent.json`** — adjust timeout if your hardware is slower:
-   ```json
-   { "localTimeoutMs": 600000, "cloudTimeoutMs": 120000 }
+2. **`.env`** — set timeout and server URL for your hardware:
+   ```env
+   LOCAL_TIMEOUT=600000
+   LLAMACPP_HOST=http://localhost:8080/v1
    ```
 3. **`presets.json`** (built-in defaults, overridden by route-presets.json) — change preset entries if you rebuild with `npm run build`.
 
@@ -561,7 +566,7 @@ You: /model 6
 | `tool_calls` empty arguments | Model doesn't support tool calling | Use a different model |
 | `ENOTFOUND` / `ECONNREFUSED` | Internet restrictions or proxy needed | Enable VPN/proxy or use local models |
 | `Request timed out (120s)` | Cloud timeout too short for response | Use local model or provider with faster response |
-| `Request timed out (600s)` | Local model too slow on this hardware | Increase `localTimeoutMs` in `.coding-agent.json` |
+| `Request timed out (600s)` | Local model too slow on this hardware | Increase `LOCAL_TIMEOUT` in `.env` |
 
 **Quick checks:** `/list-providers` — shows configured keys. `/safe` — toggle safe mode. `npm run setup` — re-run wizard.
 

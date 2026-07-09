@@ -215,7 +215,7 @@ describe('server API', () => {
       assert.equal(body.timeoutMs, 120000);
     });
 
-    it('should return 600s timeout for local provider (ollama)', async () => {
+    it('should return 600s timeout for local provider', async () => {
       const { body: session } = await fetchJson(`${baseUrl}/api/session`, { method: 'POST' });
       await fetchJson(`${baseUrl}/api/model/${session.sessionId}`, {
         method: 'POST',

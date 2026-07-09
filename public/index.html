@@ -251,12 +251,12 @@
     </table>
 
     <h3 style="color:#58a6ff;font-size:15px;margin:16px 0 8px">User Configuration</h3>
-    <p>Hardware-dependent settings can be adjusted in <code>.coding-agent.json</code> in the project root:</p>
+    <p>All hardware/network settings go in <code>.env</code> (project root):</p>
     <table style="width:100%;border-collapse:collapse;font-size:13px">
-      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">localTimeoutMs</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Timeout for local models (default: 600000 = 10 min)</td></tr>
-      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">cloudTimeoutMs</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Timeout for cloud models (default: 120000 = 2 min)</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">LOCAL_TIMEOUT</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Timeout for local models (default: 600000 = 10 min)</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">CLOUD_TIMEOUT</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Timeout for cloud models (default: 120000 = 2 min)</td></tr>
     </table>
-    <p>If your local model is slow (e.g., running on CPU), increase <code>localTimeoutMs</code>. The <code>LOCAL_TIMEOUT</code> env var still takes precedence.</p>
+    <p>If your local model is slow (e.g., running on CPU), increase <code>LOCAL_TIMEOUT</code>.</p>
     <p style="margin-top:16px;font-size:12px;color:#484f58">For full documentation, see the README or visit the GitHub repository.</p>
   </div>
 </div>
