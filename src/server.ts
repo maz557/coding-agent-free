@@ -340,6 +340,13 @@ app.post('/api/sessions/:sessionId/rename', async (req, res) => {
   res.json({ title: s.meta.title });
 });
 
+app.delete('/api/sessions', async (_req, res) => {
+  sessions.clear();
+  try { await fsp.rm(SESSIONS_DIR, { recursive: true, force: true }); } catch { /* ignore */ }
+  await ensureSessionsDir();
+  res.json({ status: 'ok' });
+});
+
 app.delete('/api/sessions/:sessionId', async (req, res) => {
   const id = req.params.sessionId;
   sessions.delete(id);

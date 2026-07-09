@@ -117,6 +117,7 @@ async function startChat() {
     console.log('    /session new <name>     Create a new session');
     console.log('    /session rename <old> <new>  Rename a session');
     console.log('    /session delete <name>  Delete a session');
+    console.log('    /session clear          Delete ALL sessions');
     console.log('    /mcp disconnect <name>     Disconnect MCP server');
     console.log('    /mcp toggle  Enable/disable MCP tools');
     console.log('    /exit        Quit');
@@ -454,6 +455,15 @@ async function startChat() {
         } else {
           await deleteSession(name);
           console.log(`\n✅ Session "${name}" deleted.\n`);
+        }
+      } else if (sub.toLowerCase() === 'clear') {
+        const sessions = await listSessions();
+        if (sessions.length === 0) {
+          console.log('\nℹ️  No sessions to clear.\n');
+        } else {
+          const count = sessions.length;
+          for (const s of sessions) await deleteSession(s.name);
+          console.log(`\n✅ ${count} session(s) cleared.\n`);
         }
       } else {
         // Assume it's a session name to switch to

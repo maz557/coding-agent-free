@@ -158,7 +158,7 @@
 </div>
 <div id="session-overlay"></div>
 <div id="session-panel" class="hidden">
-  <h2>📋 Sessions <button id="new-session-btn">+ New</button><button id="copy-session-btn" style="background:#21262d;color:#8b949e;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:4px" title="Copy current session">📄 Copy</button></h2>
+  <h2>📋 Sessions <button id="new-session-btn">+ New</button><button id="clear-sessions-btn" style="background:#21262d;color:#f85149;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:4px" title="Delete all sessions">🗑️ All</button><button id="copy-session-btn" style="background:#21262d;color:#8b949e;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:4px" title="Copy current session">📄 Copy</button></h2>
   <div id="session-list"></div>
 </div>
 <div id="chat"><div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands"><span>/model 1</span><span>/safe</span><span>/reset</span><span>/active</span><span>/models</span><span>/help</span></div></div></div>
@@ -1159,6 +1159,18 @@ newSessionBtn.addEventListener('click', async () => {
 });
 
 document.getElementById('copy-session-btn').addEventListener('click', copySession);
+
+document.getElementById('clear-sessions-btn').addEventListener('click', async () => {
+  if (!confirm('Delete ALL sessions? This cannot be undone.')) return;
+  try {
+    const res = await fetch('/api/sessions', { method: 'DELETE' });
+    if (res.ok) {
+      sessionId = '';
+      chat.innerHTML = '<div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands"><span>/model 1</span><span>/safe</span><span>/reset</span><span>/active</span><span>/models</span><span>/help</span></div></div>';
+      await refreshSessionList();
+    }
+  } catch {}
+});
 
 // Settings
 const settingsBtn = document.getElementById('settings-btn');
