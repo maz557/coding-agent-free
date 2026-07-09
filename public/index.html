@@ -649,7 +649,7 @@ async function sendMessage() {
             case 'tool_call': {
               const toolDiv = document.createElement('div');
               toolDiv.className = 'tool-call msg';
-              toolDiv.innerHTML = `<div class="tool-call-header"><span class="collapse-icon">▶</span><span class="tool-name">🔧 ${escapeHtml(parsed.name)}</span><span class="tool-args">${escapeHtml(parsed.args)}</span></div><div class="tool-call-body" style="display:none"></div>`;
+              toolDiv.innerHTML = `<div class="tool-call-header"><span class="collapse-icon expanded">▶</span><span class="tool-name">🔧 ${escapeHtml(parsed.name)}</span><span class="tool-args">${escapeHtml(parsed.args)}</span></div><div class="tool-call-body"></div>`;
               toolDiv.querySelector('.tool-call-header').addEventListener('click', () => {
                 const icon = toolDiv.querySelector('.collapse-icon');
                 const body = toolDiv.querySelector('.tool-call-body');
@@ -925,7 +925,7 @@ async function switchToSession(id) {
           const tc = m.tool_calls[0];
           const toolDiv = document.createElement('div');
           toolDiv.className = 'tool-call msg';
-          toolDiv.innerHTML = `<div class="tool-call-header"><span class="collapse-icon">▶</span><span class="tool-name">🔧 ${escapeHtml(tc.function.name)}</span><span class="tool-args">${escapeHtml(tc.function.arguments)}</span></div><div class="tool-call-body" style="display:none"></div>`;
+          toolDiv.innerHTML = `<div class="tool-call-header"><span class="collapse-icon expanded">▶</span><span class="tool-name">🔧 ${escapeHtml(tc.function.name)}</span><span class="tool-args">${escapeHtml(tc.function.arguments)}</span></div><div class="tool-call-body"></div>`;
           toolDiv.querySelector('.tool-call-header').addEventListener('click', () => {
             const icon = toolDiv.querySelector('.collapse-icon');
             const body = toolDiv.querySelector('.tool-call-body');
