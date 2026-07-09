@@ -302,6 +302,7 @@ const newSessionBtn = document.getElementById('new-session-btn');
 
 let sessionList = [];
 let routeList = [];
+let timeoutMs = 120000;
 
 async function populateModels() {
   const [modelRes, routeRes] = await Promise.all([
@@ -339,16 +340,19 @@ async function init() {
   await populateModels();
   await refreshSessionList();
 
-  const [activeRes, safeRes, mcpRes, lspRes] = await Promise.all([
+  const [activeRes, safeRes, mcpRes, lspRes, configRes] = await Promise.all([
     fetch(`/api/active/${sessionId}`),
     fetch('/api/safe-mode'),
     fetch('/api/mcp/status').catch(() => ({ json: () => ({ enabled: true }) })),
     fetch('/api/lsp/status').catch(() => ({ json: () => ({ enabled: true, ready: false, languages: [] }) })),
+    fetch(`/api/config/${sessionId}`).catch(() => ({ json: () => ({ timeoutMs: 300000 }) })),
   ]);
   const active = await activeRes.json();
   const safe = await safeRes.json();
   const mcpData = await mcpRes.json();
   const lspData = await lspRes.json();
+  const config = await configRes.json();
+  timeoutMs = config.timeoutMs;
   safeModeOn = safe.enabled;
   mcpEnabled = mcpData.enabled;
   lspEnabled = lspData.enabled;
@@ -578,7 +582,7 @@ async function sendMessage() {
 
   const controller = new AbortController();
   currentAbortController = controller;
-  const timeoutId = setTimeout(() => { controller.abort(); status.textContent = 'Timed out (300s)'; }, 300000);
+  const timeoutId = setTimeout(() => { controller.abort(); status.textContent = `Timed out (${timeoutMs / 1000}s)`; }, timeoutMs);
 
   try {
     const res = await fetch(`/api/chat/${sessionId}`, {
@@ -719,7 +723,7 @@ async function sendMessage() {
     streamDone();
   } catch (err) {
     clearTimeout(timeoutId);
-    addMessage('error', `🚨 ${err.name === 'AbortError' ? 'Request timed out (300s). Try a simpler request or a faster model.' : err.message}`);
+    addMessage('error', `🚨 ${err.name === 'AbortError' ? `Request timed out (${timeoutMs / 1000}s). Try a simpler request or a faster model.` : err.message}`);
     streamDone();
   }
 }
@@ -1127,6 +1131,9 @@ newSessionBtn.addEventListener('click', async () => {
   chat.innerHTML = '';
   await populateModels();
   await refreshSessionList();
+  const configRes = await fetch(`/api/config/${sessionId}`).catch(() => ({ json: () => ({ timeoutMs: 300000 }) }));
+  const config = await configRes.json();
+  timeoutMs = config.timeoutMs;
   const activeRes = await fetch(`/api/active/${sessionId}`);
   const active = await activeRes.json();
   const modelText = `${active.provider} / ${active.model}`;

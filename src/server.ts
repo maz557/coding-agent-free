@@ -267,6 +267,15 @@ app.get('/api/active/:sessionId', (req, res) => {
   res.json({ provider: prov, model: s.modelConfig.primary, fallbacks: s.modelConfig.fallbacks, safeMode: isSafeModeEnabled(), route: s.meta.route || null });
 });
 
+app.get('/api/config/:sessionId', (req, res) => {
+  const s = sessions.get(req.params.sessionId);
+  if (!s) return res.status(404).json({ error: 'Session not found' });
+  const provInfo = PROVIDERS[s.modelConfig.provider];
+  const isLocal = provInfo && !provInfo.apiKeyEnv;
+  const timeoutMs = isLocal ? (Number(process.env.LOCAL_TIMEOUT) || 300000) : 120000;
+  res.json({ timeoutMs });
+});
+
 app.post('/api/model/:sessionId', (req, res) => {
   const s = sessions.get(req.params.sessionId);
   if (!s) return res.status(404).json({ error: 'Session not found' });
