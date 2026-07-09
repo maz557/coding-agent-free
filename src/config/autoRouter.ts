@@ -20,7 +20,7 @@ const DEFAULT_ROUTES: Record<RouteType, RouteConfig> = {
       { provider: 'openrouter', model: 'nvidia/nemotron-3-ultra-550b-a55b:free', quality: 'premium' },
       { provider: 'openrouter', model: 'openai/gpt-oss-120b:free', quality: 'high' },
       { provider: 'openrouter', model: 'nvidia/nemotron-3-super-120b-a12b:free', quality: 'high' },
-      { provider: 'ollama', model: 'ornith-agent', quality: 'medium' },
+      { provider: 'llamacpp', model: 'ornith-agent', quality: 'medium' },
     ],
     minQuality: 'high',
     label: 'Auto (Coding)',
@@ -50,7 +50,7 @@ const DEFAULT_ROUTES: Record<RouteType, RouteConfig> = {
       { provider: 'openrouter', model: 'nvidia/nemotron-3-ultra-550b-a55b:free', quality: 'premium' },
       { provider: 'openrouter', model: 'nvidia/nemotron-3-super-120b-a12b:free', quality: 'high' },
       { provider: 'openrouter', model: 'qwen/qwen3-next-80b-a3b-instruct:free', quality: 'premium' },
-      { provider: 'ollama', model: 'ornith-agent', quality: 'medium' },
+      { provider: 'llamacpp', model: 'ornith-agent', quality: 'medium' },
     ],
     minQuality: 'high',
     label: 'Auto (Reasoning)',
@@ -65,7 +65,7 @@ const DEFAULT_ROUTES: Record<RouteType, RouteConfig> = {
   },
   offline: {
     entries: [
-      { provider: 'ollama', model: 'ornith-agent', quality: 'medium' },
+      { provider: 'llamacpp', model: 'ornith-agent', quality: 'medium' },
     ],
     minQuality: 'low',
     label: 'Auto (Offline)',
@@ -177,11 +177,12 @@ export function resolveRoute(route: string): { preset: ModelPreset | null; sugge
     return { preset: { provider: entry.provider, primary: entry.model, fallbacks: [] } };
   }
 
-  if (isProviderAvailable('ollama')) {
-    return { preset: null, suggestion: 'No high-quality cloud model available. Use your local model: /model auto/offline (ornith-agent via Ollama). Or try /model auto/fast if you prefer a cloud model with lower quality.' };
+  if (isProviderAvailable('llamacpp') || isProviderAvailable('ollama')) {
+    const prov = isProviderAvailable('llamacpp') ? 'Llama.cpp (llamacpp)' : 'Ollama';
+    return { preset: null, suggestion: `No high-quality cloud model available. Use your local model: /model auto/offline (ornith-agent via ${prov}). Or try /model auto/fast if you prefer a cloud model with lower quality.` };
   }
 
-  return { preset: null, suggestion: 'No provider configured. Set OPENROUTER_API_KEY or GOOGLE_API_KEY in .env, or run a local model: ollama pull ornith-agent && /model auto/offline' };
+  return { preset: null, suggestion: 'No provider configured. Set OPENROUTER_API_KEY or GOOGLE_API_KEY in .env, or run a local model: llama-server -m your-model.gguf -c 65536 --port 8080 && /model auto/offline' };
 }
 
 export function getRouteLabel(route: string): string {

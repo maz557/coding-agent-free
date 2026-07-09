@@ -103,7 +103,7 @@ describe('autoRouter', () => {
     assert.equal(result.suggestion, undefined);
   });
 
-  it('resolveRoute with only ollama available returns offline suggestion', () => {
+  it('resolveRoute with only local provider available returns offline suggestion', () => {
     const oldOr = process.env.OPENROUTER_API_KEY;
     const oldG = process.env.GOOGLE_API_KEY;
     delete process.env.OPENROUTER_API_KEY;
@@ -131,12 +131,12 @@ describe('autoRouter', () => {
     else process.env.OPENROUTER_API_KEY = oldKey;
   });
 
-  it('resolveRoute for offline route returns ollama', () => {
+  it('resolveRoute for offline route returns llamacpp', () => {
     reload();
     const { resolveRoute } = require('../config/autoRouter');
     const result = resolveRoute('auto/offline');
     assert.ok(result.preset !== null);
-    assert.equal(result.preset.provider, 'ollama');
+    assert.equal(result.preset.provider, 'llamacpp');
     assert.equal(result.preset.primary, 'ornith-agent');
   });
 });

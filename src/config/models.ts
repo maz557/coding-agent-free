@@ -58,5 +58,5 @@ export const FIXED_PRESETS: Record<string, ModelPreset> = {
   '4': { provider: 'openrouter', primary: 'openai/gpt-oss-120b:free', fallbacks: ['openrouter/free'], quality: 'high' },
   '5': { provider: 'openrouter', primary: 'nvidia/nemotron-3-ultra-550b-a55b:free', fallbacks: ['openrouter/free'], contextWindow: 1_048_576, quality: 'premium' },
   '6': { provider: 'google', primary: 'gemini-2.0-flash', fallbacks: [], quality: 'premium' },
-  '7': { provider: 'ollama', primary: 'ornith-agent', fallbacks: [], quality: 'medium' },
+  '7': { provider: 'llamacpp', primary: 'ornith-agent', fallbacks: [], quality: 'medium' },
 };
