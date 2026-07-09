@@ -58,6 +58,11 @@ async function saveSessionToDisk(id: string, s: SessionData): Promise<void> {
   s.meta.updatedAt = new Date().toISOString();
   await ensureSessionsDir();
   const filteredMsgs = s.messages.filter(m => m.role !== 'tool');
+  // Don't persist sessions with no user messages
+  if (!filteredMsgs.some(m => m.role === 'user')) {
+    await deleteSessionFromDisk(id).catch(() => {});
+    return;
+  }
   const meta = {
     name: s.meta.title,
     createdAt: s.meta.createdAt,

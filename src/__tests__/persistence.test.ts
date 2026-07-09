@@ -24,14 +24,14 @@ describe('persistence - multi-session', () => {
   });
 
   it('should save and load a named session', async () => {
-    // System-only messages don't trigger auto-title
     const messages = [
       { role: 'system' as const, content: 'sys' },
+      { role: 'user' as const, content: 'hello' },
     ];
     await saveSession('test-session', messages);
     const loaded = await loadSession('test-session');
     assert(loaded);
-    assert.equal(loaded.messages.length, 1);
+    assert.equal(loaded.messages.length, 2);
     // Auto-title only triggers on user messages
     assert(loaded.meta.createdAt);
     assert(loaded.meta.updatedAt);
@@ -65,16 +65,15 @@ describe('persistence - multi-session', () => {
     assert(loaded.meta.name.includes('This is a long user message'));
   });
 
-  it('should handle empty session', async () => {
+  it('should not persist empty session', async () => {
     await saveSession('empty', []);
     const loaded = await loadSession('empty');
-    assert(loaded);
-    assert.equal(loaded.messages.length, 0);
+    assert.equal(loaded, null);
   });
 
   it('should save and load with modelPreset', async () => {
     const preset: ModelPreset = { provider: 'groq', primary: 'llama', fallbacks: [] };
-    const messages = [{ role: 'system' as const, content: 'x' }];
+    const messages = [{ role: 'system' as const, content: 'x' }, { role: 'user' as const, content: 'hi' }];
     await saveSession('with-preset', messages, preset);
     const loaded = await loadSession('with-preset');
     assert(loaded);
@@ -107,15 +106,15 @@ describe('persistence - save/load conversation (default)', () => {
   });
 
   it('should save and load default conversation', async () => {
-    const messages = [{ role: 'system' as const, content: 'default test' }];
+    const messages = [{ role: 'system' as const, content: 'default test' }, { role: 'user' as const, content: 'hello' }];
     await saveConversation(messages);
     const loaded = await loadConversation();
     assert(loaded);
-    assert.equal(loaded.messages.length, 1);
+    assert.equal(loaded.messages.length, 2);
   });
 
   it('should clear default conversation', async () => {
-    await saveConversation([{ role: 'system' as const, content: 'x' }]);
+    await saveConversation([{ role: 'system' as const, content: 'x' }, { role: 'user' as const, content: 'test' }]);
     await clearConversation();
     const loaded = await loadConversation();
     assert.equal(loaded, null);

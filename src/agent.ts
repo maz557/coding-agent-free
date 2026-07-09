@@ -423,8 +423,13 @@ async function startChat() {
         if (!name) {
           console.log('\n  Usage: /session new <name>\n');
         } else {
-          await saveSession(name, []);
-          console.log(`\n✅ Session "${name}" created.\n`);
+          const existing = (await listSessions()).find(s => s.name === name);
+          if (existing) {
+            console.log(`\n⚠️  Session "${name}" already exists. Use /session delete "${name}" first or choose another name.\n`);
+          } else {
+            await saveSession(name, []);
+            console.log(`\n✅ Session "${name}" created.\n`);
+          }
         }
       } else if (sub.toLowerCase().startsWith('rename ')) {
         const rest = sub.slice(7).trim();
@@ -437,6 +442,8 @@ async function startChat() {
           const data = await loadSession(oldName);
           if (!data) {
             console.log(`\n❌ Session "${oldName}" not found.\n`);
+          } else if (newName !== oldName && (await listSessions()).find(s => s.name === newName)) {
+            console.log(`\n⚠️  Session "${newName}" already exists. Choose another name.\n`);
           } else {
             data.meta.name = newName;
             await saveSession(newName, data.messages, data.meta.modelPreset ?? undefined);

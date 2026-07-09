@@ -129,6 +129,23 @@ export async function saveSession(
   const existing = await getSessionMeta(name);
   // Strip tool messages before persisting
   const filtered = messages.filter(m => m.role !== 'tool') as ChatMessage[];
+
+  // Don't save sessions with no user messages
+  const userMsgs = filtered.filter(m => m.role === 'user');
+  if (userMsgs.length === 0) {
+    // If file exists, delete it (session became empty after stripping)
+    if (existing) {
+      const filePath = path.join(dir, `${name}.json`);
+      try { await fs.unlink(filePath); } catch { /* ignore */ }
+    }
+    return;
+  }
+
+  // Reject duplicate names for brand-new sessions
+  if (existing && !messages.some(m => m.role === 'system')) {
+    throw new Error(`Session "${name}" already exists`);
+  }
+
   const meta: SessionMeta = {
     name,
     createdAt: existing?.createdAt || new Date().toISOString(),
