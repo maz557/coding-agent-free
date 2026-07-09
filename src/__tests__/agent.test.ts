@@ -52,9 +52,9 @@ describe('agent CLI', () => {
       }
     });
 
-    it('should have FIXED_PRESETS 1-5', () => {
+    it('should have FIXED_PRESETS 1-7', () => {
       const { FIXED_PRESETS } = require('../config/models');
-      for (let i = 1; i <= 5; i++) {
+      for (let i = 1; i <= 7; i++) {
         assert(FIXED_PRESETS[String(i)], `Missing fixed preset ${i}`);
       }
     });
@@ -176,7 +176,16 @@ describe('agent CLI', () => {
 
     it('should return undefined when no different provider exists after current', () => {
       const { getAllPresets } = require('../commands');
-      const allPresets: Record<string, any> = getAllPresets({});
+      // Override all presets to be openrouter
+      const allPresets = getAllPresets({
+        '1': { provider: 'openrouter', primary: 'openrouter/free', fallbacks: [] },
+        '2': { provider: 'openrouter', primary: 'openrouter/free', fallbacks: [] },
+        '3': { provider: 'openrouter', primary: 'openrouter/free', fallbacks: [] },
+        '4': { provider: 'openrouter', primary: 'openrouter/free', fallbacks: [] },
+        '5': { provider: 'openrouter', primary: 'openrouter/free', fallbacks: [] },
+        '6': { provider: 'openrouter', primary: 'openrouter/free', fallbacks: [] },
+        '7': { provider: 'openrouter', primary: 'openrouter/free', fallbacks: [] },
+      });
       const entries = Object.entries(allPresets).sort(([a], [b]) => Number(a) - Number(b));
       const next = entries.slice(1).find(([, p]: [string, any]) => p.provider !== 'openrouter');
       assert.equal(next, undefined);

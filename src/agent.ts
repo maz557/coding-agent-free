@@ -280,12 +280,12 @@ async function startChat() {
     if (routeMatch) {
       const route = routeMatch[1];
       const resolved = resolveRoute(route);
-      if (!resolved) {
-        console.log(`\n❌ Unknown route: ${route}. Available: ${listAutoRoutes().join(', ')}\n`);
+      if (!resolved.preset) {
+        console.log(`\n❌ ${resolved.suggestion || `No model available for ${route}.`}\n`);
         rl.prompt();
         continue;
       }
-      activeModelConfig = resolved;
+      activeModelConfig = resolved.preset;
       client = createClient(activeModelConfig.provider);
       const prov = PROVIDERS[activeModelConfig.provider]?.name ?? activeModelConfig.provider;
       const prevMessages = agent.getConversationMessages();

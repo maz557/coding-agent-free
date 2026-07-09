@@ -8,7 +8,8 @@ import { loadMCPConfig } from './mcp/config';
 import { loadLSPConfig } from './lsp/config';
 import { lspManager } from './lsp/index';
 import { PROVIDERS, FIXED_PRESETS, SYSTEM_PROMPT, ModelPreset } from './config/models';
-import { resolveRoute, isAutoRoute, getRouteLabel, listAutoRoutes } from './config/autoRouter';
+import { resolveRoute, isAutoRoute, getRouteLabel, listAutoRoutes, getRouteEntries } from './config/autoRouter';
+import { recordUsage, getAggregatedUsage } from './usageTracker';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as fsp from 'fs/promises';
@@ -150,6 +151,34 @@ function getAllPresets(): Record<string, any> {
   return { ...FIXED_PRESETS, ...loadUserPresets() };
 }
 
+function tryNextRouteEntry(session: any): boolean {
+  const route = session.meta?.route;
+  if (!route || !isAutoRoute(route)) return false;
+  const entries = getRouteEntries(route);
+  if (!entries) return false;
+
+  const currentProvider = session.modelConfig?.provider;
+  const currentModel = session.modelConfig?.primary;
+  const startIdx = entries.findIndex((e: any) => e.provider === currentProvider && e.model === currentModel);
+  if (startIdx < 0) return false;
+
+  for (let i = startIdx + 1; i < entries.length; i++) {
+    const entry = entries[i];
+    if (!isProviderAvailable(entry.provider)) continue;
+    session.modelConfig = { provider: entry.provider, primary: entry.model, fallbacks: [] };
+    session.client = createClient(entry.provider);
+    return true;
+  }
+  return false;
+}
+
+function isProviderAvailable(provider: string): boolean {
+  const info = PROVIDERS[provider];
+  if (!info) return false;
+  if (!info.apiKeyEnv) return true;
+  return !!process.env[info.apiKeyEnv];
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -246,8 +275,8 @@ app.post('/api/model/:sessionId', (req, res) => {
 
   if (route && isAutoRoute(route)) {
     const resolved = resolveRoute(route);
-    if (!resolved) return res.status(400).json({ error: `Unknown route: ${route}` });
-    s.modelConfig = resolved;
+    if (!resolved.preset) return res.status(400).json({ error: `No model available for ${route}`, suggestion: resolved.suggestion });
+    s.modelConfig = resolved.preset;
     s.meta.route = route;
   } else if (presetId && allPresets[presetId]) {
     s.modelConfig = { ...allPresets[presetId] };
@@ -264,12 +293,20 @@ app.post('/api/model/:sessionId', (req, res) => {
   res.json({ provider: PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider, model: s.modelConfig.primary, route: s.meta.route || null });
 });
 
+app.get('/api/usage', (_req, res) => {
+  res.json(getAggregatedUsage());
+});
+
 app.get('/api/routes', (_req, res) => {
-  const routes = listAutoRoutes().map(r => ({
-    id: r,
-    label: getRouteLabel(r),
-    model: resolveRoute(r)?.primary || null,
-  }));
+  const routes = listAutoRoutes().map(r => {
+    const resolved = resolveRoute(r);
+    return {
+      id: r,
+      label: getRouteLabel(r),
+      model: resolved.preset?.primary || null,
+      suggestion: resolved.suggestion || null,
+    };
+  });
   res.json(routes);
 });
 
@@ -429,6 +466,7 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
       const model = usedModel || s.modelConfig.primary;
       send('model', { model: `${PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider} — ${model}` });
       s.messages.push({ role: 'assistant', content: content || null });
+      recordUsage(req.params.sessionId, s.modelConfig.provider, model, s.messages, content || '');
 
       if (tcs.size === 0) {
         saveSessionToDisk(req.params.sessionId, s).catch(() => {});
@@ -490,7 +528,14 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
         }
       }
     } catch (err: any) {
-      send('error', { message: err?.message || 'API error' });
+      const errMsg = err?.message || 'API error';
+
+      if (tryNextRouteEntry(s)) {
+        send('error', { message: `${errMsg} — falling back to ${s.modelConfig.provider}/${s.modelConfig.primary}` });
+        continue;
+      }
+
+      send('error', { message: errMsg });
     } finally {
       clearTimeout(to);
     }

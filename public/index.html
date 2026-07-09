@@ -953,11 +953,17 @@ function showModelInput(show, defaultModel) {
 }
 
 async function switchModel(payload) {
-  await fetch(`/api/model/${sessionId}`, {
+  const res = await fetch(`/api/model/${sessionId}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
+  if (!res.ok) {
+    const err = await res.json();
+    const msg = err.suggestion ? `${err.error} — ${err.suggestion}` : err.error;
+    addMessage('error', msg);
+    return;
+  }
   const activeRes = await fetch(`/api/active/${sessionId}`);
   const active = await activeRes.json();
   const modelText = `${active.provider} / ${active.model}`;

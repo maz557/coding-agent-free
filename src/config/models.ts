@@ -5,11 +5,14 @@ export interface ProviderInfo {
   defaultModel?: string;
 }
 
+export type CodingQuality = 'premium' | 'high' | 'medium' | 'low';
+
 export interface ModelPreset {
   provider: string;
   primary: string;
   fallbacks: string[];
   contextWindow?: number;
+  quality?: CodingQuality;
 }
 
 export const PROVIDERS: Record<string, ProviderInfo> = {
@@ -49,9 +52,11 @@ Clarifying questions:
 - Prefer taking small actions first and adjust based on feedback, rather than asking multiple questions upfront.`;
 
 export const FIXED_PRESETS: Record<string, ModelPreset> = {
-  '1': { provider: 'openrouter', primary: 'openrouter/free', fallbacks: [] },
-  '2': { provider: 'openrouter', primary: 'qwen/qwen3-next-80b-a3b-instruct:free', fallbacks: ['openrouter/free'] },
-  '3': { provider: 'openrouter', primary: 'nvidia/nemotron-3-super-120b-a12b:free', fallbacks: ['openrouter/free'], contextWindow: 1_048_576 },
-  '4': { provider: 'openrouter', primary: 'openai/gpt-oss-120b:free', fallbacks: ['openrouter/free'] },
-  '5': { provider: 'openrouter', primary: 'nvidia/nemotron-3-ultra-550b-a55b:free', fallbacks: ['openrouter/free'], contextWindow: 1_048_576 },
+  '1': { provider: 'openrouter', primary: 'openrouter/free', fallbacks: [], quality: 'medium' },
+  '2': { provider: 'openrouter', primary: 'qwen/qwen3-next-80b-a3b-instruct:free', fallbacks: ['openrouter/free'], quality: 'premium' },
+  '3': { provider: 'openrouter', primary: 'nvidia/nemotron-3-super-120b-a12b:free', fallbacks: ['openrouter/free'], contextWindow: 1_048_576, quality: 'high' },
+  '4': { provider: 'openrouter', primary: 'openai/gpt-oss-120b:free', fallbacks: ['openrouter/free'], quality: 'high' },
+  '5': { provider: 'openrouter', primary: 'nvidia/nemotron-3-ultra-550b-a55b:free', fallbacks: ['openrouter/free'], contextWindow: 1_048_576, quality: 'premium' },
+  '6': { provider: 'google', primary: 'gemini-2.0-flash', fallbacks: [], quality: 'premium' },
+  '7': { provider: 'ollama', primary: 'ornith-1.0-9b-Q4_K_M', fallbacks: [], quality: 'medium' },
 };
