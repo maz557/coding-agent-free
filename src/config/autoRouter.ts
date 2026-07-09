@@ -81,6 +81,13 @@ const ROUTE_LABELS: Record<string, string> = {
   'auto/offline': 'Auto (Offline)',
 };
 
+function findPresetQuality(provider: string, model: string): CodingQuality | undefined {
+  for (const p of Object.values(FIXED_PRESETS)) {
+    if (p.provider === provider && p.primary === model) return p.quality;
+  }
+  return undefined;
+}
+
 function parseModelRef(ref: string): { provider: string; model: string; quality?: CodingQuality } | null {
   const colon = ref.indexOf(':');
   if (colon < 0) return null;
@@ -93,7 +100,8 @@ function parseModelRef(ref: string): { provider: string; model: string; quality?
   const provider = ref.slice(0, colon);
   const model = ref.slice(colon + 1);
   if (!PROVIDERS[provider]) return null;
-  return { provider, model };
+  const quality = findPresetQuality(provider, model) || 'medium';
+  return { provider, model, quality };
 }
 
 function loadRouteConfig(): Record<RouteType, RouteConfig> {
