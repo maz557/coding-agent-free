@@ -61,6 +61,28 @@ export class LSPClient {
         else resolve();
       };
 
+      const sendInitialize = () => {
+        this.request('initialize', {
+          processId: process.pid,
+          rootUri: this.rootUri,
+          capabilities: {
+            textDocument: {
+              hover: { contentFormat: ['markdown', 'plaintext'] },
+              definition: { dynamicRegistration: false },
+              references: { dynamicRegistration: false },
+              completion: { completionItem: { snippetSupport: false } },
+              diagnostic: { dynamicRegistration: false },
+            },
+          },
+        }).then((result: any) => {
+          initialized = true;
+          this.capabilities = result?.capabilities || {};
+          this._ready = true;
+          this.notify('initialized', {});
+          finish();
+        }).catch((e: any) => finish(e));
+      };
+
       this.process.stdout!.on('data', (data: Buffer) => {
         this.buffer += data.toString();
         this.processBuffer();
@@ -78,37 +100,17 @@ export class LSPClient {
           this.process.on('close', () => {
             if (!initialized) finish(new Error(`LSP server exited: ${this.command}`));
           });
+          sendInitialize();
           return;
         }
         finish(err);
       });
 
-      if (!isFallback) {
-        this.process.on('close', () => {
-          if (!initialized) finish(new Error(`LSP server exited: ${this.command}`));
-        });
-      }
+      this.process.on('close', () => {
+        if (!initialized && !isFallback) finish(new Error(`LSP server exited: ${this.command}`));
+      });
 
-      // Initialize LSP
-      this.request('initialize', {
-        processId: process.pid,
-        rootUri: this.rootUri,
-        capabilities: {
-          textDocument: {
-            hover: { contentFormat: ['markdown', 'plaintext'] },
-            definition: { dynamicRegistration: false },
-            references: { dynamicRegistration: false },
-            completion: { completionItem: { snippetSupport: false } },
-            diagnostic: { dynamicRegistration: false },
-          },
-        },
-      }).then((result: any) => {
-        initialized = true;
-        this.capabilities = result?.capabilities || {};
-        this._ready = true;
-        this.notify('initialized', {});
-        finish();
-      }).catch((e: any) => finish(e));
+      sendInitialize();
     });
   }
 
