@@ -433,21 +433,62 @@ Auto-fallback: if a provider returns 429, the agent automatically tries the next
 
 ### Local Models
 
+No API key required. The model must support **tool calling** (function calling).
+
+Three server options — **llama.cpp recommended** for large-context agent work:
+
+#### Llama.cpp (recommended)
+
+```
+llama-server -m "MyModel-Q4_K_M.gguf" -c 65536 --port 8080 --flash-attn on --cache-type-k q4_0 --cache-type-v q4_0
+```
+
+| Flag | Why it matters for agents |
+|---|---|
+| `-c 65536` | **64K context** — agent sessions can grow long (tool calls, file reads, diffs). Without this, you'll hit context limits mid-task. |
+| `--flash-attn on` | Speeds up processing linearly with context length. **Essential** for 32K+ contexts. |
+| `--cache-type-k q4_0` | Quantized KV cache — cuts memory usage per token by ~4×, letting you fit 64K context in 16–24 GB VRAM. |
+
+> **Download models** from [Hugging Face](https://huggingface.co/models?search=tool_calling) (look for GGUF files). You need at least **8 GB RAM** (16 GB+ recommended for 64K context). Example — search for tool-calling fine-tunes like `Llama-3.2` or `Qwen2.5` instruct models.
+
+**Replace with a different GGUF:** just change the `-m` path and update the model name in the agent (use `provider:llamacpp`):
+
+```
+/add 9 llamacpp:my-model-name
+```
+
+**Access from a different machine:** set `LLAMACPP_HOST` in `.env`:
+```
+LLAMACPP_HOST=http://192.168.1.100:8080/v1
+```
+
+#### Changing the default local model
+
+If you want `auto/offline` (or the fallback chain) to use your model automatically, edit:
+
+1. **`route-presets.json`** — change the `offline.presets` and/or `coding.presets` / `reasoning.presets` entries. Each entry is `provider:model`:
+   ```json
+   "offline": { "presets": ["llamacpp:MyModel"], "minQuality": "low" }
+   ```
+2. **`.coding-agent.json`** — adjust timeout if your hardware is slower:
+   ```json
+   { "localTimeoutMs": 600000, "cloudTimeoutMs": 120000 }
+   ```
+3. **`presets.json`** (built-in defaults, overridden by route-presets.json) — change preset entries if you rebuild with `npm run build`.
+
+Alternatively, just `/add <n> llamacpp:MyModel` during a session and `/model <n>` — changes are immediate and don't persist across server restarts unless you edit the files above.
+
+#### Other backends
+
 ```bash
 # Ollama
 ollama pull llama3.2 && ollama serve
-# Inside agent: /add 6 ollama:auto
+/add 10 ollama:auto
 
 # LM Studio
 lms get llama-3.2-3b-instruct && lms server start --port 1234
-# Inside agent: /add 7 lmstudio:auto
-
-# Llama.cpp
-llama-server -m qwen2.5-coder-1.5b-instruct-q4_k_m.gguf --port 8080
-# Inside agent: /add 8 llamacpp:auto
+/add 11 lmstudio:auto
 ```
-
-No API key required. The model must support **tool calling** (function calling).
 
 ### Workspace & Permissions
 
@@ -465,7 +506,7 @@ By default, the agent can only access files inside `./workspace`. Change with:
 | 4 | OpenAI GPT-OSS 120B | OpenRouter | Strong reasoning |
 | 5 | Nemotron 3 Ultra 550B | OpenRouter | Largest free model with tools |
 | 6 | Gemini 2.0 Flash | Google | Fast, strong coding — needs `GOOGLE_API_KEY` |
-| 7 | Ornith Agent | Ollama | Local offline model — no API key needed |
+| 7 | Ornith Agent | Llama.cpp | Local offline model — no API key needed |
 
 > **Auto-routes** (`/model auto/coding`, `/model auto/fast`, etc.) intelligently select the best available model based on quality tiers and API keys. Edit priorities in `route-presets.json`.
 
@@ -486,7 +527,7 @@ By default, the agent can only access files inside `./workspace`. Change with:
 /add 14 google:gemini-2.0-flash-exp    # Fast, good coding
 ```
 
-> Note: presets 6-7 are reserved for built-in Google Gemini and Ollama models. User presets start at 8+ by convention.
+> Note: presets 6-7 are reserved for built-in Google Gemini and local offline models. User presets start at 8+ by convention.
 
 ### Example Interactions
 
