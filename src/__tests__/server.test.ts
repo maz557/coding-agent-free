@@ -208,6 +208,17 @@ describe('server API', () => {
   });
 
   describe('GET /api/config/:sessionId', () => {
+    let savedLocalTimeout: string | undefined;
+
+    before(() => {
+      savedLocalTimeout = process.env.LOCAL_TIMEOUT;
+      delete process.env.LOCAL_TIMEOUT;
+    });
+
+    after(() => {
+      if (savedLocalTimeout) process.env.LOCAL_TIMEOUT = savedLocalTimeout;
+    });
+
     it('should return 120s timeout for cloud provider (default)', async () => {
       const { body: session } = await fetchJson(`${baseUrl}/api/session`, { method: 'POST' });
       const { status, body } = await fetchJson(`${baseUrl}/api/config/${session.sessionId}`);

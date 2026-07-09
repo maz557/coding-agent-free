@@ -38,6 +38,7 @@ Rules:
 - Read only the files the user asks about. If you need more context, read the most important files first.
 - After writing files, ALWAYS run tests/commands to verify they work.
 - If a test fails, fix the source code and re-run until it passes.
+- If SCRATCH_DIR env var is set, use it for temporary test/output files and clean up afterward.
 - Use run_command to execute shell commands.
 - Keep tool calls to a minimum. Plan before you act.
 - If a tool returns an error (e.g. access denied), tell the user and stop — do NOT retry with different paths.
