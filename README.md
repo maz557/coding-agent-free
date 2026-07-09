@@ -43,7 +43,7 @@ An interactive AI coding assistant that runs in your **terminal** or **web brows
 - **13 providers** — OpenRouter, Groq, Google, DeepSeek, Mistral, Anthropic, Together AI, Perplexity, xAI (Grok), Cohere + Ollama, LM Studio, Llama.cpp
 - **MCP (Model Context Protocol)** — connect external tools (filesystem, GitHub API, databases, custom servers). Stdio + HTTP/SSE transports. `/mcp list/connect/disconnect/toggle`
 - **LSP (Language Server Protocol)** — `code_definition`, `code_references`, `code_hover` tools. Supports TypeScript, JavaScript, Python (pyright), Rust (rust-analyzer), Go (gopls). `/lsp` toggle
-- **Multi-session management** — named sessions in `sessions/` directory, auto-title, modelPreset metadata. `/session list/new/rename/delete`
+- **Multi-session management** — named sessions in `sessions/` directory, auto-title, modelPreset metadata. Work on multiple projects independently and switch between them at any time. `/session list/new/rename/delete`
 - **7 built-in presets** — start with `openrouter/free` (auto-discovers working free models), plus Google Gemini and Ollama for local/offline use
 - **Auto-routing** — 6 quality-filtered routes (`auto/coding`, `auto/fast`, `auto/cheap`, `auto/reasoning`, `auto/vision`, `auto/offline`) with automatic API key detection; user-editable via `route-presets.json`
 - **Usage tracking** — per-session and aggregated token/request counts via API (`GET /api/usage`)
