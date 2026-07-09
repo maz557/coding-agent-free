@@ -443,16 +443,21 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
     }
 
     const ac = new AbortController();
-    const to = setTimeout(() => ac.abort(), timeoutMs);
+    let to = setTimeout(() => ac.abort(), timeoutMs);
 
     try {
       const stream: any = await s.client.chat.completions.create(base, { signal: ac.signal });
+
+      // Reset timeout on each token — idle timeout only
+      clearTimeout(to);
 
       let content = '';
       const tcs = new Map<number, any>();
       let usedModel = '';
 
       for await (const chunk of stream) {
+        clearTimeout(to);
+        to = setTimeout(() => ac.abort(), timeoutMs);
         if (res.destroyed) break;
         if (chunk.model) usedModel = chunk.model;
         const delta = chunk.choices?.[0]?.delta;
