@@ -8,6 +8,7 @@ import { loadMCPConfig } from './mcp/config';
 import { loadLSPConfig } from './lsp/config';
 import { lspManager } from './lsp/index';
 import { PROVIDERS, FIXED_PRESETS, SYSTEM_PROMPT, ModelPreset } from './config/models';
+import { resolveRoute, isAutoRoute, getRouteLabel, listAutoRoutes } from './config/autoRouter';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as fsp from 'fs/promises';
@@ -40,6 +41,7 @@ interface SessionData {
     title: string;
     modelLabel: string;
     firstUserMessage: string;
+    route?: string;
   };
 }
 
@@ -233,25 +235,42 @@ app.get('/api/active/:sessionId', (req, res) => {
   const s = sessions.get(req.params.sessionId);
   if (!s) return res.status(404).json({ error: 'Session not found' });
   const prov = PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider;
-  res.json({ provider: prov, model: s.modelConfig.primary, fallbacks: s.modelConfig.fallbacks, safeMode: isSafeModeEnabled() });
+  res.json({ provider: prov, model: s.modelConfig.primary, fallbacks: s.modelConfig.fallbacks, safeMode: isSafeModeEnabled(), route: s.meta.route || null });
 });
 
 app.post('/api/model/:sessionId', (req, res) => {
   const s = sessions.get(req.params.sessionId);
   if (!s) return res.status(404).json({ error: 'Session not found' });
-  const { presetId, provider, model } = req.body;
+  const { presetId, provider, model, route } = req.body;
   const allPresets = getAllPresets();
-  if (presetId && allPresets[presetId]) {
+
+  if (route && isAutoRoute(route)) {
+    const resolved = resolveRoute(route);
+    if (!resolved) return res.status(400).json({ error: `Unknown route: ${route}` });
+    s.modelConfig = resolved;
+    s.meta.route = route;
+  } else if (presetId && allPresets[presetId]) {
     s.modelConfig = { ...allPresets[presetId] };
+    delete s.meta.route;
   } else if (provider && model) {
     s.modelConfig = { provider, primary: model, fallbacks: req.body.fallbacks || [] };
+    delete s.meta.route;
   } else {
-    return res.status(400).json({ error: 'Provide presetId or provider+model' });
+    return res.status(400).json({ error: 'Provide presetId, provider+model, or route' });
   }
   s.client = createClient(s.modelConfig.provider);
   s.meta.modelLabel = `${PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider} — ${s.modelConfig.primary}`;
   saveSessionToDisk(req.params.sessionId, s).catch(() => {});
-  res.json({ provider: PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider, model: s.modelConfig.primary });
+  res.json({ provider: PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider, model: s.modelConfig.primary, route: s.meta.route || null });
+});
+
+app.get('/api/routes', (_req, res) => {
+  const routes = listAutoRoutes().map(r => ({
+    id: r,
+    label: getRouteLabel(r),
+    model: resolveRoute(r)?.primary || null,
+  }));
+  res.json(routes);
 });
 
 app.post('/api/reset/:sessionId', (req, res) => {

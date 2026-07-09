@@ -302,9 +302,20 @@ const newSessionBtn = document.getElementById('new-session-btn');
 let sessionList = [];
 
 async function populateModels() {
-  const res = await fetch('/api/models');
-  const items = await res.json();
-  let html = '<optgroup label="— Presets —">';
+  const [modelRes, routeRes] = await Promise.all([
+    fetch('/api/models'),
+    fetch('/api/routes'),
+  ]);
+  const items = await modelRes.json();
+  const routes = routeRes.ok ? await routeRes.json() : [];
+  let html = '';
+  if (routes.length) {
+    html += '<optgroup label="— Auto Routes —">';
+    for (const r of routes)
+      html += `<option value="route:${r.id}">${r.label} (${r.model})</option>`;
+    html += '</optgroup>';
+  }
+  html += '<optgroup label="— Presets —">';
   for (const m of items) {
     if (m.type === 'preset')
       html += `<option value="preset:${m.id}">${m.provider} — ${m.model}</option>`;
@@ -468,6 +479,25 @@ async function handleCommand(msg) {
       addMessage('assistant', `🔄 Switched to <strong>${active.provider} — ${active.model}</strong>`);
     } else {
       const err = await res.text().catch(() => 'Preset not found');
+      addMessage('error', `⚠️ ${escapeHtml(err)}`);
+    }
+    return true;
+  }
+  const rm = msg.match(/^\/model\s+(auto\/\w+)$/i);
+  if (rm) {
+    const res = await fetch(`/api/model/${sessionId}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ route: rm[1] }),
+    });
+    if (res.ok) {
+      const activeRes = await fetch(`/api/active/${sessionId}`);
+      const active = await activeRes.json();
+      const mt = `${active.provider} / ${active.model}`;
+      modelInfo.textContent = mt;
+      document.getElementById('model-badge').textContent = `🧠 ${mt}`;
+      addMessage('assistant', `🔄 Switched to <strong>${active.route || mt}</strong>`);
+    } else {
+      const err = await res.text().catch(() => 'Route not found');
       addMessage('error', `⚠️ ${escapeHtml(err)}`);
     }
     return true;
@@ -933,12 +963,16 @@ async function switchModel(payload) {
   const modelText = `${active.provider} / ${active.model}`;
   modelInfo.textContent = modelText;
   document.getElementById('model-badge').textContent = `🧠 ${modelText}`;
-  addMessage('assistant', `🔄 Switched to <strong>${active.provider} — ${active.model}</strong>`);
+  const label = active.route ? active.route : `${active.provider} — ${active.model}`;
+  addMessage('assistant', `🔄 Switched to <strong>${label}</strong>`);
 }
 
 modelSelect.addEventListener('change', async (e) => {
   const val = e.target.value;
-  if (val.startsWith('preset:')) {
+  if (val.startsWith('route:')) {
+    showModelInput(false);
+    await switchModel({ route: val.slice(6) });
+  } else if (val.startsWith('preset:')) {
     showModelInput(false);
     await switchModel({ presetId: val.slice(7) });
   } else if (val.startsWith('provider:')) {

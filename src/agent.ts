@@ -11,6 +11,7 @@ import { loadMCPConfig } from './mcp/config';
 import { loadLSPConfig } from './lsp/config';
 import { lspManager } from './lsp/index';
 import { ModelPreset, PROVIDERS, FIXED_PRESETS, SYSTEM_PROMPT } from './config/models';
+import { resolveRoute, isAutoRoute, getRouteLabel, listAutoRoutes } from './config/autoRouter';
 import { ChatMessage } from './types';
 import { CodingAgent } from './CodingAgent';
 import {
@@ -97,7 +98,8 @@ async function startChat() {
     console.log('  🛡️  Safe mode: ON (whitelist-only shell commands)');
   }
   console.log('  Commands:');
-  console.log('    /model <n>   Switch to preset n');
+  console.log('    /model <n>         Switch to preset n');
+  console.log('    /model auto/<r>    Auto-route: coding, fast, cheap, reasoning, vision, offline');
   console.log('    /save <n>    Save last used model as preset n');
   console.log('    /add <n> <m> Manually add model m as preset n (provider:model)');
   console.log('    /remove <n>  Remove a user preset');
@@ -256,7 +258,7 @@ async function startChat() {
       continue;
     }
 
-    const modelMatch = input.match(/^\/model\s+(\d+)$/i);
+    let modelMatch = input.match(/^\/model\s+(\d+)$/i);
     if (modelMatch) {
       const num = modelMatch[1];
       const allPresets = getAllPresets(userPresets);
@@ -270,6 +272,25 @@ async function startChat() {
       } else {
         console.log(`\n❌ Preset ${num} not found.\n`);
       }
+      rl.prompt();
+      continue;
+    }
+
+    const routeMatch = input.match(/^\/model\s+(auto\/\w+)$/i);
+    if (routeMatch) {
+      const route = routeMatch[1];
+      const resolved = resolveRoute(route);
+      if (!resolved) {
+        console.log(`\n❌ Unknown route: ${route}. Available: ${listAutoRoutes().join(', ')}\n`);
+        rl.prompt();
+        continue;
+      }
+      activeModelConfig = resolved;
+      client = createClient(activeModelConfig.provider);
+      const prov = PROVIDERS[activeModelConfig.provider]?.name ?? activeModelConfig.provider;
+      const prevMessages = agent.getConversationMessages();
+      agent = new CodingAgent(client, typedTools, activeModelConfig, systemPrompt, prevMessages as ChatMessage[]);
+      console.log(`\n✅ Switched to ${getRouteLabel(route)}: [${prov}] ${activeModelConfig.primary}\n`);
       rl.prompt();
       continue;
     }
