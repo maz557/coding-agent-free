@@ -301,6 +301,7 @@ const sessionListEl = document.getElementById('session-list');
 const newSessionBtn = document.getElementById('new-session-btn');
 
 let sessionList = [];
+let routeList = [];
 
 async function populateModels() {
   const [modelRes, routeRes] = await Promise.all([
@@ -308,14 +309,12 @@ async function populateModels() {
     fetch('/api/routes'),
   ]);
   const items = await modelRes.json();
-  const routes = routeRes.ok ? await routeRes.json() : [];
+  routeList = routeRes.ok ? await routeRes.json() : [];
   let html = '';
-  if (routes.length) {
+  if (routeList.length) {
     html += '<optgroup label="— Auto Routes —">';
-    for (const r of routes) {
-      const modelText = r.model || (r.suggestion ? `⚠️ ${r.suggestion.slice(0, 50)}…` : 'N/A');
-      html += `<option value="route:${r.id}">${r.label} — ${modelText}</option>`;
-    }
+    for (const r of routeList)
+      html += `<option value="route:${r.id}">${r.label}${r.model ? ' — ' + r.model : ' ⚠️ Setup needed'}</option>`;
     html += '</optgroup>';
   }
   html += '<optgroup label="— Presets —">';
@@ -357,12 +356,13 @@ async function init() {
   updateMCPUI();
   updateLSPUI(lspData.ready ? (lspData.languages || ['TypeScript']).join(', ') : '');
   const routeBadge = document.getElementById('route-badge');
-  const modelText = active.route ? active.route : `${active.provider} / ${active.model}`;
+  const routeLabel = active.route ? (routeList.find(r => r.id === active.route)?.label || active.route) : '';
+  const modelText = active.route ? routeLabel : `${active.provider} / ${active.model}`;
   modelInfo.textContent = active.route ? '' : modelText;
   if (routeBadge) {
     routeBadge.style.display = active.route ? 'inline' : 'none';
-    routeBadge.textContent = active.route || '';
-    routeBadge.title = `Provider: ${active.provider}, Model: ${active.model}`;
+    routeBadge.textContent = routeLabel;
+    routeBadge.title = active.route ? `${active.route} → ${active.provider} / ${active.model}` : '';
   }
   document.getElementById('model-badge').textContent = `🧠 ${modelText}`;
   // select matching route or preset
@@ -985,15 +985,16 @@ async function switchModel(payload) {
   const activeRes = await fetch(`/api/active/${sessionId}`);
   const active = await activeRes.json();
   const routeBadge = document.getElementById('route-badge');
-  const modelText = active.route ? active.route : `${active.provider} / ${active.model}`;
+  const routeLabel = active.route ? (routeList.find(r => r.id === active.route)?.label || active.route) : '';
+  const modelText = active.route ? routeLabel : `${active.provider} / ${active.model}`;
   modelInfo.textContent = active.route ? '' : modelText;
   if (routeBadge) {
     routeBadge.style.display = active.route ? 'inline' : 'none';
-    routeBadge.textContent = active.route || '';
-    routeBadge.title = `Provider: ${active.provider}, Model: ${active.model}`;
+    routeBadge.textContent = routeLabel;
+    routeBadge.title = active.route ? `${active.route} → ${active.provider} / ${active.model}` : '';
   }
   document.getElementById('model-badge').textContent = `🧠 ${modelText}`;
-  const label = active.route ? active.route : `${active.provider} — ${active.model}`;
+  const label = active.route ? routeLabel : `${active.provider} — ${active.model}`;
   addMessage('assistant', `🔄 Switched to <strong>${label}</strong>`);
 }
 
