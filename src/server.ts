@@ -272,7 +272,7 @@ app.get('/api/config/:sessionId', (req, res) => {
   if (!s) return res.status(404).json({ error: 'Session not found' });
   const provInfo = PROVIDERS[s.modelConfig.provider];
   const isLocal = provInfo && !provInfo.apiKeyEnv;
-  const timeoutMs = isLocal ? (Number(process.env.LOCAL_TIMEOUT) || 300000) : 120000;
+  const timeoutMs = isLocal ? (Number(process.env.LOCAL_TIMEOUT) || 600000) : 120000;
   res.json({ timeoutMs });
 });
 
@@ -415,7 +415,7 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
 
   const provInfo = PROVIDERS[s.modelConfig.provider];
   const isLocal = provInfo && !provInfo.apiKeyEnv;
-  let timeoutMs = isLocal ? (Number(process.env.LOCAL_TIMEOUT) || 300000) : 120000;
+  let timeoutMs = isLocal ? (Number(process.env.LOCAL_TIMEOUT) || 600000) : 120000;
 
   s.messages.push({ role: 'user', content: message });
   if (!s.meta.firstUserMessage) {
@@ -543,7 +543,7 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
         send('error', { message: `${errMsg} — falling back to ${s.modelConfig.provider}/${s.modelConfig.primary}` });
         const fallbackProvInfo = PROVIDERS[s.modelConfig.provider];
         const isLocalFallback = fallbackProvInfo && !fallbackProvInfo.apiKeyEnv;
-        timeoutMs = isLocalFallback ? (Number(process.env.LOCAL_TIMEOUT) || 300000) : 120000;
+        timeoutMs = isLocalFallback ? (Number(process.env.LOCAL_TIMEOUT) || 600000) : 120000;
         continue;
       }
 

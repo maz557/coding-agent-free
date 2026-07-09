@@ -345,7 +345,7 @@ async function init() {
     fetch('/api/safe-mode'),
     fetch('/api/mcp/status').catch(() => ({ json: () => ({ enabled: true }) })),
     fetch('/api/lsp/status').catch(() => ({ json: () => ({ enabled: true, ready: false, languages: [] }) })),
-    fetch(`/api/config/${sessionId}`).catch(() => ({ json: () => ({ timeoutMs: 300000 }) })),
+    fetch(`/api/config/${sessionId}`).catch(() => ({ json: () => ({ timeoutMs: 600000 }) })),
   ]);
   const active = await activeRes.json();
   const safe = await safeRes.json();
@@ -1008,7 +1008,7 @@ async function switchModel(payload) {
   }
   const activeRes = await fetch(`/api/active/${sessionId}`);
   const active = await activeRes.json();
-  const configRes = await fetch(`/api/config/${sessionId}`).catch(() => ({ json: () => ({ timeoutMs: 300000 }) }));
+  const configRes = await fetch(`/api/config/${sessionId}`).catch(() => ({ json: () => ({ timeoutMs: 600000 }) }));
   const config = await configRes.json();
   timeoutMs = config.timeoutMs;
   const routeBadge = document.getElementById('route-badge');
@@ -1134,7 +1134,7 @@ newSessionBtn.addEventListener('click', async () => {
   chat.innerHTML = '';
   await populateModels();
   await refreshSessionList();
-  const configRes = await fetch(`/api/config/${sessionId}`).catch(() => ({ json: () => ({ timeoutMs: 300000 }) }));
+  const configRes = await fetch(`/api/config/${sessionId}`).catch(() => ({ json: () => ({ timeoutMs: 600000 }) }));
   const config = await configRes.json();
   timeoutMs = config.timeoutMs;
   const activeRes = await fetch(`/api/active/${sessionId}`);
