@@ -595,8 +595,19 @@ async function sendMessage() {
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
-    let assistantContent = '';
-    const msgDiv = addMessage('assistant', '<div class="msg-content"></div>');
+    let     assistantContent = '';
+    const msgDiv = addMessage('assistant', '<div class="fallback-errors" style="display:none"><div class="fallback-toggle" style="cursor:pointer;user-select:none;padding:6px 10px;background:#161b22;border:1px solid #30363d;border-radius:6px;margin-bottom:6px;font-size:12px;color:#ffa657">⚠️ <span class="fallback-count">0</span> fallback(s) <span class="collapse-icon" style="font-size:10px;color:#484f58">▶</span></div><div class="fallback-body" style="display:none;padding:8px 10px;background:#0d1117;border:1px solid #21262d;border-radius:6px;margin-bottom:6px;font-size:12px;color:#ff7b72"></div></div><div class="msg-content"></div>');
+    const fallbackErrors = [];
+    // setup fallback toggle
+    const fbToggle = msgDiv.querySelector('.fallback-toggle');
+    const fbBody = msgDiv.querySelector('.fallback-body');
+    if (fbToggle && fbBody) {
+      fbToggle.addEventListener('click', () => {
+        const expanded = fbBody.style.display !== 'none';
+        fbBody.style.display = expanded ? 'none' : 'block';
+        fbToggle.querySelector('.collapse-icon')?.classList.toggle('expanded', !expanded);
+      });
+    }
 
     while (true) {
       const { done, value } = await reader.read();
@@ -666,7 +677,15 @@ async function sendMessage() {
               status.textContent = parsed.text;
               break;
             case 'error':
-              addMessage('error', `⚠️ ${escapeHtml(parsed.message)}`);
+              fallbackErrors.push(parsed.message);
+              const fbDiv = msgDiv.querySelector('.fallback-errors');
+              const fbBodyEl = fbDiv?.querySelector('.fallback-body');
+              const fbCount = fbDiv?.querySelector('.fallback-count');
+              if (fbDiv && fbBodyEl && fbCount) {
+                fbDiv.style.display = '';
+                fbCount.textContent = fallbackErrors.length;
+                fbBodyEl.innerHTML = fallbackErrors.map(e => `<div style="padding:4px 0;border-bottom:1px solid #30363d;font-size:12px">⚠️ ${escapeHtml(e)}</div>`).join('');
+              }
               break;
             case 'done':
               clearTimeout(timeoutId);
