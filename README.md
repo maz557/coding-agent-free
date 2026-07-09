@@ -26,7 +26,7 @@ An interactive AI coding assistant that runs in your **terminal** or **web brows
 | Problem | Solution |
 |---------|----------|
 | Coding assistants cost $20/month (ChatGPT+, Claude Pro) | **100% free** — uses free-tier OpenRouter, Groq, Google, DeepSeek, Mistral + local models |
-| One provider goes down / rate-limited | **13 providers** — auto-fallback on 429 + manual `/model <n>` |
+| One provider goes down / rate-limited | **13 providers** — auto-fallback on 429 + auto-routing (`auto/coding`, `auto/fast`, etc.) + manual `/model <n>` |
 | No internet access / restricted region | **Local models** (Ollama, LM Studio, Llama.cpp) — fully offline |
 | Privacy concerns with cloud APIs | Run **local models only** — zero data leaves your machine |
 | Setup is too complex | **`npm run setup`** — interactive wizard, no manual `.env` editing |
@@ -44,7 +44,10 @@ An interactive AI coding assistant that runs in your **terminal** or **web brows
 - **MCP (Model Context Protocol)** — connect external tools (filesystem, GitHub API, databases, custom servers). Stdio + HTTP/SSE transports. `/mcp list/connect/disconnect/toggle`
 - **LSP (Language Server Protocol)** — `code_definition`, `code_references`, `code_hover` tools. Supports TypeScript, JavaScript, Python (pyright), Rust (rust-analyzer), Go (gopls). `/lsp` toggle
 - **Multi-session management** — named sessions in `sessions/` directory, auto-title, modelPreset metadata. `/session list/new/rename/delete`
-- **5 built-in presets** — start with `openrouter/free` (auto-discovers working free models)
+- **7 built-in presets** — start with `openrouter/free` (auto-discovers working free models), plus Google Gemini and Ollama for local/offline use
+- **Auto-routing** — 6 quality-filtered routes (`auto/coding`, `auto/fast`, `auto/cheap`, `auto/reasoning`, `auto/vision`, `auto/offline`) with automatic API key detection; user-editable via `route-presets.json`
+- **Usage tracking** — per-session and aggregated token/request counts via API (`GET /api/usage`)
+- **Collapsible fallback errors** — failed fallback attempts shown as expandable ⚠️ N fallback(s) banner inside the assistant message
 - **User presets** — save/add/remove your own models with `/save`, `/add`, `/remove`
 - **Fallback chain** — auto-fallback across providers on rate limit (429), plus model-level fallbacks
 - **13 built-in tools** — read, write, list, create_folder, delete_file, delete_folder, append_file, copy_file, move_file, file_info, search_content, replace_in_file, run_command
@@ -225,7 +228,7 @@ npm run web
 > On Windows, double-click `run-web.bat`.
 
 **Best for:** Visual diff review, session management with persistence, keyboard shortcuts, team collaboration, settings customization — **this interface has the most features overall**.
-**Has:** All CLI capabilities + visual diff viewer, settings panel, collapsible tool calls, stop button, auto-scroll toggle, per-message & session copy, welcome screen, toast notifications, keyboard shortcuts, LSP/MCP toggle indicators.
+**Has:** All CLI capabilities + visual diff viewer, settings panel, collapsible tool calls, stop button, auto-scroll toggle, per-message & session copy, welcome screen, toast notifications, keyboard shortcuts, LSP/MCP toggle indicators, route badge, collapsible fallback errors banner.
 
 Web UI features:
 - **Streaming responses** — token-by-token via SSE
@@ -240,6 +243,8 @@ Web UI features:
 - **Copy Session** — 📄 button + Ctrl+Shift+C formats conversation as markdown
 - **Toast Notifications** — 3s auto-dismiss feedback
 - **Welcome Screen** — shown on empty chat, removed on first message
+- **Route Badge** — blue pill showing current auto-route (e.g. "Coding", "Fast") with provider:model tooltip
+- **Collapsible Fallback Errors** — ⚠️ N fallback(s) banner inside assistant message, expandable to show error details
 - **LSP Toggle** — 🟢ON/⚫OFF status with active languages
 - **MCP Toggle** — 🟢ON/⚫OFF status
 - **Slash Commands** — `/active`, `/model <n>`, `/safe`, `/allow`, `/reset`, `/models`, `/exit`, `/mcp list/toggle`, `/lsp`
@@ -301,7 +306,7 @@ Tools from connected MCP servers appear automatically alongside built-in tools. 
 
 | Command | Description |
 |---------|-------------|
-| `/model <n>` | Switch to preset n |
+| `/model <n>` | Switch to preset n (`/model 5`) or auto-route (`/model auto/coding`, `/model auto/fast`, etc.) |
 | `/save <n>` | Save current model as preset n |
 | `/add <n> <m>` | Add model m as preset n (`provider:model` or just `model`) |
 | `/remove <n>` | Remove a user preset |
@@ -386,18 +391,22 @@ Deep code understanding via `code_definition`, `code_references`, and `code_hove
 
 Toggle LSP at any time with `/lsp`. Falls back gracefully if no LSP server binary is installed.
 
-### Multi-Provider Usage
+### Multi-Provider & Auto-Routing
 
 ```bash
 # Add a model from any provider
 /add 10 groq:llama-3.3-70b-versatile
 /add 11 google:gemini-2.0-flash-exp
 
+# Use auto-routes (intelligently selects best available model)
+/model auto/coding
+/model auto/fast
+
 # Switch presets
 /model 10
 ```
 
-Auto-fallback: if a provider returns 429, the agent automatically tries the next model in the fallback chain.
+Auto-fallback: if a provider returns 429, the agent automatically tries the next model in the auto-route chain. The quality-filtered routes (`auto/coding`, `auto/fast`, `auto/cheap`, `auto/reasoning`, `auto/vision`, `auto/offline`) detect which API keys are available and skip unavailable providers. Edit route priorities in `route-presets.json`.
 
 ### Local Models
 
@@ -432,29 +441,35 @@ By default, the agent can only access files inside `./workspace`. Change with:
 | 3 | Nemotron 3 Super 120B | OpenRouter | 1M context |
 | 4 | OpenAI GPT-OSS 120B | OpenRouter | Strong reasoning |
 | 5 | Nemotron 3 Ultra 550B | OpenRouter | Largest free model with tools |
+| 6 | Gemini 2.0 Flash | Google | Fast, strong coding — needs `GOOGLE_API_KEY` |
+| 7 | Ornith 1.0 9B | Ollama | Local offline model — no API key needed |
+
+> **Auto-routes** (`/model auto/coding`, `/model auto/fast`, etc.) intelligently select the best available model based on quality tiers and API keys. Edit priorities in `route-presets.json`.
 
 ### Recommended Free Coding Models
 
 **Groq (fastest):**
 ```
-/add 6 groq:openai/gpt-oss-120b       # 120B, 500 t/s
-/add 7 groq:llama-3.3-70b-versatile   # 70B, 280 t/s
+/add 10 groq:openai/gpt-oss-120b       # 120B, 500 t/s
+/add 11 groq:llama-3.3-70b-versatile   # 70B, 280 t/s
 ```
 **Mistral:**
 ```
-/add 10 mistral:codestral-latest       # Dedicated coding model
-/add 11 mistral:mistral-large-latest   # Best quality
+/add 12 mistral:codestral-latest       # Dedicated coding model
+/add 13 mistral:mistral-large-latest   # Best quality
 ```
 **Google:**
 ```
 /add 14 google:gemini-2.0-flash-exp    # Fast, good coding
 ```
 
+> Note: presets 6-7 are reserved for built-in Google Gemini and Ollama models. User presets start at 8+ by convention.
+
 ### Example Interactions
 
 ```
-You: /model 4
-✅ Switched to preset 4: openai/gpt-oss-120b:free
+You: /model auto/coding
+✅ Switched to Auto (Coding) — automatically picks best available model
 
 You: create a folder named demo and write a hello.py
 ⏳ Thinking... [Model: openai/gpt-oss-120b:free]
