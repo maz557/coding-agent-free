@@ -157,7 +157,7 @@ Configures **Cline**, **Continue.dev**, and **Cursor** to use the local API prox
 | `LMSTUDIO_HOST` | No | — | LM Studio URL (default: `http://localhost:1234/v1`) |
 | `LLAMACPP_HOST` | No | — | Llama.cpp URL (default: `http://localhost:8080/v1`) |
 | `ALLOWED_DIR` | No | — | Directory for file operations (default: `./workspace`) |
-| `LOCAL_TIMEOUT` | No | — | Timeout (ms) for local models (default: 300000) |
+| `LOCAL_TIMEOUT` | No | — | Override timeout (ms) for local models (default from `.coding-agent.json`) |
 | `LOG_LEVEL` | No | — | `debug`, `info`, `warn`, `error` (default: `info`) |
 | `MAX_EXCHANGES` | No | — | Max exchanges in sliding window (default: `20`) |
 | `MAX_TOOL_RESULT_LENGTH` | No | — | Max chars before truncation (default: `5000`) |
@@ -165,6 +165,26 @@ Configures **Cline**, **Continue.dev**, and **Cursor** to use the local API prox
 \* At least one API key required (not needed for local providers).
 
 See [docs/GUIDE.md](docs/GUIDE.md#comprehensive-free-api-key-guide) for step-by-step key registration guides.
+
+### User Configuration (`.coding-agent.json`)
+
+Hardware-dependent settings go in `.coding-agent.json` (in project root):
+
+```json
+{
+  "mcpServers": {},
+  "lspServers": [...],
+  "localTimeoutMs": 600000,
+  "cloudTimeoutMs": 120000
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `localTimeoutMs` | `600000` (10 min) | Max wait for local model responses. Increase if running on slow hardware |
+| `cloudTimeoutMs` | `120000` (2 min) | Max wait for cloud API responses |
+
+The `LOCAL_TIMEOUT` env var overrides `localTimeoutMs` if set. The timeout resets on each streaming token — it only fires when no data arrives for the full duration.
 
 ### Project Structure
 
@@ -177,6 +197,7 @@ coding-agent-free/
 │   ├── server.ts               # Express web server (SSE, sessions, API)
 │   ├── persistence.ts          # Multi-session save/load
 │   ├── config/models.ts        # Provider definitions, presets, system prompt (no tool names)
+│   ├── config/userConfig.ts    # User configuration loader (.coding-agent.json)
 │   ├── validation.ts            # Zod schemas for tool I/O validation
 │   ├── tools/
 │   │   ├── fileManager.ts      # 13 file/shell tools + safe mode
@@ -498,6 +519,8 @@ You: /model 6
 | `All 3 attempts failed` | Model unreachable or too slow | Try smaller model or local model |
 | `tool_calls` empty arguments | Model doesn't support tool calling | Use a different model |
 | `ENOTFOUND` / `ECONNREFUSED` | Internet restrictions or proxy needed | Enable VPN/proxy or use local models |
+| `Request timed out (120s)` | Cloud timeout too short for response | Use local model or provider with faster response |
+| `Request timed out (600s)` | Local model too slow on this hardware | Increase `localTimeoutMs` in `.coding-agent.json` |
 
 **Quick checks:** `/list-providers` — shows configured keys. `/safe` — toggle safe mode. `npm run setup` — re-run wizard.
 
