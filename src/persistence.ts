@@ -127,20 +127,22 @@ export async function saveSession(
   await ensureSessionsDir();
   const dir = sessionsDir();
   const existing = await getSessionMeta(name);
+  // Strip tool messages before persisting
+  const filtered = messages.filter(m => m.role !== 'tool') as ChatMessage[];
   const meta: SessionMeta = {
     name,
     createdAt: existing?.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    messageCount: messages.length,
+    messageCount: filtered.length,
     modelPreset: modelPreset !== undefined ? modelPreset : (existing?.modelPreset ?? null),
   };
 
   // Auto-title on first save
-  if (!existing && messages.length > 0) {
-    meta.name = generateSessionName(messages);
+  if (!existing && filtered.length > 0) {
+    meta.name = generateSessionName(filtered);
   }
 
-  const data = { messages: messages as ChatMessage[], meta };
+  const data = { messages: filtered, meta };
   const filePath = path.join(dir, `${name}.json`);
   await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8');
 }

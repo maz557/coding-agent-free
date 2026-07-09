@@ -57,14 +57,15 @@ async function ensureSessionsDir(): Promise<void> {
 async function saveSessionToDisk(id: string, s: SessionData): Promise<void> {
   s.meta.updatedAt = new Date().toISOString();
   await ensureSessionsDir();
+  const filteredMsgs = s.messages.filter(m => m.role !== 'tool');
   const meta = {
     name: s.meta.title,
     createdAt: s.meta.createdAt,
     updatedAt: s.meta.updatedAt,
-    messageCount: s.messages.length,
+    messageCount: filteredMsgs.length,
     modelPreset: { provider: s.modelConfig.provider, primary: s.modelConfig.primary, fallbacks: s.modelConfig.fallbacks, contextWindow: s.modelConfig.contextWindow },
   };
-  await fsp.writeFile(path.join(SESSIONS_DIR, `${id}.json`), JSON.stringify({ messages: s.messages, meta }, null, 2), 'utf-8');
+  await fsp.writeFile(path.join(SESSIONS_DIR, `${id}.json`), JSON.stringify({ messages: filteredMsgs, meta }, null, 2), 'utf-8');
 }
 
 async function deleteSessionFromDisk(id: string): Promise<void> {
@@ -224,7 +225,7 @@ app.get('/api/sessions', (_req, res) => {
       createdAt: s.meta.createdAt,
       updatedAt: s.meta.updatedAt,
       modelLabel: s.meta.modelLabel,
-      messageCount: s.messages.filter(m => m.role !== 'system').length,
+      messageCount: s.messages.filter(m => m.role !== 'system' && m.role !== 'tool').length,
     }));
   list.sort((a, b) => new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime());
   res.json(list);
@@ -234,7 +235,7 @@ app.get('/api/sessions/:sessionId', (req, res) => {
   const s = sessions.get(req.params.sessionId);
   if (!s) return res.status(404).json({ error: 'Session not found' });
   const msgs = s.messages
-    .filter(m => m.role !== 'system')
+    .filter(m => m.role !== 'system' && m.role !== 'tool')
     .map(m => ({
       role: m.role,
       content: m.content,
