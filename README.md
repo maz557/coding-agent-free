@@ -156,7 +156,9 @@ Configures **Cline**, **Continue.dev**, and **Cursor** to use the local API prox
 | `OLLAMA_HOST` | No | — | Ollama server URL (default: `http://localhost:11434/v1`) |
 | `LMSTUDIO_HOST` | No | — | LM Studio URL (default: `http://localhost:1234/v1`) |
 | `LLAMACPP_HOST` | No | — | Llama.cpp URL (default: `http://localhost:8080/v1`) |
-| `ALLOWED_DIR` | No | — | Directory for file operations (default: `./workspace`) |
+| `ALLOWED_DIR` | No | — | Write operations scope (default: `./workspace`) |
+| `READ_ALLOWED_DIR` | No | — | Read operations scope (default: `.` = everywhere) |
+| `SCRATCH_DIR` | No | — | Extra directory allowed for temp/file scratch (no default) |
 | `LOCAL_TIMEOUT` | No | Timeout (ms) for local models (default: `600000` = 10 min) |
 | `CLOUD_TIMEOUT` | No | Timeout (ms) for cloud models (default: `120000` = 2 min) |
 | `LOG_LEVEL` | No | — | `debug`, `info`, `warn`, `error` (default: `info`) |
@@ -178,7 +180,9 @@ All hardware/network settings go in `.env` (project root) — **this is the only
 | `OLLAMA_HOST` | `http://localhost:11434/v1` | Ollama server URL |
 | `LMSTUDIO_HOST` | `http://localhost:1234/v1` | LM Studio URL |
 | `LLAMACPP_HOST` | `http://localhost:8080/v1` | Llama.cpp URL |
-| `ALLOWED_DIR` | `./workspace` | Directory scope for file operations |
+| `ALLOWED_DIR` | `./workspace` | Write operations scope |
+| `READ_ALLOWED_DIR` | `.` (everywhere) | Read operations scope |
+| `SCRATCH_DIR` | — | Extra directory allowed for temp/scratch files |
 
 The timeout resets on each streaming token — it only fires when no data arrives for the full duration.
 
