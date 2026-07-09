@@ -141,28 +141,30 @@ Configures **Cline**, **Continue.dev**, and **Cursor** to use the local API prox
 
 ### Environment Variables
 
-| Variable | Required? | Description |
-|----------|-----------|-------------|
-| `OPENROUTER_API_KEY` | No* | OpenRouter — https://openrouter.ai/keys |
-| `GROQ_API_KEY` | No* | Groq — https://console.groq.com/keys |
-| `GOOGLE_API_KEY` | No* | Google AI Studio — https://aistudio.google.com/apikey |
-| `DEEPSEEK_API_KEY` | No* | DeepSeek — https://platform.deepseek.com |
-| `MISTRAL_API_KEY` | No* | Mistral — https://console.mistral.ai |
-| `ANTHROPIC_API_KEY` | No* | Anthropic — https://console.anthropic.com |
-| `TOGETHER_API_KEY` | No* | Together AI — https://api.together.xyz |
-| `PERPLEXITY_API_KEY` | No* | Perplexity — https://www.perplexity.ai |
-| `XAI_API_KEY` | No* | xAI (Grok) — https://console.x.ai |
-| `COHERE_API_KEY` | No* | Cohere — https://dashboard.cohere.com |
-| `OLLAMA_HOST` | No | Ollama server URL (default: `http://localhost:11434/v1`) |
-| `LMSTUDIO_HOST` | No | LM Studio URL (default: `http://localhost:1234/v1`) |
-| `LLAMACPP_HOST` | No | Llama.cpp URL (default: `http://localhost:8080/v1`) |
-| `ALLOWED_DIR` | No | Directory for file operations (default: `./workspace`) |
-| `LOCAL_TIMEOUT` | No | Timeout (ms) for local models (default: 300000) |
-| `LOG_LEVEL` | No | `debug`, `info`, `warn`, `error` (default: `info`) |
-| `MAX_EXCHANGES` | No | Max exchanges in sliding window (default: `20`) |
-| `MAX_TOOL_RESULT_LENGTH` | No | Max chars before truncation (default: `5000`) |
+| Variable | Required? | Free Tier | Description |
+|----------|-----------|-----------|-------------|
+| `OPENROUTER_API_KEY` | No* | 18+ free models, 1 key | https://openrouter.ai/keys |
+| `GROQ_API_KEY` | No* | 30 req/min on many models | https://console.groq.com/keys |
+| `GOOGLE_API_KEY` | No* | 60 req/min, generous free tier | https://aistudio.google.com/apikey |
+| `DEEPSEEK_API_KEY` | No* | Credit-based free tier | https://platform.deepseek.com |
+| `MISTRAL_API_KEY` | No* | Free tier available | https://console.mistral.ai |
+| `ANTHROPIC_API_KEY` | No* | Limited free tier | https://console.anthropic.com |
+| `TOGETHER_API_KEY` | No* | 25 free API calls/day | https://api.together.xyz/settings/api-keys |
+| `PERPLEXITY_API_KEY` | No* | $5 free credit | https://www.perplexity.ai/settings/api |
+| `XAI_API_KEY` | No* | Free tier (limited) | https://console.x.ai |
+| `COHERE_API_KEY` | No* | Free tier (1000 req/month) | https://dashboard.cohere.com/api-keys |
+| `OLLAMA_HOST` | No | — | Ollama server URL (default: `http://localhost:11434/v1`) |
+| `LMSTUDIO_HOST` | No | — | LM Studio URL (default: `http://localhost:1234/v1`) |
+| `LLAMACPP_HOST` | No | — | Llama.cpp URL (default: `http://localhost:8080/v1`) |
+| `ALLOWED_DIR` | No | — | Directory for file operations (default: `./workspace`) |
+| `LOCAL_TIMEOUT` | No | — | Timeout (ms) for local models (default: 300000) |
+| `LOG_LEVEL` | No | — | `debug`, `info`, `warn`, `error` (default: `info`) |
+| `MAX_EXCHANGES` | No | — | Max exchanges in sliding window (default: `20`) |
+| `MAX_TOOL_RESULT_LENGTH` | No | — | Max chars before truncation (default: `5000`) |
 
 \* At least one API key required (not needed for local providers).
+
+See [docs/GUIDE.md](docs/GUIDE.md#comprehensive-free-api-key-guide) for step-by-step key registration guides.
 
 ### Project Structure
 

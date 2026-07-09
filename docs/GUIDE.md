@@ -120,47 +120,171 @@ This downloads all required packages. You'll see a progress bar and a `node_modu
 
 ### Step 4: Get an API Key (Pick One)
 
-| Provider | Sign Up | Free Tier |
-|----------|---------|-----------|
-| **OpenRouter** (easiest) | https://openrouter.ai/keys | 18+ free models, single key |
-| **Groq** (fastest) | https://console.groq.com/keys | 30 req/min on many models |
-| **Google Gemini** | https://aistudio.google.com/apikey | 60 req/min, generous free tier |
-| **DeepSeek** | https://platform.deepseek.com | Credit-based free tier |
-| **Mistral** | https://console.mistral.ai | Free tier available |
+The agent supports **10 cloud providers** and **3 local model servers**. You only need **one API key** to get started — OpenRouter is the easiest.
 
-> 💡 **Recommendation**: Start with **OpenRouter** — one key gives you access to 18+ free tool-calling models. If Groq is available in your region, add that too for faster responses.
+#### Free Tier Comparison
 
-#### Direct Links to Get API Keys
+| Provider | Free Tier Limit | Best For |
+|----------|----------------|----------|
+| **OpenRouter** | 18+ free models, single key | Best all-rounder — start here |
+| **Groq** | 30 req/min on many models | Ultra-fast inference |
+| **Google Gemini** | 60 req/min, generous free | Strong coding + vision |
+| **DeepSeek** | Credit-based free tier | Good coding models |
+| **Mistral** | Free tier (500k tokens) | European provider, good quality |
+| **Anthropic** | Limited free trials | Claude models (reasoning) |
+| **Together AI** | 25 free API calls/day | Many open-source models |
+| **Perplexity** | $5 free credit | Search-augmented models |
+| **xAI (Grok)** | Limited free tier | Grok models |
+| **Cohere** | 1000 req/month free | Command R models |
 
-| Provider | Get Your Key | Environment Variable |
-|----------|-------------|---------------------|
-| **OpenRouter** | https://openrouter.ai/keys | `OPENROUTER_API_KEY` |
-| **Groq** | https://console.groq.com/keys | `GROQ_API_KEY` |
-| **Google Gemini** | https://aistudio.google.com/apikey | `GOOGLE_API_KEY` |
-| **DeepSeek** | https://platform.deepseek.com/api_keys | `DEEPSEEK_API_KEY` |
-| **Mistral** | https://console.mistral.ai/api-keys | `MISTRAL_API_KEY` |
-| **Anthropic** | https://console.anthropic.com/ | `ANTHROPIC_API_KEY` |
-| **Together AI** | https://api.together.xyz/settings/api-keys | `TOGETHER_API_KEY` |
-| **Perplexity** | https://www.perplexity.ai/settings/api | `PERPLEXITY_API_KEY` |
-| **xAI** | https://console.x.ai/ | `XAI_API_KEY` |
-| **Cohere** | https://dashboard.cohere.com/api-keys | `COHERE_API_KEY` |
+> 💡 **Recommendation**: Start with **OpenRouter** — one key gives you access to 18+ free tool-calling models. If you want faster responses, add **Groq** or **Google Gemini**.
+
+#### Comprehensive Free API Key Guide
+
+Each provider is a 2-minute registration. Pick the ones you want:
+
+<details open>
+<summary><strong>☁️ OpenRouter</strong> (easiest — 18+ free models)</summary>
+
+1. Go to https://openrouter.ai/keys
+2. Click **Sign up** (GitHub or email)
+3. Verify your email if needed
+4. Click **Create Key**
+5. Copy the key (starts with `sk-or-v1-`)
+6. Add to `.env`: `OPENROUTER_API_KEY=sk-or-v1-xxxxxxxxx`
+</details>
+
+<details>
+<summary><strong>⚡ Groq</strong> (fastest inference)</summary>
+
+1. Go to https://console.groq.com/keys
+2. Sign up with GitHub or Google
+3. Click **Create API Key**
+4. Give it a name (e.g., "coding-agent")
+5. Copy the key (starts with `gsk_`)
+6. Add to `.env`: `GROQ_API_KEY=gsk_xxxxxxxxx`
+</details>
+
+<details>
+<summary><strong>🔷 Google Gemini</strong> (generous free tier)</summary>
+
+1. Go to https://aistudio.google.com/apikey
+2. Sign in with your Google account
+3. Click **Get API Key** → **Create API key**
+4. Select an existing project or create new
+5. Copy the key (starts with `AIza`)
+6. Add to `.env`: `GOOGLE_API_KEY=AIzaxxxxxxxxx`
+</details>
+
+<details>
+<summary><strong>🐋 DeepSeek</strong> (credit-based)</summary>
+
+1. Go to https://platform.deepseek.com
+2. Sign up with email
+3. Go to https://platform.deepseek.com/api_keys
+4. Click **Create new API key**
+5. Copy the key (starts with `sk-`)
+6. Add to `.env`: `DEEPSEEK_API_KEY=sk-xxxxxxxxx`
+- 💡 New accounts get free credits (typically ¥5-10 CNY)
+</details>
+
+<details>
+<summary><strong>🌀 Mistral</strong> (European, good quality)</summary>
+
+1. Go to https://console.mistral.ai
+2. Sign up with email or Google
+3. Go to https://console.mistral.ai/api-keys
+4. Click **Create new key**
+5. Select **La Plateforme** project
+6. Copy the key and add to `.env`: `MISTRAL_API_KEY=xxxxxxxxx`
+- 💡 Free tier: 500k tokens/month (enough to start)
+</details>
+
+<details>
+<summary><strong>🧠 Anthropic</strong> (Claude models)</summary>
+
+1. Go to https://console.anthropic.com
+2. Sign up with email
+3. Go to **API Keys** section
+4. Click **Create Key**
+5. Copy the key (starts with `sk-ant-`)
+6. Add to `.env`: `ANTHROPIC_API_KEY=sk-ant-xxxxxxxxx`
+- 💡 Limited free trial available for new accounts
+</details>
+
+<details>
+<summary><strong>🤝 Together AI</strong> (many open-source models)</summary>
+
+1. Go to https://api.together.xyz/settings/api-keys
+2. Sign up with email or GitHub
+3. Click **Create API Key**
+4. Copy the key and add to `.env`: `TOGETHER_API_KEY=xxxxxxxxx`
+- 💡 Free tier: 25 API calls/day
+</details>
+
+<details>
+<summary><strong>🔍 Perplexity</strong> (search-augmented models)</summary>
+
+1. Go to https://www.perplexity.ai/settings/api
+2. Sign up for a Perplexity account
+3. Under **API Keys**, click **Generate**
+4. Copy the key and add to `.env`: `PERPLEXITY_API_KEY=xxxxxxxxx`
+- 💡 New accounts get $5 free credit
+</details>
+
+<details>
+<summary><strong>🤖 xAI (Grok)</strong></summary>
+
+1. Go to https://console.x.ai
+2. Sign up with email or X/Twitter account
+3. Go to **API Keys** section
+4. Click **Create API Key**
+5. Copy the key and add to `.env`: `XAI_API_KEY=xxxxxxxxx`
+- 💡 Limited free tier available
+</details>
+
+<details>
+<summary><strong>🌊 Cohere</strong> (Command R models)</summary>
+
+1. Go to https://dashboard.cohere.com/api-keys
+2. Sign up with email or Google
+3. Click **Create API Key**
+4. Copy the key (starts with `CO-`)
+5. Add to `.env`: `COHERE_API_KEY=CO-xxxxxxxxx`
+- 💡 Free tier: 1000 requests/month
+</details>
+
+#### Direct Links (Quick Reference)
+
+| Provider | Environment Variable | Get Your Key |
+|----------|---------------------|--------------|
+| **OpenRouter** | `OPENROUTER_API_KEY` | https://openrouter.ai/keys |
+| **Groq** | `GROQ_API_KEY` | https://console.groq.com/keys |
+| **Google Gemini** | `GOOGLE_API_KEY` | https://aistudio.google.com/apikey |
+| **DeepSeek** | `DEEPSEEK_API_KEY` | https://platform.deepseek.com/api_keys |
+| **Mistral** | `MISTRAL_API_KEY` | https://console.mistral.ai/api-keys |
+| **Anthropic** | `ANTHROPIC_API_KEY` | https://console.anthropic.com |
+| **Together AI** | `TOGETHER_API_KEY` | https://api.together.xyz/settings/api-keys |
+| **Perplexity** | `PERPLEXITY_API_KEY` | https://www.perplexity.ai/settings/api |
+| **xAI (Grok)** | `XAI_API_KEY` | https://console.x.ai |
+| **Cohere** | `COHERE_API_KEY` | https://dashboard.cohere.com/api-keys |
 
 #### Check Which Keys Are Active
 
-After creating your `.env` file (Step 5), you can check which keys are detected:
+After creating your `.env` file (Step 5), check which keys are detected:
 
 ```bash
 node -e "require('dotenv').config(); Object.entries({OPENROUTER_API_KEY:'OpenRouter',GROQ_API_KEY:'Groq',GOOGLE_API_KEY:'Google',DEEPSEEK_API_KEY:'DeepSeek',MISTRAL_API_KEY:'Mistral',ANTHROPIC_API_KEY:'Anthropic',TOGETHER_API_KEY:'Together',PERPLEXITY_API_KEY:'Perplexity',XAI_API_KEY:'xAI',COHERE_API_KEY:'Cohere'}).forEach(([env,name])=>console.log(process.env[env]?`  ✅ ${name} configured`:`  ❌ ${name} missing`))"
 ```
 
-You should see green checkmarks next to every provider you've configured. Missing ones show a red cross — just get that key from the link above and add it to `.env`:
+You should see green checkmarks next to every provider you've configured:
 
 ```
 OPENROUTER_API_KEY=sk-or-v1-xxxxxxxxx
 GROQ_API_KEY=gsk_yyyyyyyyy
 ```
 
-The agent will automatically use the best available key when you switch models with `/model <n>`.
+The agent will automatically use the best available key when you switch models with `/model <n>`. With **auto-routing** (`/model auto/coding`), it even detects which keys are available and skips providers with missing keys.
 
 ### Step 5: Run the Setup Wizard
 
