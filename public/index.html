@@ -578,6 +578,10 @@ async function handleCommand(msg) {
     addMessage('assistant', `📁 Path allowed: <code>${escapeHtml(p)}</code>`);
     return true;
   }
+  if (lower === '/help') {
+    toggleHelp(true);
+    return true;
+  }
   if (lower === '/tools') {
     try {
       const res = await fetch('/api/tools');
