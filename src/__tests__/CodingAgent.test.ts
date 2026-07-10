@@ -255,6 +255,31 @@ describe('CodingAgent', () => {
       assert(toolResult?.content?.includes('Invalid arguments'));
       assert(!result.error);
     });
+
+    it('should trigger self-reflection after 3 consecutive tool errors', async () => {
+      const client = makeClient();
+      let callCount = 0;
+      client.chat.completions.create.mock.mockImplementation(() => {
+        callCount++;
+        // Always return 2 read_file tool calls with empty args (will error: no path)
+        return mockStream([
+          mockChunk({
+            toolCalls: [
+              { index: 0, id: `call_${callCount}_a`, name: 'read_file', args: '{}' },
+              { index: 1, id: `call_${callCount}_b`, name: 'read_file', args: '{}' },
+            ],
+          }),
+          mockChunk({ finishReason: 'stop' }),
+        ]);
+      });
+      const agent = new CodingAgent(client, makeTools(), { provider: 'openrouter', primary: 'test-model', fallbacks: [] }, 'sys');
+      const result = await agent.execute('trigger errors');
+      const messages = agent.getConversationMessages();
+      const recoveryMsg = messages.find(m => m.role === 'system' && m.content.includes('[RECOVERY]'));
+      assert(recoveryMsg, 'Expected recovery message after 3 consecutive errors');
+      assert(recoveryMsg?.content?.includes('Tool "read_file" failed'));
+      assert(result.toolCallsCount <= 6); // should break early after recovery
+    });
   });
 
   describe('with fallbacks', () => {

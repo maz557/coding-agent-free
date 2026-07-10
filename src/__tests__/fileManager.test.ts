@@ -231,4 +231,18 @@ describe('fileManager tools', () => {
       assert(result.includes('Unknown tool'));
     });
   });
+
+  describe('run_tests', () => {
+    it('should return tool definition exists and can be called', async () => {
+      // run_tests should return a message even with no test framework
+      const result = await executeTool('run_tests', {});
+      assert(typeof result === 'string');
+      assert(result.length > 0);
+    });
+
+    it('should accept directory parameter', async () => {
+      const result = await executeTool('run_tests', { directory: testDir });
+      assert(typeof result === 'string');
+    });
+  });
 });

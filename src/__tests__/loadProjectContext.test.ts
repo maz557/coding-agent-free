@@ -4,7 +4,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
 
-const { loadProjectContext } = require('../loadProjectContext');
+const { loadProjectContext, generateProjectMap } = require('../loadProjectContext');
 
 async function tmpRoot(): Promise<string> {
   return await fs.mkdtemp(path.join(os.tmpdir(), 'ctx-'));
@@ -78,6 +78,43 @@ describe('loadProjectContext', () => {
     // Walking up 4 levels: deepDir, deepDir/parent, ..., reaches root after 5
     // Limit is 4, so it should NOT find it
     assert.equal(result, null);
+    await fs.rm(root, { recursive: true, force: true });
+  });
+});
+
+describe('generateProjectMap', () => {
+  it('should return null for empty directory', async () => {
+    const root = await tmpRoot();
+    const result = generateProjectMap(root);
+    assert.equal(result, null);
+    await fs.rm(root, { recursive: true, force: true });
+  });
+
+  it('should detect package.json and extract summary', async () => {
+    const root = await tmpRoot();
+    await fs.writeFile(path.join(root, 'package.json'), JSON.stringify({
+      name: 'test-project', version: '1.0.0',
+      scripts: { test: 'jest', build: 'tsc' },
+      dependencies: { express: '^4' },
+    }));
+    await fs.mkdir(path.join(root, 'src'), { recursive: true });
+    const result = generateProjectMap(root);
+    assert(result);
+    assert(result.includes('test-project'));
+    assert(result.includes('1.0.0'));
+    assert(result.includes('src'));
+    await fs.rm(root, { recursive: true, force: true });
+  });
+
+  it('should detect entry points and test directories', async () => {
+    const root = await tmpRoot();
+    await fs.mkdir(path.join(root, 'src'), { recursive: true });
+    await fs.writeFile(path.join(root, 'src', 'index.ts'), '// entry');
+    await fs.mkdir(path.join(root, 'tests'), { recursive: true });
+    const result = generateProjectMap(root);
+    assert(result);
+    assert(result.includes('src/index.ts'));
+    assert(result.includes('tests'));
     await fs.rm(root, { recursive: true, force: true });
   });
 });
