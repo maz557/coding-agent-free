@@ -1,6 +1,8 @@
 import * as fs from 'fs/promises';
 import * as fsSync from 'fs';
 import * as path from 'path';
+import * as https from 'https';
+import * as http from 'http';
 import * as dotenv from 'dotenv';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -126,6 +128,7 @@ interface MoveFileArgs { source: string; destination: string; }
 interface GitDiffArgs { target?: string; staged?: boolean; }
 interface GitCommitArgs { message: string; files?: string; }
 interface GitLogArgs { maxCount?: number; }
+interface WebSearchArgs { query: string; }
 
 export type ToolArguments = 
   | ReadFileArgs 
@@ -143,7 +146,8 @@ export type ToolArguments =
   | MoveFileArgs
   | GitDiffArgs
   | GitCommitArgs
-  | GitLogArgs;
+  | GitLogArgs
+  | WebSearchArgs;
 
 // --- 2. Workspace Manager Class (Encapsulation) ---
 class WorkspaceManager {
@@ -505,6 +509,98 @@ class WorkspaceManager {
       return msg.trim() || 'Command execution failed with no output.';
     }
   }
+
+  // --- Web Search ---
+  async webSearch(query: string): Promise<string> {
+    if (!query.trim()) return 'Error: query is required';
+
+    const engines = [
+      { name: 'DuckDuckGo', search: () => this.searchDuckDuckGo(query) },
+      { name: 'Bing', search: () => this.searchBing(query) },
+    ];
+
+    for (const engine of engines) {
+      try {
+        const results = await engine.search();
+        if (results.length > 0) {
+          return results.map((r, i) => `${i + 1}. ${r.title}\n   URL: ${r.url}\n   ${r.snippet}`).join('\n\n');
+        }
+      } catch {
+        continue;
+      }
+    }
+    return 'No results found (all search engines unreachable).';
+  }
+
+  private fetchURL(url: string, method: string = 'GET', body?: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const u = new URL(url);
+      const mod = u.protocol === 'https:' ? https : http;
+      const options: any = {
+        hostname: u.hostname,
+        path: u.pathname + u.search,
+        method,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+        timeout: 8000,
+      };
+      if (body) {
+        options.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+        options.headers['Content-Length'] = Buffer.byteLength(body);
+      }
+      const req = mod.request(options, (res) => {
+        let data = '';
+        res.on('data', (chunk) => (data += chunk));
+        res.on('end', () => resolve(data));
+      });
+      req.on('error', reject);
+      req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+      if (body) req.write(body);
+      req.end();
+    });
+  }
+
+  private parseDuckDuckGoResults(html: string): Array<{ title: string; url: string; snippet: string }> {
+    const results: Array<{ title: string; url: string; snippet: string }> = [];
+    const regex = /<h2[^>]*>[\s\S]*?<a[^>]*rel="nofollow"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>/gi;
+    let match;
+    while ((match = regex.exec(html)) !== null) {
+      let url = match[1].trim();
+      const uddg = url.match(/uddg=([^&]+)/);
+      if (uddg) url = decodeURIComponent(uddg[1]);
+      const title = match[2].replace(/<[^>]+>/g, '').trim();
+      const snippet = match[3].replace(/<[^>]+>/g, '').trim();
+      if (title || snippet) results.push({ title, url, snippet });
+      if (results.length >= 8) break;
+    }
+    return results;
+  }
+
+  private parseBingResults(html: string): Array<{ title: string; url: string; snippet: string }> {
+    const results: Array<{ title: string; url: string; snippet: string }> = [];
+    const regex = /<li class="b_algo"[^>]*>[\s\S]*?<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/gi;
+    let match;
+    while ((match = regex.exec(html)) !== null) {
+      const url = match[1].trim();
+      const title = match[2].replace(/<[^>]+>/g, '').trim();
+      const snippet = match[3].replace(/<[^>]+>/g, '').trim();
+      if (title || snippet) results.push({ title, url, snippet });
+      if (results.length >= 8) break;
+    }
+    return results;
+  }
+
+  private async searchDuckDuckGo(query: string): Promise<Array<{ title: string; url: string; snippet: string }>> {
+    const body = `q=${encodeURIComponent(query)}`;
+    const html = await this.fetchURL('https://html.duckduckgo.com/html/', 'POST', body);
+    return this.parseDuckDuckGoResults(html);
+  }
+
+  private async searchBing(query: string): Promise<Array<{ title: string; url: string; snippet: string }>> {
+    const html = await this.fetchURL(`https://www.bing.com/search?q=${encodeURIComponent(query)}`);
+    return this.parseBingResults(html);
+  }
 }
 
 // --- 3. Tool Definitions (Strictly Typed for OpenAI SDK) ---
@@ -747,6 +843,20 @@ export const tools = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'web_search',
+      description: 'Search the web for information. Tries DuckDuckGo first, falls back to Bing. Free, no API key needed. Returns up to 8 results with title, URL, and snippet.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'The search query.' },
+        },
+        required: ['query'],
+      },
+    },
+  },
 ];
 
 // --- 4. Instantiation & Executor Export ---
@@ -783,6 +893,7 @@ export async function executeTool(name: string, args: ToolArguments): Promise<st
     case 'git_diff':        result = await workspace.gitDiff(args as GitDiffArgs); break;
     case 'git_commit':      result = await workspace.gitCommit(args as GitCommitArgs); break;
     case 'git_log':         result = await workspace.gitLog(args as GitLogArgs); break;
+    case 'web_search':      result = await workspace.webSearch((args as WebSearchArgs).query); break;
     default:
       return `Error: Unknown tool "${name}"`;
   }

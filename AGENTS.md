@@ -1,4 +1,4 @@
-# Coding Agent Free v1.22.0
+# Coding Agent Free v1.23.0
 
 This is the Coding Agent Free project itself.
 
@@ -9,7 +9,7 @@ This is the Coding Agent Free project itself.
 - `src/CodingAgent.ts` — tool-call loop, stuck detection, streaming
 - `src/ConversationState.ts` — sliding window, token compression
 - `src/server.ts` — Express + SSE + OpenAI-compatible API + session management + diff events + disk persistence
-- `src/tools/fileManager.ts` — all 16 file/shell tools (including git_diff, git_commit, git_log)
+- `src/tools/fileManager.ts` — all 17 file/shell tools (including git_diff, git_commit, git_log, web_search)
 - `src/tools/toolRegistry.ts` — central tool registry combining builtin + MCP + LSP tools
 - `src/detectLocalModel.ts` — auto-detect local models (Ollama, LM Studio, llama.cpp)
 - `src/loadProjectContext.ts` — loads AGENTS.md / .coding-agent.md from project root
@@ -67,6 +67,10 @@ This is the Coding Agent Free project itself.
 - **Help modal**: keyboard shortcuts section added
 - **Keyboard shortcut**: Ctrl+Shift+C for copy session
 - **Conditional LSP prompt**: removed (not needed; `tools[]` is single source of truth)
+
+## v1.23.0 changes
+- **`web_search` built-in tool** — searches DuckDuckGo first, falls back to Bing. Free, no API key. Replaces duckduckgo-search MCP server.
+- **17 built-in tools** (was 16)
 
 ## v1.22.0 changes
 - **Git tools**: `git_diff`, `git_commit`, `git_log` built-in tools in fileManager.ts

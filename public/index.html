@@ -427,8 +427,18 @@ function updateMCPUI() {
   if (!btn || !statusEl) return;
   btn.style.color = mcpEnabled ? '#7ee787' : '#8b949e';
   btn.style.borderColor = mcpEnabled ? '#3fb950' : '#30363d';
-  statusEl.textContent = mcpEnabled ? 'ON' : 'OFF';
   statusEl.style.color = mcpEnabled ? '#7ee787' : '#484f58';
+  if (!mcpEnabled) {
+    statusEl.textContent = 'OFF';
+    return;
+  }
+  fetch('/api/mcp/status')
+    .then(r => r.json())
+    .then(data => {
+      const names = data.servers || [];
+      statusEl.textContent = names.length > 0 ? names.join(', ') : 'ON';
+    })
+    .catch(() => { statusEl.textContent = 'ON'; });
 }
 
 function updateLSPUI(langHint) {

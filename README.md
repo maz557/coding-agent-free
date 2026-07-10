@@ -50,7 +50,7 @@ An interactive AI coding assistant that runs in your **terminal** or **web brows
 - **Collapsible fallback errors** — failed fallback attempts shown as expandable ⚠️ N fallback(s) banner inside the assistant message
 - **User presets** — save/add/remove your own models with `/save`, `/add`, `/remove`
 - **Fallback chain** — auto-fallback across providers on rate limit (429), plus model-level fallbacks
-- **16 built-in tools** — read, write, list, create_folder, delete_file, delete_folder, append_file, copy_file, move_file, file_info, search_content, replace_in_file, run_command, git_diff, git_commit, git_log
+- **17 built-in tools** — read, write, list, create_folder, delete_file, delete_folder, append_file, copy_file, move_file, file_info, search_content, replace_in_file, run_command, git_diff, git_commit, git_log, web_search
 - **Token compression** — head+tail truncation + automatic duplicate removal
 - **Sliding window context** — keeps the last 20 exchanges, auto-trims (configurable)
 - **Smart loop detection** — stops after 3× identical or 5× consecutive tool calls

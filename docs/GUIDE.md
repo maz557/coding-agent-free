@@ -428,6 +428,7 @@ Tools are capabilities the AI can use. Think of them as **functions** the AI can
 | `git_diff` | Show working tree changes | "What changed?" |
 | `git_commit` | Stage and commit files | "Commit this" |
 | `git_log` | View commit history | "Show recent commits" |
+| `web_search` | Search the web (DuckDuckGo → Bing) | "Search for this topic" |
 
 ### Safe Mode
 
@@ -1150,16 +1151,26 @@ Your conversation continues from where you left off.
 
 ## Complex & Large Projects: Step-by-Step Guide
 
-This section is for when you're building something **serious** — not a calculator or todo app, but a real-world project with multiple modules, external dependencies, databases, and dozens of files. These strategies work for projects that take days or weeks to complete.
+This section is for when you're building something **serious** — not a calculator or todo app, but a real-world project with multiple modules, external dependencies, databases, and dozens of files.
+
+> **Before you start**: If you've never built a multi-file project before, try the [Example Projects](#example-projects) first (especially Project 5: Full-Stack Todo). Those teach you the basics. This guide assumes you know what a database, API, and frontend are, and just need help using the agent effectively.
 
 ### Why Complex Projects Need a Different Approach
 
 The agent is powerful, but it has limits:
-- **Context window**: The AI can only "see" about 128K tokens (~50K words) of conversation at once
-- **One-shot limits**: The agent can't design the entire architecture in a single response
-- **Stuck detection**: If you give too broad a task, the agent may loop or lose focus
+- **Context window**: The AI can only "see" about 128K tokens (~50K words) of conversation at once. After ~20 exchanges, it starts forgetting details from the beginning.
+- **One-shot limits**: The agent can't design the entire architecture in a single response — it needs step-by-step guidance.
+- **Stuck detection**: If you give too broad a task (like "build me a full e-commerce site"), the agent may loop endlessly making similar tool calls.
 
-For simple scripts, you can say "build a calculator" and get results. For a real project, you need to **scaffold, iterate, and verify** — just like a human developer.
+For simple scripts, you can say "build a calculator" and get results. For a real project, you need to **scaffold, iterate, and verify** — just like a human developer. A project that takes 3-4 days for a solo developer will take about the same time with the agent.
+
+### Three Golden Rules for Complex Projects
+
+Before reading the detailed steps, remember these three rules:
+
+1. **One thing at a time** — every prompt should ask for exactly one logical change. If you find yourself listing 5 things to do, split them into 5 separate messages.
+2. **Test after every step** — run the code after each change, not after 10 changes. If something breaks, you know exactly which change caused it.
+3. **Checkpoint often** — use `git_commit` or `/session rename` after each working milestone. If things go wrong, you can always go back.
 
 ---
 
@@ -1174,11 +1185,21 @@ npm start
 /session rename my-project-name
 ```
 
-Each major project gets its own session — this keeps context clean and lets you resume work later.
+Each major project gets its own session — this keeps context clean and lets you resume work later. If you don't name your session, it gets an auto-title from your first message.
 
-**Step 2: Define the architecture first**
+**Step 2: Plan on paper first**
 
-Prompt the agent to design the structure:
+Before talking to the agent, write down on a piece of paper:
+- What do I want to build? (one sentence)
+- What are the 3-5 main features?
+- What technology will I use? (language, framework, database)
+
+Example for a URL shortener:
+> "A web app where users paste a long URL and get a short link. Features: create short URL, redirect to original, view click count. Tech: Node.js + Express + SQLite."
+
+**Step 3: Ask the agent to design the structure**
+
+Now prompt the agent:
 
 ```
 I want to build a URL shortening service. Before writing code, help me plan:
@@ -1188,13 +1209,12 @@ I want to build a URL shortening service. Before writing code, help me plan:
 4. What's the order to build things in?
 ```
 
-The agent will suggest an architecture. **Review it** and adjust before proceeding.
+The agent will suggest an architecture. **Read it carefully** and adjust before proceeding. If you don't understand something the agent said, ask: "Explain what this part does in simple terms."
 
-**Step 3: Capture decisions in AGENTS.md**
+**Step 4: Capture decisions in AGENTS.md**
 
 The agent reads `AGENTS.md` from the project root at startup. Use this to store architectural decisions:
 
-Say:
 ```
 Create AGENTS.md in the project root with:
 - Project name and purpose
@@ -1203,15 +1223,23 @@ Create AGENTS.md in the project root with:
 - Build and run commands
 ```
 
-Now every time you start the agent in this project, it reads this file and knows the context.
+Now every time you start the agent in this project, it reads this file and knows the context — even after `/reset`.
 
-**Step 4: Create the folder structure**
+**Step 5: Create the folder structure**
 
 ```
 Create all the folders and empty placeholder files based on the structure we planned.
 ```
 
 This gives the agent a "map" of the project to work with.
+
+**Step 6: Save your first checkpoint**
+
+```
+Use git_commit to commit the empty project structure with message "Initial project scaffold"
+```
+
+Now you have a clean starting point. If things go wrong later, you can always return here.
 
 ---
 
@@ -1238,6 +1266,14 @@ Test it by inserting a record and querying it.
 ```
 
 **Why this works**: Each step is small enough for the agent to handle well. Each step can be tested immediately. Changes are isolated to one module.
+
+> **If the agent gets stuck**: If the agent starts reading files repeatedly or making the same tool call 3+ times, your task is probably too broad. Stop, type `/reset`, and give a more specific instruction.
+
+**Save a checkpoint after the foundation works:**
+
+```
+Everything is working. Use git_commit to commit with message "Foundation: database schema and API skeleton"
+```
 
 ---
 
@@ -1294,6 +1330,14 @@ Test again:
 curl -v http://localhost:3000/abc123
 ```
 
+**Step 5: Commit after each working feature**
+
+```
+git_commit with message "Add redirect endpoint"
+```
+
+This creates a save point you can return to if a later change breaks something.
+
 ---
 
 ### Phase 4: Integration & Testing
@@ -1332,63 +1376,134 @@ This uses `search_content` across your project — the agent will analyze all yo
 
 ---
 
+### Phase 5: What If Something Goes Wrong?
+
+This is the most important section for beginners. Things WILL go wrong — here's what to do.
+
+**Scenario 1: The agent breaks working code**
+
+```
+The redirect endpoint stopped working after you changed the database schema.
+Use git_log to see recent commits, then git_diff to see what changed.
+Fix the issue.
+```
+
+If you committed after each feature (as recommended), you can always recover.
+
+**Scenario 2: The agent is confused or looping**
+
+If the agent makes 3+ similar tool calls (e.g., reading the same file repeatedly):
+
+1. Type `/reset` to clear the conversation
+2. Re-read `AGENTS.md` context: "Read AGENTS.md and remind me of the project structure"
+3. Give a more specific instruction
+4. Switch to a smarter model: `/model 1`
+
+**Scenario 3: The output is nonsense or wrong**
+
+1. Check if the model is appropriate for the task. Switch to `/model 1` (deepseek) for reasoning-heavy tasks.
+2. Be more specific about WHAT you want and WHY.
+3. If the model keeps making the same mistake, include the fix in your prompt: "Don't use `var`, use `const` or `let`."
+4. Use `git_diff` before and after to review changes before accepting them.
+
+**Scenario 4: You want to undo everything and start fresh**
+
+```bash
+# If you committed checkpoints:
+git log --oneline              # Find the commit you want to go back to
+git reset --hard <commit-hash> # Go back to that point
+
+# If you didn't commit but have session backups:
+# Switch back to the previous session
+/session switch my-project-v1
+
+# Or create a completely new project from scratch
+/session new my-project-redo
+```
+
+**Scenario 5: The agent runs a command you didn't expect**
+
+Always read what the agent is doing before accepting changes. In the Web UI, tool calls are expanded by default so you can see every action. If the agent tries something dangerous:
+- Type `/safe` to enable safe mode (restricts commands to a whitelist)
+- The agent will ask for permission before running non-whitelisted commands
+
+---
+
 ### Strategies for Success
 
 #### 1. Use separate sessions per project
 
-Treat each project as its own session. The agent supports named sessions with disk persistence:
+Treat each project as its own session:
 
 - **CLI**: `/session new my-project`, `/session list`, `/session rename`, `/session delete`
-- **Web UI**: Click "Sessions" panel → New / switch / rename (✏️) / delete
+- **Web UI**: Sessions panel → New / switch / rename (✏️) / export (💾) / import (📥) / delete (❌)
 
-Sessions are saved to `sessions/{uuid}.json` and survive server restarts. This keeps each project's context clean, prevents cross-project confusion, and lets you pick up exactly where you left off.
+Sessions are saved to disk and survive server restarts. This keeps each project's context clean and lets you pick up exactly where you left off.
 
-> **Tip**: Name your session after the project (e.g., "e-commerce backend") so you can quickly switch between multiple projects. Empty sessions (no user messages) are automatically filtered from the list.
+> **Tip**: Name your session after the project so you can quickly switch between multiple projects. Unused sessions (no messages) are automatically removed.
 
-#### 2. Keep context windows manageable
+#### 2. Pick the right model
 
-After 15–20 exchanges in a feature conversation, the agent's context gets crowded. When you start a new feature:
+You don't need to learn all 5-10 models. For a complex project, just remember three:
+
+| When | Model | Command |
+|------|-------|---------|
+| Planning, debugging hard problems | deepseek (smartest) | `/model 1` |
+| Writing code, adding features | qwen (fast & good) | `/model 4` |
+| Quick edits, frontend tweaks | qwen-fast (fastest) | `/model 2` |
+
+Use `/model <n>` to switch mid-session. For example: plan with deepseek, code with qwen, debug with deepseek.
+
+> **Model strategy for beginners**: Start each feature with `/model 4` (qwen). If the agent struggles, switch to `/model 1` (deepseek). If the agent is too slow, switch to `/model 2` (qwen-fast). That's all you need to know.
+
+#### 3. Keep context windows manageable
+
+After 15–20 exchanges, the agent starts forgetting early details. When you start a new feature:
 
 ```
 /reset
 ```
 
-This clears the conversation but the AGENTS.md file still provides project context on restart.
+This clears the conversation but `AGENTS.md` still provides project context on restart.
 
-> **Tip**: After `/reset`, remind the agent of your current task: "We're building a URL shortener. Next feature: add click tracking to each shortened URL."
+> **Tip**: After `/reset`, remind the agent: "We're building a URL shortener. Next feature: add click tracking."
 
-#### 2. Pick the right model for the job
+#### 4. Use git checkpointing (you now have git tools!)
 
-| Task | Recommended Model | Why |
-|------|------------------|-----|
-| Architecture & planning | `/model 1` (deepseek) | Large context, good reasoning |
-| Simple CRUD code | `/model 4` (qwen) or `/model 5` (gemini) | Fast, good quality |
-| Debugging tricky bugs | `/model 3` (qwen-32k) or `/model 1` (deepseek) | Better analysis |
-| Quick edits & refactoring | `/model 2` (qwen-fast) | Fastest response |
-| Large refactoring | `/model 3` (qwen-32k) | 32K context fits more files |
-| Learning / exploration | Any model — no wrong choice | Experiment and learn |
+The agent has three dedicated git tools. Use them for safety:
 
-Use `/model <n>` to switch mid-session. For example: plan with deepseek, code with qwen-fast, debug with deepseek.
+| Tool | When to use |
+|------|------------|
+| `git_diff` | Before accepting changes — review what the agent is about to do |
+| `git_commit` | After each working feature — create a save point |
+| `git_log` | When something breaks — see what changed and when |
 
-> **Model strategy for complex projects**: Don't use one model for everything.
-> - **Morning (planning/design)**: deepseek — think through the hard problems when you're fresh
-> - **Midday (implementation)**: qwen-fast — crank out CRUD code quickly
-> - **Afternoon (debugging)**: deepseek or gemini — solve the bugs that emerged during implementation
-> - **Code review**: qwen-32k — load larger context for cross-file analysis
+**Good habit**: After every feature that works, say: "Commit this with message 'Add X feature'". If a later change breaks something, you can always go back.
 
-#### 3. Use LSP for deep code intelligence
+#### 5. Use LSP for code understanding
 
-The agent provides 5 LSP-powered tools for deep code understanding (toggle with `/lsp`):
+The agent can analyze your code semantically (not just text search):
 
-| Tool | Description |
+| Tool | What it does |
 |------|-------------|
-| `code_definition` | Find where a symbol is defined (file:line:column) |
-| `code_references` | Find all references to a symbol across the project |
-| `code_hover` | Get type signature, documentation, and inline hints |
-| `lookup_symbol` | Search for symbols by name (e.g., "find all classes named `User*`") |
-| `get_diagnostics` | Get live errors/warnings for a file (like a linter on demand) |
+| `code_definition` | "Where is this function defined?" |
+| `code_references` | "Where is this function used?" |
+| `code_hover` | "What does this function expect?" |
+| `get_diagnostics` | "Are there errors in this file?" |
 
-This goes beyond simple text search — LSP understands the **semantics** of your code, so "find references" finds real usages, not just string matches. For example:
+Enable with `/lsp` and install LSP servers for your languages:
+
+```bash
+# For JavaScript/TypeScript
+npm install -g typescript-language-server
+
+# For Python
+pip install pyright
+
+# For other languages, see the Configuration Reference table below
+```
+
+Then use it naturally:
 
 ```
 Find all places where the authenticate() function is called.
@@ -1397,223 +1512,44 @@ Show me the definition of the User model.
 Are there any errors in src/main.ts?
 ```
 
-The agent supports **multi-language LSP** — it auto-detects the language of each file and routes queries to the correct server. A polyglot project might have:
-- **Python** backend (Django/FastAPI)
-- **TypeScript/JavaScript** frontend (React, Vue)
-- **SQL** for database queries
-- **Rust** or **Go** for performance-critical microservices
-- **Ruby** for scripting or legacy code
-- **C/C++** for native modules
+> **Windows note**: If you see "LSP server exited" errors, the server may not be installed or PATH needs a refresh. Run the install command in a fresh terminal.
 
-The agent auto-detects the language for each file and routes LSP queries to the correct server:
+#### 6. Connect MCP servers for external tools
 
-```
-/lsp
-```
-
-Install the LSP servers you need:
-
-```bash
-# Python backend
-pip install pyright
-
-# TypeScript/JS frontend
-npm install -g typescript-language-server
-
-# SQL queries
-npm install -g sql-language-server
-
-# Rust microservices
-rustup component add rust-analyzer
-
-# Go services
-go install golang.org/x/tools/gopls@latest
-
-# Ruby scripts
-gem install solargraph
-
-# Lua configs
-brew install lua-language-server   # macOS
-winget install LuaLanguageServer   # Windows
-apt install lua-language-server    # Linux
-```
-
-Now the agent can navigate your entire polyglot project:
-
-```
-Find all references to the User model across Python backend, TypeScript frontend, and SQL schema.
-```
-
-```
-Show me the definition of "authenticate" — I need to see how it's implemented in the Python API vs how it's called in the JS client.
-```
-
-```
-What does the function "calculateFee" expect as input? Check across all languages.
-```
-
-The agent parses file extensions and calls the right LSP server automatically. If a server isn't installed for a language, the agent falls back to file search (`search_content`) instead.
-
-> **Windows note**: LSP servers installed via npm global packages use `.cmd` wrappers. The agent handles this automatically on Windows, but if you see "LSP server exited" errors, the server may not be installed or may need a PATH refresh. Run `npm install -g typescript-language-server` in a new terminal.
-
-#### 4. Connect multiple MCP servers for external tool access
-
-MCP (Model Context Protocol) is one of the project's most powerful features. It lets the agent use external tools — databases, APIs, filesystem, web search, GitHub, and custom tools — directly within your conversation. MCP servers connect via stdio (subprocess) or HTTP/SSE (remote), and their tools appear automatically alongside built-in tools.
-
-**What you can do with MCP:**
-- Query a PostgreSQL database directly: `Find all users who signed up in the last 24 hours`
-- Manage GitHub: `Create a PR with these changes`
-- Search the web: `Find the latest documentation for React 19`
-- Control a browser: `Take a screenshot of the homepage`
-
-**Typical MCP setup for a complex project:**
-
-```json
-{
-  "mcpServers": {
-    "database": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-postgres", "postgresql://user:pass@localhost/db"]
-    },
-    "filesystem": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/project"]
-    },
-    "search": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-web-search"]
-    },
-    "github": {
-      "command": "npx",
-      "args": ["-y", "@modelcontextprotocol/server-github"],
-      "env": {
-        "GITHUB_TOKEN": "ghp_..."
-      }
-    }
-  }
-}
-```
-
-Put this in `.coding-agent.json` at your project root. The agent loads it on startup.
-
-**What each server enables:**
-
-| MCP Server | The agent can now... | Example prompt |
-|-----------|---------------------|----------------|
-| **database** | Query your live database directly | "Show me all users who registered in the last 7 days" |
-| **filesystem** | Access any file on disk (outside the project) | "Read the server config from /etc/app/config.json" |
-| **search** | Search the web | "Find the latest FastAPI documentation for dependency injection" |
-| **github** | Manage repos, issues, PRs | "Create a PR with these changes and tag @reviewer" |
-| **custom** | Anything you can script | "Deploy the latest build to staging" |
-
-**Build your own MCP server** for project-specific needs:
-
-Write a simple script that reads JSON-RPC from stdin and writes responses to stdout:
-
-```javascript
-// mcp-servers/deploy.js
-const readline = require('readline');
-const rl = readline.createInterface({ input: process.stdin });
-rl.on('line', (line) => {
-  const msg = JSON.parse(line);
-  if (msg.method === 'tools/list') {
-    process.stdout.write(JSON.stringify({
-      jsonrpc: '2.0', id: msg.id,
-      result: {
-        tools: [{
-          name: 'deploy_staging',
-          description: 'Deploy the current branch to staging server',
-          inputSchema: {
-            type: 'object',
-            properties: { branch: { type: 'string' } },
-            required: ['branch'],
-          },
-        }],
-      },
-    }) + '\n');
-  }
-});
-// ... handle tools/call
-```
-
-Then register it in `.coding-agent.json`:
-
-```json
-{
-  "mcpServers": {
-    "deploy": { "command": "node", "args": ["mcp-servers/deploy.js"] }
-  }
-}
-```
-
-**Multi-MCP workflow example:**
+MCP lets the agent use external tools like databases, GitHub, and web search. This is advanced — only use it when you need it:
 
 ```
 /mcp list                    # See connected servers
 /mcp toggle database         # Enable database access
-/mcp toggle search           # Enable web search too
 ```
 
 Then:
 
 ```
-Query the database for recent orders, search the web for the latest shipping API docs, then write an integration script for the new API.
+Query the database for recent orders.
 ```
 
-The agent orchestrates multiple MCP tools in sequence — query DB → get results → search docs → write code → optionally create a GitHub PR via the github MCP server.
+MCP servers are configured in `.coding-agent.json`. See the Example Projects section for MCP setup tutorials.
 
-#### 5. Cross-cutting concerns in polyglot projects
-
-When you have multiple languages, some tasks cross boundaries. The agent handles these naturally:
-
-**Shared data model changes:**
-```
-I changed the User model in the Python backend — it now has a "phone" field.
-Update the TypeScript types, the SQL schema migration, and the validation in the frontend form.
-```
-
-**End-to-end feature across languages:**
-```
-Add a "forgot password" feature:
-1. Python backend: new POST /auth/forgot-password endpoint
-2. SQL: add reset_token and reset_expires columns to users table
-3. JavaScript frontend: forgot password form + reset password page
-4. MCP: send the reset email via the SMTP MCP server
-```
-
-The agent reads files by extension, routes LSP queries per language, calls MCP servers, and integrates results — all in one conversation.
-
-#### 6. Save checkpoints
+#### 7. Save checkpoints with sessions
 
 ```
 Before making this big change, let's save the current state:
-1. /session rename url-shortener-v1
-2. I'll create a new session for the refactoring
+/session rename my-project-v1
 ```
 
-Then when you start the refactoring:
+Then start the refactoring in a new session:
 
 ```
 /session new
-/session rename url-shortener-v2-with-analytics
+/session rename my-project-v2-with-analytics
 ```
 
-If the refactoring goes wrong, you can always switch back:
+If the refactoring goes wrong, switch back:
 
 ```
-/session switch url-shortener-v1
+/session switch my-project-v1
 ```
-
-#### 7. Break work into atomic tasks
-
-Each prompt should ask for **exactly one logical change**. Signs your task is too big:
-
-- The agent takes longer than 30 seconds to respond
-- The agent writes 5+ files in one response
-- The agent says "Let me do X, then Y, then Z" (too much planning)
-- The result has multiple bugs that are hard to isolate
-
-Fix: split your request into smaller pieces.
 
 ---
 
@@ -1629,42 +1565,40 @@ Fix: split your request into smaller pieces.
 - Use specific filenames: "Read src/utils/urlValidator.ts and tell me..." (refreshes the agent's memory of that file)
 - `/session new` for each major feature
 
-#### Stuck Detection False Positives
+#### Stuck Detection (Agent Looping)
 
-**Problem**: If the agent makes 3 similar tool calls in a row (e.g., `read_file` 3 times to understand a problem), it may trigger stuck detection and force a `/reset`.
+**Problem**: If the agent makes 3 similar tool calls in a row (e.g., reading the same file 3 times), it may force a reset.
 
 **Workarounds**:
 - Give more context in your prompt so the agent doesn't need to explore
-- If stuck detection triggers, the agent auto-recovers and asks you to rephrase
+- If it happens, the agent auto-recovers and asks you to rephrase
 - Use `/safe` mode to disable stuck detection (not recommended long-term)
 
 #### Token Consumption
 
-**Problem**: Each exchange costs tokens (even if the model is "free"). Long conversations with large file reads consume your rate limit.
+**Problem**: Each exchange costs tokens. Long conversations with large file reads consume your rate limit.
 
 **Workarounds**:
 - Read only the relevant parts of files, not entire large files
 - Use `/model 2` (qwen-fast) for quick iterations, switch to smarter models only when needed
-- Keep file contents small when asking the agent to review them
-- Use `grep` / `search_content` instead of reading entire files
+- Use `search_content` instead of reading entire files
+- Keep file contents small when asking the agent to review
 
 #### Model Capability Differences
 
-**Problem**: Some models handle complex reasoning well; others are better at simple tasks. Using the wrong model wastes time.
+**Problem**: Some models handle complex reasoning well; others are better at simple tasks.
 
 **Workarounds**:
 - Switch models mid-session with `/model <n>`
-- Default preset (5 models) covers most scenarios
-- Add custom presets if you need a specific model: `/add 6 openrouter/qwen-2.5-coder-32b-instruct`
+- Memory aid: deepseek = smart & slow, qwen = balanced, qwen-fast = quick & simple
 
 #### Rate Limits on Free Tiers
 
-**Problem**: Free APIs (OpenRouter, Google) enforce rate limits. You might get "429 Rate limited" after heavy use.
+**Problem**: Free APIs enforce rate limits. You might get "429 Rate limited" after heavy use.
 
 **Workarounds**:
 - Wait 30–60 seconds and retry
 - Switch providers: `/model 1` → deepseek, `/model 5` → google
-- Use local models (see [Configuration](#configuration))
 - The agent retries automatically up to 3 times with backoff
 
 ---
@@ -1680,45 +1614,48 @@ You: I want to build a personal finance tracker web app.
 You: Help me plan the architecture...
 You: Create AGENTS.md with our decisions.
 You: Create the folder structure.
+git_commit: "Initial project scaffold"
 
 # Day 2 — Database & Backend
 /reset (new context for today's work)
 You: We're building the finance tracker (AGENTS.md has details).
-         Step 1: Create SQLite schema for transactions.
-         Step 2: Create the Express API with CRUD endpoints.
-         Step 3: Test each endpoint with curl.
+     Step 1: Create SQLite schema for transactions.
+     Step 2: Create the Express API with CRUD endpoints.
+     Step 3: Test each endpoint with curl.
+git_commit: "Database schema and API endpoints"
 
-# Day 3 — Frontend (same session or new)
+# Day 3 — Frontend
 /reset
 You: Continuing the finance tracker from AGENTS.md.
-         Step 1: Create the React app structure.
-         Step 2: Build the transaction list component.
+     Step 1: Create the React app structure.
+     Step 2: Build the transaction list component.
 /model 4 (switch to qwen for faster frontend work)
 You: Step 3: Build the "Add Transaction" form.
-         Step 4: Connect to the API.
+     Step 4: Connect to the API.
+git_commit: "Frontend with transaction form"
 
 # Day 3 — Debugging
 /model 1 (switch to deepseek for hard problem)
-You: The form submits but the data doesn't persist after page refresh.
-         Check the API response and database flow. Fix the issue.
+You: The form submits but data doesn't persist after page refresh.
+     Check the API response and database flow. Fix the issue.
 
 # Day 4 — Polish
 /reset
 /model 2 (switch to fast model for small changes)
-You: Add input validation to the transaction form.
-         - Amount must be a positive number
-         - Description is required, max 200 chars
-         - Date defaults to today
+You: Add input validation:
+     - Amount must be positive number
+     - Description is required, max 200 chars
+     - Date defaults to today
 /session rename finance-tracker-v1 (checkpoint)
 
-# Done! Later, for v2:
+# Done! Later for v2:
 /session new
 /session rename finance-tracker-v2
-You: Build on the existing finance tracker (read AGENTS.md).
-         Add category analytics with charts.
+You: Build on the existing tracker (read AGENTS.md).
+     Add category analytics with charts.
 ```
 
-This workflow takes 3–4 days of real work with an agent — about the same as a solo human developer for the same project. The key difference: you're **directing** the work, not typing the code.
+This workflow takes 3-4 days of real work — about the same as a solo human developer. The key difference: you're **directing** the work, not typing the code.
 
 ---
 

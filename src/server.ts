@@ -443,7 +443,7 @@ app.get('/api/mcp', (_req, res) => {
 });
 
 app.get('/api/mcp/status', (_req, res) => {
-  res.json({ enabled: isMCPEnabled() });
+  res.json({ enabled: isMCPEnabled(), servers: mcpManager.getServerNames() });
 });
 
 app.post('/api/mcp/toggle', (_req, res) => {
