@@ -129,6 +129,7 @@ interface GitDiffArgs { target?: string; staged?: boolean; }
 interface GitCommitArgs { message: string; files?: string; }
 interface GitLogArgs { maxCount?: number; }
 interface WebSearchArgs { query: string; }
+interface RunTestsArgs { directory?: string; }
 
 export type ToolArguments = 
   | ReadFileArgs 
@@ -147,7 +148,8 @@ export type ToolArguments =
   | GitDiffArgs
   | GitCommitArgs
   | GitLogArgs
-  | WebSearchArgs;
+  | WebSearchArgs
+  | RunTestsArgs;
 
 // --- 2. Workspace Manager Class (Encapsulation) ---
 class WorkspaceManager {
@@ -619,6 +621,52 @@ class WorkspaceManager {
       snippet: item.snippet || '',
     }));
   }
+
+  // --- Test Runner ---
+  async runTests(directory?: string): Promise<string> {
+    const dir = directory || '.';
+    const hasPackageJson = fsSync.existsSync(path.join(dir, 'package.json'));
+    const hasPytestCfg = fsSync.existsSync(path.join(dir, 'pytest.ini')) || fsSync.existsSync(path.join(dir, 'pyproject.toml')) || fsSync.existsSync(path.join(dir, 'setup.cfg'));
+
+    if (hasPackageJson) {
+      const pkg = JSON.parse(fsSync.readFileSync(path.join(dir, 'package.json'), 'utf-8'));
+      const scripts = pkg.scripts || {};
+      if (scripts.test) {
+        return this.runTestCommand('npm test', dir);
+      }
+      if (scripts['test:unit']) {
+        return this.runTestCommand('npm run test:unit', dir);
+      }
+      if (scripts.unit) {
+        return this.runTestCommand('npm run unit', dir);
+      }
+    }
+
+    if (hasPytestCfg) {
+      return this.runTestCommand('python -m pytest', dir);
+    }
+
+    if (hasPackageJson) {
+      return this.runTestCommand('npx jest --passWithNoTests', dir);
+    }
+
+    return 'No test framework detected. Known test files: package.json scripts, pytest config.';
+  }
+
+  private async runTestCommand(cmd: string, cwd: string): Promise<string> {
+    try {
+      const { stdout, stderr } = await this.execShell(cmd, 120000);
+      let result = '';
+      if (stdout) result += stdout.slice(0, 3000);
+      if (stderr) result += '\n[STDERR]:\n' + stderr.slice(0, 1000);
+      return result.trim() || '(no output)';
+    } catch (err: any) {
+      let msg = `[Tests Failed] Exit code: ${err.code || 'unknown'}\n`;
+      if (err.stdout) msg += err.stdout.slice(0, 3000) + '\n';
+      if (err.stderr) msg += '[STDERR]:\n' + err.stderr.slice(0, 1000);
+      return msg.trim() || 'Tests failed with no output.';
+    }
+  }
 }
 
 // --- 3. Tool Definitions (Strictly Typed for OpenAI SDK) ---
@@ -875,6 +923,20 @@ export const tools = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'run_tests',
+      description: 'Detects the test framework (npm test, pytest, jest) in the project directory and runs the tests. Use this after writing code to verify it works.',
+      parameters: {
+        type: 'object',
+        properties: {
+          directory: { type: 'string', description: 'Optional directory to run tests in (defaults to current).' },
+        },
+        required: [],
+      },
+    },
+  },
 ];
 
 // --- 4. Instantiation & Executor Export ---
@@ -912,6 +974,7 @@ export async function executeTool(name: string, args: ToolArguments): Promise<st
     case 'git_commit':      result = await workspace.gitCommit(args as GitCommitArgs); break;
     case 'git_log':         result = await workspace.gitLog(args as GitLogArgs); break;
     case 'web_search':      result = await workspace.webSearch((args as WebSearchArgs).query); break;
+    case 'run_tests':       result = await workspace.runTests((args as RunTestsArgs).directory); break;
     default:
       return `Error: Unknown tool "${name}"`;
   }

@@ -15,7 +15,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as fsp from 'fs/promises';
 import { v4 as uuidv4 } from 'uuid';
-import { loadProjectContext } from './loadProjectContext';
+import { loadProjectContext, generateProjectMap } from './loadProjectContext';
 import { ChatMessage } from './types';
 
 dotenv.config();
@@ -201,13 +201,19 @@ const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
 app.use(express.static(PUBLIC_DIR));
 
+function buildSystemPrompt(): string {
+  const parts: string[] = [];
+  const pc = loadProjectContext();
+  const pm = generateProjectMap();
+  if (pc) parts.push(pc);
+  if (pm) parts.push(pm);
+  return parts.length > 0 ? `${SYSTEM_PROMPT}\n\n${parts.join('\n\n')}` : SYSTEM_PROMPT;
+}
+
 app.post('/api/session', (req, res) => {
   const id = uuidv4();
   const modelConfig = { ...FIXED_PRESETS['1'] };
-  const projectContext = loadProjectContext();
-  const systemContent = projectContext
-    ? `${SYSTEM_PROMPT}\n\n${projectContext}`
-    : SYSTEM_PROMPT;
+  const systemContent = buildSystemPrompt();
   const provName = PROVIDERS[modelConfig.provider]?.name || modelConfig.provider;
   const sessionObj: SessionData = {
     client: createClient(modelConfig.provider),
@@ -392,10 +398,7 @@ app.post('/api/sessions/import', express.text({ type: 'application/json', limit:
     const id = uuidv4();
     const modelConfig = data.modelConfig || { ...FIXED_PRESETS['1'] };
     const provName = PROVIDERS[modelConfig.provider]?.name || modelConfig.provider;
-    const projectContext = loadProjectContext();
-    const systemContent = projectContext
-      ? `${SYSTEM_PROMPT}\n\n${projectContext}`
-      : SYSTEM_PROMPT;
+    const systemContent = buildSystemPrompt();
     const sessionObj: SessionData = {
       client: createClient(modelConfig.provider),
       modelConfig,

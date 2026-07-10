@@ -1,4 +1,4 @@
-# Coding Agent Free v1.23.0
+# Coding Agent Free v1.24.0
 
 This is the Coding Agent Free project itself.
 
@@ -9,10 +9,10 @@ This is the Coding Agent Free project itself.
 - `src/CodingAgent.ts` — tool-call loop, stuck detection, streaming
 - `src/ConversationState.ts` — sliding window, token compression
 - `src/server.ts` — Express + SSE + OpenAI-compatible API + session management + diff events + disk persistence
-- `src/tools/fileManager.ts` — all 17 file/shell tools (including git_diff, git_commit, git_log, web_search)
+- `src/tools/fileManager.ts` — all 18 file/shell tools (including git_diff, git_commit, git_log, web_search, run_tests)
 - `src/tools/toolRegistry.ts` — central tool registry combining builtin + MCP + LSP tools
 - `src/detectLocalModel.ts` — auto-detect local models (Ollama, LM Studio, llama.cpp)
-- `src/loadProjectContext.ts` — loads AGENTS.md / .coding-agent.md from project root
+- `src/loadProjectContext.ts` — loads AGENTS.md / .coding-agent.md + auto-generates Project Map (config files, dirs, entry points)
 - `src/mcp/` — MCP support (types, StdioTransport, HTTPTransport, MCPManager, config loader)
 - `src/lsp/` — LSP support (LSPClient, LSPManager, tool definitions: code_definition/references/hover/lookup_symbol/get_diagnostics)
 - `src/persistence.ts` — multi-session persistence (sessions/ dir, auto-title, modelPreset)
@@ -68,8 +68,20 @@ This is the Coding Agent Free project itself.
 - **Keyboard shortcut**: Ctrl+Shift+C for copy session
 - **Conditional LSP prompt**: removed (not needed; `tools[]` is single source of truth)
 
+## v1.24.0 changes
+- **`run_tests` built-in tool** — auto-detects test framework and runs tests
+- **Self-Reflection** — CodingAgent retries failed tool calls with error feedback
+- **System prompt**: models instructed to run tests after writing code; step-by-step reasoning framework
+- **Project Map** — auto-scans project structure (config files, source dirs, entry points, test dirs) and injects as context
+- **18 built-in tools** (was 17)
+
 ## v1.23.0 changes
-- **`web_search` built-in tool** — searches DuckDuckGo first, falls back to Bing. Free, no API key. Replaces duckduckgo-search MCP server.
+- **`web_search` built-in tool** — searches DuckDuckGo first, falls back to Bing, then Google (if configured). Free, no API key.
+- **`/tools` command** — lists all available tools directly without contacting the model
+- **`/help` command** — opens help modal directly (no model involvement)
+- **MCP status in UI** — shows connected server names (like LSP shows languages)
+- **System prompt**: models told to use `tools[]` directly, not read source files
+- **Google Custom Search** — optional final fallback for web_search (requires GOOGLE_SEARCH_API_KEY + GOOGLE_SEARCH_CX)
 - **17 built-in tools** (was 16)
 
 ## v1.22.0 changes

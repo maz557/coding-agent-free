@@ -169,6 +169,7 @@ export class CodingAgent {
     let depth = 0;
     let usedModel = this.modelConfig.primary;
     let totalToolCalls = 0;
+    const toolErrorCount = new Map<string, number>();
 
     while (depth < this.MAX_DEPTH) {
       depth++;
@@ -273,6 +274,17 @@ export class CodingAgent {
           } catch (err: any) {
             const msg = err?.message || 'Unknown tool error';
             console.log(`  ❌ Tool Error: ${msg}`);
+            const errCount = (toolErrorCount.get(functionName) || 0) + 1;
+            toolErrorCount.set(functionName, errCount);
+            if (errCount >= 3) {
+              this.conversation = this.conversation
+                .removeLastAssistantTurn()
+                .addSystemMessage(
+                  `[RECOVERY] Tool "${functionName}" failed ${errCount} consecutive times with error: ${msg}. ` +
+                  `The last assistant turn has been undone. Think carefully about what went wrong and try a COMPLETELY DIFFERENT approach.`
+                );
+              break;
+            }
             this.conversation = this.conversation.addToolResult(toolCall.id, `Error executing tool: ${msg}`, functionName);
           }
         }

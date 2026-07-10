@@ -23,7 +23,7 @@ import { getAllPresets, showModels } from './commands';
 import { estimateTotalTokens } from './tokenEstimator';
 import { OpenAITool } from './types';
 import { detectLocalModel } from './detectLocalModel';
-import { loadProjectContext } from './loadProjectContext';
+import { loadProjectContext, generateProjectMap } from './loadProjectContext';
 
 dotenv.config();
 
@@ -183,11 +183,19 @@ async function startChat() {
 
   const typedTools = getAllTools() as OpenAITool[];
   const projectContext = loadProjectContext();
-  const systemPrompt = projectContext
-    ? `${SYSTEM_PROMPT}\n\n${projectContext}`
-    : SYSTEM_PROMPT;
+  const projectMap = generateProjectMap();
+  let systemPrompt = SYSTEM_PROMPT;
+  const contextParts: string[] = [];
   if (projectContext) {
+    contextParts.push(projectContext);
     console.log(`  📄 Project context loaded (AGENTS.md)\n`);
+  }
+  if (projectMap) {
+    contextParts.push(projectMap);
+    console.log(`  🗺️  Project map generated\n`);
+  }
+  if (contextParts.length > 0) {
+    systemPrompt = `${SYSTEM_PROMPT}\n\n${contextParts.join('\n\n')}`;
   }
 
   let agent = new CodingAgent(client, typedTools, activeModelConfig, systemPrompt, savedMessages ?? undefined);
