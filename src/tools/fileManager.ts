@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { DockerSandbox } from './dockerSandbox';
 
 const execAsync = promisify(exec);
 
@@ -149,6 +150,7 @@ class WorkspaceManager {
   private writeDir: string;
   private readDir: string;
   private extraAllowedPaths: string[] = [];
+  private sandbox: DockerSandbox;
 
   constructor() {
     this.writeDir = path.resolve(process.env.ALLOWED_DIR || './workspace');
@@ -160,6 +162,11 @@ class WorkspaceManager {
         this.extraAllowedPaths.push(resolved);
       }
     }
+    this.sandbox = new DockerSandbox({
+      enabled: process.env.DOCKER_SANDBOX_ENABLED === 'true',
+      image: process.env.DOCKER_IMAGE || 'ubuntu:22.04',
+      workspaceDir: this.writeDir,
+    });
   }
 
   setAllowedDir(dir: string): void {
@@ -438,11 +445,18 @@ class WorkspaceManager {
     }
   }
 
+  private async execShell(command: string, timeout?: number): Promise<{ stdout: string; stderr: string }> {
+    if (this.sandbox.enabled) {
+      return this.sandbox.exec(command, timeout);
+    }
+    return execAsync(command, { cwd: this.writeDir, timeout, maxBuffer: 10 * 1024 * 1024 });
+  }
+
   async gitDiff(args: GitDiffArgs): Promise<string> {
     try {
       const staged = args.staged ? '--staged' : '';
       const target = args.target ? ` -- "${args.target}"` : '';
-      const { stdout, stderr } = await execAsync(`git diff ${staged}${target}`, { cwd: this.writeDir });
+      const { stdout, stderr } = await this.execShell(`git diff ${staged}${target}`);
       return (stdout + (stderr ? '\n[STDERR]:\n' + stderr : '')).trim() || '(no diff)';
     } catch (err: any) {
       return `Error: ${err.message}`;
@@ -452,8 +466,8 @@ class WorkspaceManager {
   async gitCommit(args: GitCommitArgs): Promise<string> {
     try {
       const files = (args.files || '.').trim();
-      const { stdout: addOut } = await execAsync(`git add ${files}`, { cwd: this.writeDir });
-      const { stdout, stderr } = await execAsync(`git commit -m "${args.message.replace(/"/g, '\\"')}"`, { cwd: this.writeDir });
+      const { stdout: addOut } = await this.execShell(`git add ${files}`);
+      const { stdout, stderr } = await this.execShell(`git commit -m "${args.message.replace(/"/g, '\\"')}"`);
       return ((addOut || '') + '\n' + stdout + (stderr ? '\n[STDERR]:\n' + stderr : '')).trim();
     } catch (err: any) {
       return `Error: ${err.message}`;
@@ -463,7 +477,7 @@ class WorkspaceManager {
   async gitLog(args: GitLogArgs): Promise<string> {
     try {
       const n = args.maxCount || 10;
-      const { stdout, stderr } = await execAsync(`git log --oneline -${n}`, { cwd: this.writeDir });
+      const { stdout, stderr } = await this.execShell(`git log --oneline -${n}`);
       return (stdout + (stderr ? '\n[STDERR]:\n' + stderr : '')).trim() || '(no commits)';
     } catch (err: any) {
       return `Error: ${err.message}`;
@@ -479,18 +493,12 @@ class WorkspaceManager {
       throw new DangerousCommandError(args.command);
     }
     try {
-      const { stdout, stderr } = await execAsync(args.command, { 
-        cwd: this.writeDir, 
-        timeout,
-        maxBuffer: 10 * 1024 * 1024 // Increase buffer to 10MB for large outputs
-      });
-      
+      const { stdout, stderr } = await this.execShell(args.command, timeout);
       let result = '';
       if (stdout) result += stdout;
       if (stderr) result += '\n[STDERR]:\n' + stderr;
       return result.trim() || '(no output)';
     } catch (err: any) {
-      // Even if the command fails (e.g., syntax error in python), we return it as text for the LLM to read
       let msg = `[Command Failed] Exit code: ${err.code || 'unknown'}\n`;
       if (err.stdout) msg += err.stdout + '\n';
       if (err.stderr) msg += '[STDERR]:\n' + err.stderr;
