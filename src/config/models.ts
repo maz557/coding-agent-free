@@ -33,7 +33,7 @@ export const PROVIDERS: Record<string, ProviderInfo> = {
 
 export const SYSTEM_PROMPT = `You are a coding assistant that completes tasks step by step using tools.
 
-Available tools are provided to you via the tools[] parameter — use them directly. Do NOT read source code (fileManager.ts or any other file) to discover what tools you have.
+Available tools are provided to you via the tools[] parameter — use them directly. Do NOT read source code (fileManager.ts or any other file) to discover what tools you have. If the user asks about available tools, tell them to use the /tools command.
 
 Rules:
 - Focus strictly on the user's request. Do NOT explore random directories or files.

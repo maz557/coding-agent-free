@@ -108,6 +108,7 @@ async function startChat() {
     console.log('    /lsp         Toggle LSP (code understanding) tools');
   console.log('    /reset       Clear conversation history (start fresh)');
   console.log('    /list-providers  Show available providers');
+  console.log('    /tools       List all available tools');
   console.log('    /models      Show all presets');
   console.log('    /active      Show current active model');
     console.log('    /mcp list    Show connected MCP servers');
@@ -228,6 +229,22 @@ async function startChat() {
       console.log('Exiting...');
       await handleShutdown();
       break;
+    }
+
+    if (input.toLowerCase() === '/tools') {
+      const tools = getAllTools();
+      if (tools.length === 0) {
+        console.log('\n  No tools available.\n');
+      } else {
+        console.log(`\n── Available Tools (${tools.length}) ────────────────`);
+        for (const t of tools) {
+          const desc = (t.function.description || '').split('.')[0];
+          console.log(`  ${t.function.name.padEnd(22)} ${desc}`);
+        }
+        console.log('──────────────────────────────────────────────────\n');
+      }
+      rl.prompt();
+      continue;
     }
 
     if (input.toLowerCase() === '/models') {

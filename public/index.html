@@ -162,7 +162,7 @@
   <div id="session-list"></div>
   <input type="file" id="import-file-input" accept=".json" style="display:none">
 </div>
-<div id="chat"><div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands"><span>/model 1</span><span>/safe</span><span>/reset</span><span>/active</span><span>/models</span><span>/help</span></div></div></div>
+<div id="chat"><div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands"><span>/model 1</span><span>/safe</span><span>/tools</span><span>/reset</span><span>/active</span><span>/help</span></div></div></div>
 <div id="toast-container"></div>
 <button id="auto-scroll-btn" title="Auto-scroll">⬇</button>
 <div id="status">Ready</div>
@@ -249,6 +249,7 @@
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/allow &lt;path&gt;</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Grant path access</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/reset</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Clear conversation history</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/active</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Show current active model</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/tools</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">List all available tools</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/models</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">List all available presets</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/help</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Open this help panel</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/session list</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">List all sessions</td></tr>
@@ -575,6 +576,23 @@ async function handleCommand(msg) {
       body: JSON.stringify({ path: p }),
     });
     addMessage('assistant', `📁 Path allowed: <code>${escapeHtml(p)}</code>`);
+    return true;
+  }
+  if (lower === '/tools') {
+    try {
+      const res = await fetch('/api/tools');
+      const data = await res.json();
+      if (data.tools && data.tools.length > 0) {
+        let text = `🛠 Available Tools (${data.count}):<br><table style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">`;
+        for (const t of data.tools) {
+          text += `<tr><td style="padding:2px 8px;border-bottom:1px solid #21262d;font-family:monospace;white-space:nowrap">${escapeHtml(t.name)}</td><td style="padding:2px 8px;border-bottom:1px solid #21262d;color:#8b949e">${escapeHtml(t.description)}</td></tr>`;
+        }
+        text += '</table>';
+        addMessage('assistant', text);
+      } else {
+        addMessage('assistant', 'No tools available.');
+      }
+    } catch { addMessage('error', '⚠️ Failed to list tools'); }
     return true;
   }
   if (lower === '/mcp list') {

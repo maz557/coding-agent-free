@@ -434,6 +434,14 @@ app.post('/api/allow', (req, res) => {
   res.json({ allowedPath: allowPath });
 });
 
+app.get('/api/tools', (_req, res) => {
+  const tools = getAllTools().map(t => ({
+    name: t.function.name,
+    description: t.function.description?.split('.')[0] || '',
+  }));
+  res.json({ tools, count: tools.length });
+});
+
 app.get('/api/mcp', (_req, res) => {
   const servers = mcpManager.getServerNames().map(name => ({
     name,
