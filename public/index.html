@@ -191,6 +191,18 @@
     </ul>
     <p>Supported providers: OpenRouter, Google, Groq, DeepSeek, Mistral, Ollama, LM Studio, Llama.cpp</p>
 
+    <h3 style="color:#58a6ff;font-size:15px;margin:16px 0 8px">Git Tools</h3>
+    <p>The agent has dedicated Git tools for version control operations:</p>
+    <ul style="padding-left:20px;margin:4px 0">
+      <li><code>git_diff</code> — show staged/unstaged changes in the working tree</li>
+      <li><code>git_commit</code> — stage files and commit with a message</li>
+      <li><code>git_log</code> — view recent commit history</li>
+    </ul>
+    <p>These tools replace raw <code>git</code> shell commands for common workflows.</p>
+
+    <h3 style="color:#58a6ff;font-size:15px;margin:16px 0 8px">Docker Sandbox</h3>
+    <p>Optionally run commands inside an isolated Docker container. Enable via <code>DOCKER_SANDBOX_ENABLED=true</code> in <code>.env</code>. All <code>run_command</code>, <code>git_diff</code>, <code>git_commit</code>, and <code>git_log</code> calls execute inside the container. Configurable image via <code>DOCKER_IMAGE</code> (default <code>ubuntu:22.04</code>).</p>
+
     <h3 style="color:#58a6ff;font-size:15px;margin:16px 0 8px">Header Buttons</h3>
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;color:#ffa657">🛡️</td><td style="padding:4px 8px;border-bottom:1px solid #21262d"><strong>Safe mode</strong> — restricts shell commands to a whitelist. ON = green, OFF = yellow</td></tr>
@@ -225,6 +237,8 @@
       <li>Tool calls start expanded so you can see what the agent is doing</li>
       <li>Test artifacts go to a scratch directory (<code>SCRATCH_DIR</code>) and are cleaned up automatically</li>
       <li>Sessions with test-like titles (e.g. <code>update test.txt</code>) are hidden from the session list</li>
+      <li><strong>Export/Import</strong> — use 💾 (per session) or 📥 (panel header) to backup and restore sessions</li>
+      <li><strong>Docker Sandbox</strong> — set <code>DOCKER_SANDBOX_ENABLED=true</code> in <code>.env</code> for isolated command execution</li>
     </ul>
 
     <h3 style="color:#58a6ff;font-size:15px;margin:16px 0 8px">Slash Commands (Chat Input)</h3>
