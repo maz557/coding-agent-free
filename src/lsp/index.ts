@@ -69,7 +69,7 @@ export const lspToolDefinitions = [
     type: 'function' as const,
     function: {
       name: 'code_get_diagnostics',
-      description: 'Get TypeScript/JavaScript errors and warnings for a given file. Use this after editing code to check for type errors, missing imports, etc.',
+      description: 'Get errors and warnings for a given file (works with any configured LSP language server: TypeScript, Python, etc.). Use this after editing code to check for type errors, missing imports, etc.',
       parameters: {
         type: 'object',
         properties: {
