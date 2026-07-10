@@ -368,6 +368,54 @@ app.delete('/api/sessions/:sessionId', async (req, res) => {
   res.json({ status: 'ok' });
 });
 
+app.get('/api/sessions/:sessionId/export', (req, res) => {
+  const s = sessions.get(req.params.sessionId);
+  if (!s) return res.status(404).json({ error: 'Session not found' });
+  const data = {
+    title: s.meta.title,
+    createdAt: s.meta.createdAt,
+    updatedAt: s.meta.updatedAt,
+    modelLabel: s.meta.modelLabel,
+    modelConfig: s.modelConfig,
+    messages: s.messages.filter(m => m.role !== 'system' && m.role !== 'tool'),
+  };
+  res.setHeader('Content-Disposition', `attachment; filename="session-${req.params.sessionId}.json"`);
+  res.json(data);
+});
+
+app.post('/api/sessions/import', express.text({ type: 'application/json', limit: '10mb' }), (req, res) => {
+  try {
+    const data = JSON.parse(req.body);
+    if (!data.messages || !Array.isArray(data.messages)) {
+      return res.status(400).json({ error: 'Invalid session file: missing messages array' });
+    }
+    const id = uuidv4();
+    const modelConfig = data.modelConfig || { ...FIXED_PRESETS['1'] };
+    const provName = PROVIDERS[modelConfig.provider]?.name || modelConfig.provider;
+    const projectContext = loadProjectContext();
+    const systemContent = projectContext
+      ? `${SYSTEM_PROMPT}\n\n${projectContext}`
+      : SYSTEM_PROMPT;
+    const sessionObj: SessionData = {
+      client: createClient(modelConfig.provider),
+      modelConfig,
+      messages: [{ role: 'system', content: systemContent }, ...data.messages],
+      meta: {
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        title: data.title || `Imported ${new Date().toLocaleString()}`,
+        modelLabel: data.modelLabel || `${PROVIDERS[modelConfig.provider]?.name || modelConfig.provider} — ${modelConfig.primary}`,
+        firstUserMessage: '',
+      },
+    };
+    sessions.set(id, sessionObj);
+    saveSessionToDisk(id, sessionObj).catch(() => {});
+    res.json({ sessionId: id });
+  } catch (err: any) {
+    res.status(400).json({ error: `Invalid session file: ${err.message}` });
+  }
+});
+
 app.get('/api/safe-mode', (_req, res) => {
   res.json({ enabled: isSafeModeEnabled() });
 });

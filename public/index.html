@@ -158,8 +158,9 @@
 </div>
 <div id="session-overlay"></div>
 <div id="session-panel" class="hidden">
-  <h2>📋 Sessions <button id="new-session-btn">+ New</button><button id="clear-sessions-btn" style="background:#21262d;color:#f85149;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:4px" title="Delete all sessions">🗑️ All</button><button id="copy-session-btn" style="background:#21262d;color:#8b949e;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:4px" title="Copy current session">📄 Copy</button></h2>
+  <h2>📋 Sessions <button id="new-session-btn">+ New</button><button id="import-session-btn" style="background:#21262d;color:#8b949e;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:4px" title="Import session">📥</button><button id="clear-sessions-btn" style="background:#21262d;color:#f85149;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:4px" title="Delete all sessions">🗑️ All</button><button id="copy-session-btn" style="background:#21262d;color:#8b949e;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:4px" title="Copy current session">📄 Copy</button></h2>
   <div id="session-list"></div>
+  <input type="file" id="import-file-input" accept=".json" style="display:none">
 </div>
 <div id="chat"><div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands"><span>/model 1</span><span>/safe</span><span>/reset</span><span>/active</span><span>/models</span><span>/help</span></div></div></div>
 <div id="toast-container"></div>
@@ -883,14 +884,14 @@ async function refreshSessionList() {
       const model = escapeHtml(s.modelLabel || '');
       const time = new Date(s.updatedAt || s.createdAt).toLocaleString();
       html += `<div class="session-item${active}" data-id="${s.id}">
-        <div class="s-title">${title} <span class="s-rename" title="Rename">✏️</span> <span class="s-delete" title="Delete session">❌</span></div>
+        <div class="s-title">${title} <span class="s-rename" title="Rename">✏️</span> <span class="s-export" title="Export session">💾</span> <span class="s-delete" title="Delete session">❌</span></div>
         <div class="s-meta"><span class="s-model">${model}</span><span>${s.messageCount} msgs</span><span>${time}</span></div>
       </div>`;
     }
     sessionListEl.innerHTML = html || '<div style="padding:16px;color:#8b949e;font-size:13px">No sessions</div>';
     sessionListEl.querySelectorAll('.session-item').forEach(el => {
       el.addEventListener('click', (e) => {
-        if (e.target.classList.contains('s-rename') || e.target.classList.contains('s-delete')) return;
+        if (e.target.classList.contains('s-rename') || e.target.classList.contains('s-delete') || e.target.classList.contains('s-export')) return;
         switchToSession(el.dataset.id);
       });
     });
@@ -933,8 +934,52 @@ async function refreshSessionList() {
         } catch {}
       });
     });
+    sessionListEl.querySelectorAll('.s-export').forEach(el => {
+      el.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const item = el.closest('.session-item');
+        if (!item) return;
+        const id = item.dataset.id;
+        try {
+          const res = await fetch(`/api/sessions/${id}/export`);
+          if (!res.ok) return;
+          const blob = await res.blob();
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `session-${id}.json`;
+          a.click();
+          URL.revokeObjectURL(url);
+        } catch {}
+      });
+    });
   } catch {}
 }
+
+document.getElementById('import-file-input')?.addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const res = await fetch('/api/sessions/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: text });
+    if (res.ok) {
+      const data = await res.json();
+      showToast('Session imported');
+      refreshSessionList();
+      switchToSession(data.sessionId);
+    } else {
+      const err = await res.json();
+      showToast('Import failed: ' + (err.error || 'unknown error'));
+    }
+  } catch (err) {
+    showToast('Import failed: ' + err.message);
+  }
+  e.target.value = '';
+});
+
+document.getElementById('import-session-btn')?.addEventListener('click', () => {
+  document.getElementById('import-file-input')?.click();
+});
 
 async function switchToSession(id) {
   if (id === sessionId) return;
