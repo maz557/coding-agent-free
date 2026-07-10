@@ -425,6 +425,9 @@ Tools are capabilities the AI can use. Think of them as **functions** the AI can
 | `search_content` | Find text in files | "Search for this text" |
 | `replace_in_file` | Replace specific text | "Find and replace" |
 | `run_command` | Run a shell command | "Run this command" |
+| `git_diff` | Show working tree changes | "What changed?" |
+| `git_commit` | Stage and commit files | "Commit this" |
+| `git_log` | View commit history | "Show recent commits" |
 
 ### Safe Mode
 
@@ -435,6 +438,10 @@ When **safe mode** is on (`[🔒 Safe]`), the agent can only run commands from a
 - `mkdir`, `cp`, `mv`, `rm`, `touch`
 
 Toggle with `/safe` or start with `npm start -- --safe`.
+
+### Docker Sandbox
+
+For stronger isolation, set `DOCKER_SANDBOX_ENABLED=true` in `.env`. All `run_command`, `git_diff`, `git_commit`, and `git_log` calls execute inside a disposable Docker container instead of directly on the host. Configure the image via `DOCKER_IMAGE` (default `ubuntu:22.04`).
 
 ### Model Presets
 
@@ -458,6 +465,8 @@ Your conversation is automatically saved in the `sessions/` folder. Each session
 - The full message history
 
 Commands: `/session list`, `/session new my-project`, `/session rename old new`, `/session delete name`
+
+Sessions can be **exported** (💾 per session) as JSON files and **imported** (📥 panel header) for backup or sharing. Test-like titles (e.g. `update test.txt`) are hidden from the session list. Sessions with zero user messages are not saved.
 
 ### Project Files
 
@@ -1725,7 +1734,8 @@ This workflow takes 3–4 days of real work with an agent — about the same as 
 | **Install MCP server** | Terminal | `npm install -g @modelcontextprotocol/server-<name>` |
 | **Install LSP server** | Terminal | `npm install -g typescript-language-server` (JS/TS), `pip install pyright` (Python), `gem install solargraph` (Ruby), `brew install lua-language-server` (Lua), `apt install clangd` (C/C++) |
 | **Environment variables** | `.env` (project root) | `OPENROUTER_API_KEY=sk-or-v1-...` (one line per key) |
-| **Session persistence** | `sessions/` directory | Auto-saved. List: `/session list`, Switch: `/session switch <name>`, Rename: `/session rename <name>` |
+| **Docker sandbox** | `.env` (project root) | `DOCKER_SANDBOX_ENABLED=true` and `DOCKER_IMAGE=ubuntu:22.04`
+| **Session persistence** | `sessions/` directory | Auto-saved. List: `/session list`, Switch: `/session switch <name>`, Rename: `/session rename <name>`, Delete: `/session delete <name>`, Export: 💾 (web), Import: 📥 (web) |
 
 #### Model Selection Guide
 
@@ -1812,7 +1822,7 @@ Open http://localhost:3000 in your browser.
 
 1. **Streaming**: Responses appear token-by-token as the AI generates them
 2. **Diff Viewer**: When files are written/edited, click the tool call to see line-level diffs (green = added, red = removed)
-3. **Session Manager**: Click "Sessions" to create, switch, rename, or delete sessions. Persisted to disk — survives server restart. Empty sessions (no messages) are filtered from the list
+3. **Session Manager**: Click "Sessions" to create, switch, rename (✏️), export (💾), delete (❌), or import (📥) sessions. Persisted to disk — survives server restart. Empty sessions and test-like titles are filtered from the list
 4. **Settings Panel** (⚙️): Adjust font size, toggle compact mode, enable auto-scroll. Settings persisted in localStorage
 5. **Keyboard Shortcuts**:
    - `Ctrl+N` — New session
