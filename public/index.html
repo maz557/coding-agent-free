@@ -162,7 +162,7 @@
   <div id="session-list"></div>
   <input type="file" id="import-file-input" accept=".json" style="display:none">
 </div>
-<div id="chat"><div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands"><span>/model 1</span><span>/safe</span><span>/tools</span><span>/reset</span><span>/active</span><span>/help</span></div></div></div>
+<div id="chat"><div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands" dir="ltr"><span>/model 1</span><span>/safe</span><span>/tools</span><span>/reset</span><span>/active</span><span>/help</span></div></div></div>
 <div id="toast-container"></div>
 <button id="auto-scroll-btn" title="Auto-scroll">⬇</button>
 <div id="status">Ready</div>
@@ -969,7 +969,7 @@ async function refreshSessionList() {
           if (res.ok) {
             if (id === sessionId) {
               sessionId = '';
-              chat.innerHTML = '<div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands"><span>/model 1</span><span>/safe</span><span>/reset</span><span>/active</span><span>/models</span><span>/help</span></div></div>';
+              chat.innerHTML = '<div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands" dir="ltr"><span>/model 1</span><span>/safe</span><span>/tools</span><span>/reset</span><span>/active</span><span>/help</span></div></div>';
             }
             refreshSessionList();
           }
@@ -1284,7 +1284,7 @@ document.getElementById('clear-sessions-btn').addEventListener('click', async ()
     const res = await fetch('/api/sessions', { method: 'DELETE' });
     if (res.ok) {
       sessionId = '';
-      chat.innerHTML = '<div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands"><span>/model 1</span><span>/safe</span><span>/reset</span><span>/active</span><span>/models</span><span>/help</span></div></div>';
+      chat.innerHTML = '<div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands" dir="ltr"><span>/model 1</span><span>/safe</span><span>/tools</span><span>/reset</span><span>/active</span><span>/help</span></div></div>';
       await refreshSessionList();
     }
   } catch {}
