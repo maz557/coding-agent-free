@@ -122,6 +122,9 @@ interface RunCommandArgs { command: string; timeout?: number; }
 interface AppendFileArgs { path: string; content: string; }
 interface CopyFileArgs { source: string; destination: string; }
 interface MoveFileArgs { source: string; destination: string; }
+interface GitDiffArgs { target?: string; staged?: boolean; }
+interface GitCommitArgs { message: string; files?: string; }
+interface GitLogArgs { maxCount?: number; }
 
 export type ToolArguments = 
   | ReadFileArgs 
@@ -136,7 +139,10 @@ export type ToolArguments =
   | RunCommandArgs
   | AppendFileArgs
   | CopyFileArgs
-  | MoveFileArgs;
+  | MoveFileArgs
+  | GitDiffArgs
+  | GitCommitArgs
+  | GitLogArgs;
 
 // --- 2. Workspace Manager Class (Encapsulation) ---
 class WorkspaceManager {
@@ -432,6 +438,38 @@ class WorkspaceManager {
     }
   }
 
+  async gitDiff(args: GitDiffArgs): Promise<string> {
+    try {
+      const staged = args.staged ? '--staged' : '';
+      const target = args.target ? ` -- "${args.target}"` : '';
+      const { stdout, stderr } = await execAsync(`git diff ${staged}${target}`, { cwd: this.writeDir });
+      return (stdout + (stderr ? '\n[STDERR]:\n' + stderr : '')).trim() || '(no diff)';
+    } catch (err: any) {
+      return `Error: ${err.message}`;
+    }
+  }
+
+  async gitCommit(args: GitCommitArgs): Promise<string> {
+    try {
+      const files = (args.files || '.').trim();
+      const { stdout: addOut } = await execAsync(`git add ${files}`, { cwd: this.writeDir });
+      const { stdout, stderr } = await execAsync(`git commit -m "${args.message.replace(/"/g, '\\"')}"`, { cwd: this.writeDir });
+      return ((addOut || '') + '\n' + stdout + (stderr ? '\n[STDERR]:\n' + stderr : '')).trim();
+    } catch (err: any) {
+      return `Error: ${err.message}`;
+    }
+  }
+
+  async gitLog(args: GitLogArgs): Promise<string> {
+    try {
+      const n = args.maxCount || 10;
+      const { stdout, stderr } = await execAsync(`git log --oneline -${n}`, { cwd: this.writeDir });
+      return (stdout + (stderr ? '\n[STDERR]:\n' + stderr : '')).trim() || '(no commits)';
+    } catch (err: any) {
+      return `Error: ${err.message}`;
+    }
+  }
+
   async runCommand(args: RunCommandArgs): Promise<string> {
     if (safeModeEnabled && !isCommandWhitelisted(args.command)) {
       return `[Safe Mode] Command not in whitelist: ${args.command}\nAllowed commands: ls, cat, grep, node, npm, python, git status/log/diff, npx tsc, and similar safe operations.`;
@@ -657,6 +695,50 @@ export const tools = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'git_diff',
+      description: 'Shows unstaged working tree changes. Use staged:true to see staged changes, or target to filter by file path.',
+      parameters: {
+        type: 'object',
+        properties: {
+          target: { type: 'string', description: 'Optional file or path to limit the diff to.' },
+          staged: { type: 'boolean', description: 'If true, show staged (index) changes instead of unstaged.' },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'git_commit',
+      description: 'Adds files to the staging area and commits them with a message. Uses `git add` + `git commit`.',
+      parameters: {
+        type: 'object',
+        properties: {
+          message: { type: 'string', description: 'Commit message.' },
+          files: { type: 'string', description: 'Files to add (space-separated). Defaults to "." (all changes).' },
+        },
+        required: ['message'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'git_log',
+      description: 'Shows recent commit history (--oneline format).',
+      parameters: {
+        type: 'object',
+        properties: {
+          maxCount: { type: 'number', description: 'Maximum number of commits to show (default 10).' },
+        },
+        required: [],
+      },
+    },
+  },
 ];
 
 // --- 4. Instantiation & Executor Export ---
@@ -690,6 +772,9 @@ export async function executeTool(name: string, args: ToolArguments): Promise<st
     case 'copy_file':       result = await workspace.copyFile(args as CopyFileArgs); break;
     case 'move_file':       result = await workspace.moveFile(args as MoveFileArgs); break;
     case 'run_command':     result = await workspace.runCommand(args as RunCommandArgs); break;
+    case 'git_diff':        result = await workspace.gitDiff(args as GitDiffArgs); break;
+    case 'git_commit':      result = await workspace.gitCommit(args as GitCommitArgs); break;
+    case 'git_log':         result = await workspace.gitLog(args as GitLogArgs); break;
     default:
       return `Error: Unknown tool "${name}"`;
   }
