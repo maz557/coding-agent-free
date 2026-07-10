@@ -1,4 +1,4 @@
-# Coding Agent Free v1.19.0
+# Coding Agent Free v1.22.0
 
 This is the Coding Agent Free project itself.
 
@@ -9,7 +9,7 @@ This is the Coding Agent Free project itself.
 - `src/CodingAgent.ts` — tool-call loop, stuck detection, streaming
 - `src/ConversationState.ts` — sliding window, token compression
 - `src/server.ts` — Express + SSE + OpenAI-compatible API + session management + diff events + disk persistence
-- `src/tools/fileManager.ts` — all 13 file/shell tools
+- `src/tools/fileManager.ts` — all 16 file/shell tools (including git_diff, git_commit, git_log)
 - `src/tools/toolRegistry.ts` — central tool registry combining builtin + MCP + LSP tools
 - `src/detectLocalModel.ts` — auto-detect local models (Ollama, LM Studio, llama.cpp)
 - `src/loadProjectContext.ts` — loads AGENTS.md / .coding-agent.md from project root
@@ -21,7 +21,7 @@ This is the Coding Agent Free project itself.
 
 ## Web UI features (public/index.html)
 - **Diff viewer** — line-level diffs (LCS) for write_file, replace_in_file, append_file
-- **Session manager** — create/switch/list sessions with auto-title, metadata, rename (✏️), disk persistence across restarts
+- **Session manager** — create/switch/list/rename/export/import/delete sessions with auto-title, metadata, disk persistence across restarts; tool messages stripped from persisted sessions
 - **Settings panel** — font-size slider, compact mode, auto-scroll toggle (persisted in localStorage)
 - **Keyboard shortcuts** — Ctrl+N (new), Ctrl+D/B (sessions), Ctrl+K (focus input), Ctrl+L (reset), Ctrl+Shift+C (copy session), Escape (close panels/cancel), PgUp/PgDn (scroll), Home/End
 - **Highlight.js** — syntax highlighting for code blocks (github-dark theme, CDN)
@@ -39,7 +39,7 @@ This is the Coding Agent Free project itself.
 - **MCP toggle** — 🟢ON/⚫OFF status
 
 ## Tests
-- `npm run test:unit` — **220+** unit tests (13 files, `--test-timeout=15000`)
+- `npm run test:unit` — **235** unit tests (13 files, `--test-timeout=15000`)
 - `npm run test:integration` — 26 provider integration tests
 - `npm test` — 35 integration tests
 - CI: `.github/workflows/ci.yml` runs all tests on push/PR
@@ -67,6 +67,15 @@ This is the Coding Agent Free project itself.
 - **Help modal**: keyboard shortcuts section added
 - **Keyboard shortcut**: Ctrl+Shift+C for copy session
 - **Conditional LSP prompt**: removed (not needed; `tools[]` is single source of truth)
+
+## v1.22.0 changes
+- **Git tools**: `git_diff`, `git_commit`, `git_log` built-in tools in fileManager.ts
+- **Docker sandbox**: optional command isolation via `DOCKER_SANDBOX_ENABLED=true` and `DOCKER_IMAGE`
+- **Session export/import**: `GET /api/sessions/:id/export`, `POST /api/sessions/import`, Web UI 💾/📥 buttons
+- **Tool messages stripped**: sessions no longer persist tool messages (only user/assistant)
+- **Test-like sessions filtered**: titles matching `update *.txt`, `create *.txt` etc hidden from session list
+- **Empty sessions not persisted**: sessions with no user messages are not saved
+- **Delete-all safety**: Web UI requires typing "DELETE", CLI requires "yes"
 
 ## Conventions
 - No comments in code unless necessary

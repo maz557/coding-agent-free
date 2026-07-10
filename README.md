@@ -50,7 +50,7 @@ An interactive AI coding assistant that runs in your **terminal** or **web brows
 - **Collapsible fallback errors** — failed fallback attempts shown as expandable ⚠️ N fallback(s) banner inside the assistant message
 - **User presets** — save/add/remove your own models with `/save`, `/add`, `/remove`
 - **Fallback chain** — auto-fallback across providers on rate limit (429), plus model-level fallbacks
-- **13 built-in tools** — read, write, list, create_folder, delete_file, delete_folder, append_file, copy_file, move_file, file_info, search_content, replace_in_file, run_command
+- **16 built-in tools** — read, write, list, create_folder, delete_file, delete_folder, append_file, copy_file, move_file, file_info, search_content, replace_in_file, run_command, git_diff, git_commit, git_log
 - **Token compression** — head+tail truncation + automatic duplicate removal
 - **Sliding window context** — keeps the last 20 exchanges, auto-trims (configurable)
 - **Smart loop detection** — stops after 3× identical or 5× consecutive tool calls
@@ -72,6 +72,11 @@ An interactive AI coding assistant that runs in your **terminal** or **web brows
 - **Toast notifications** — 3s auto-dismiss feedback
 - **Welcome screen** — empty-state guide, removed on first message
 - **Diff Viewer** (Web UI) — line-level LCS diffs for file operations
+- **Git tools** — `git_diff`, `git_commit`, `git_log` built-in tools for source control operations
+- **Docker sandbox** — optional isolation; set `DOCKER_SANDBOX_ENABLED=true` to run commands inside a container
+- **Session export/import** — 💾 export / 📥 import sessions in Web UI
+- **Session cleanup** — tool messages stripped from persisted sessions, empty sessions not saved, test-like sessions filtered from list
+- **Delete-all safety** — Web UI requires typing "DELETE", CLI requires "yes"
 - **Standalone binary** — compile with `npm run build:binary` (no Node.js required)
 
 ---
@@ -164,6 +169,8 @@ Configures **Cline**, **Continue.dev**, and **Cursor** to use the local API prox
 | `LOG_LEVEL` | No | — | `debug`, `info`, `warn`, `error` (default: `info`) |
 | `MAX_EXCHANGES` | No | — | Max exchanges in sliding window (default: `20`) |
 | `MAX_TOOL_RESULT_LENGTH` | No | — | Max chars before truncation (default: `5000`) |
+| `DOCKER_SANDBOX_ENABLED` | No | — | Enable Docker sandbox for command isolation (default: `false`) |
+| `DOCKER_IMAGE` | No | — | Docker image for sandboxed execution (default: `ubuntu:22.04`) |
 
 \* At least one API key required (not needed for local providers).
 
@@ -187,6 +194,17 @@ All hardware/network settings go in `.env` (project root) — **this is the only
 The timeout resets on each streaming token — it only fires when no data arrives for the full duration.
 
 > **MCP & LSP server configuration** still goes in `.coding-agent.json` (project root) since it uses structured JSON. Everything else is in `.env`.
+
+### Docker Sandbox
+
+Optionally run commands inside a Docker container for isolation:
+
+| Variable | Default | Description |
+|---|---|---|
+| `DOCKER_SANDBOX_ENABLED` | `false` | Set to `true` to enable Docker sandbox |
+| `DOCKER_IMAGE` | `ubuntu:22.04` | Docker image to use for sandboxed execution |
+
+When enabled, `run_command`, `git_diff`, `git_commit`, and `git_log` execute inside the container.
 
 ### User Presets (`presets.json`)
 
@@ -264,7 +282,7 @@ npm run web
 Web UI features:
 - **Streaming responses** — token-by-token via SSE
 - **Diff Viewer** — line-level LCS diffs for write/replace/append operations
-- **Session Manager** — create, switch, list, rename sessions; disk persistence across restarts
+- **Session Manager** — create, switch, list, rename, export (💾), import (📥), delete (❌) sessions; disk persistence across restarts; tool messages stripped from persisted sessions
 - **Settings Panel** — font-size slider, compact mode, auto-scroll toggle (localStorage)
 - **Keyboard Shortcuts** — Ctrl+N (new), Ctrl+D/B (sessions), Ctrl+K (focus), Ctrl+L (reset), Ctrl+Shift+C (copy session), Escape (close), PgUp/PgDn/Home/End
 - **Collapsible Tool Calls** — ▶/▼ toggle header + body for streaming and history
@@ -318,6 +336,9 @@ Web UI features:
 | `search_content` | Search for exact text in files. Supports `filePattern` and `maxResults` |
 | `replace_in_file` | Replace the first occurrence of exact text (case-sensitive) |
 | `run_command` | Run a shell command in the workspace |
+| `git_diff` | Show diff between working tree and HEAD, or between two commits |
+| `git_commit` | Create a new git commit with a message |
+| `git_log` | Show commit history with optional file path filter |
 
 #### LSP Tools (toggle with `/lsp`)
 
@@ -609,7 +630,7 @@ Reset mid-session with `/reset` if context gets stale.
 
 ## Tests
 
-- `npm run test:unit` — **220+** unit tests (13 files: ConversationState, comprehensive, CodingAgent, loadProjectContext, fileManager, agent, server, mcp, lsp, persistence, toolRegistry, models, validation)
+- `npm run test:unit` — **235** unit tests (13 files: ConversationState, comprehensive, CodingAgent, loadProjectContext, fileManager, agent, server, mcp, lsp, persistence, toolRegistry, models, validation)
 - `npm run test:integration` — 26 provider integration tests
 - `npm test` — 35 integration tests (provider connectivity)
 - CI: `.github/workflows/ci.yml` runs all tests on push/PR
