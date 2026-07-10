@@ -517,6 +517,7 @@ class WorkspaceManager {
     const engines = [
       { name: 'DuckDuckGo', search: () => this.searchDuckDuckGo(query) },
       { name: 'Bing', search: () => this.searchBing(query) },
+      { name: 'Google', search: () => this.searchGoogle(query) },
     ];
 
     for (const engine of engines) {
@@ -600,6 +601,23 @@ class WorkspaceManager {
   private async searchBing(query: string): Promise<Array<{ title: string; url: string; snippet: string }>> {
     const html = await this.fetchURL(`https://www.bing.com/search?q=${encodeURIComponent(query)}`);
     return this.parseBingResults(html);
+  }
+
+  private async searchGoogle(query: string): Promise<Array<{ title: string; url: string; snippet: string }>> {
+    const apiKey = process.env.GOOGLE_SEARCH_API_KEY;
+    const cx = process.env.GOOGLE_SEARCH_CX;
+    if (!apiKey || !cx) {
+      throw new Error('Google Search requires GOOGLE_SEARCH_API_KEY and GOOGLE_SEARCH_CX in .env');
+    }
+    const url = `https://www.googleapis.com/customsearch/v1?key=${encodeURIComponent(apiKey)}&cx=${encodeURIComponent(cx)}&q=${encodeURIComponent(query)}&num=8`;
+    const json = await this.fetchURL(url);
+    const data = JSON.parse(json);
+    if (data.error) throw new Error(data.error.message || 'Google Search API error');
+    return (data.items || []).map((item: any) => ({
+      title: item.title || '',
+      url: item.link || '',
+      snippet: item.snippet || '',
+    }));
   }
 }
 
@@ -847,7 +865,7 @@ export const tools = [
     type: 'function',
     function: {
       name: 'web_search',
-      description: 'Search the web for information. Tries DuckDuckGo first, falls back to Bing. Free, no API key needed. Returns up to 8 results with title, URL, and snippet.',
+      description: 'Search the web for information. Tries DuckDuckGo, then Bing, then Google (if configured). DuckDuckGo and Bing are free with no API key. Google requires GOOGLE_SEARCH_API_KEY and GOOGLE_SEARCH_CX in .env. Returns up to 8 results with title, URL, and snippet.',
       parameters: {
         type: 'object',
         properties: {
