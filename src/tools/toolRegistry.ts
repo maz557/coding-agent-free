@@ -25,7 +25,7 @@ export function isLSPEnabled(): boolean {
 const lspToolNames = lspToolDefinitions.map(t => t.function.name);
 
 export function getAllTools(): OpenAITool[] {
-  const result: OpenAITool[] = builtinTools as OpenAITool[];
+  const result: OpenAITool[] = [...builtinTools] as OpenAITool[];
   if (mcpEnabled) {
     result.push(...mcpManager.getOpenAITools() as OpenAITool[]);
   }

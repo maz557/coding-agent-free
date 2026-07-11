@@ -56,11 +56,9 @@ Clarifying questions:
 - Prefer taking small actions first and adjust based on feedback, rather than asking multiple questions upfront.`;
 
 export const FIXED_PRESETS: Record<string, ModelPreset> = {
-  '1': { provider: 'openrouter', primary: 'openrouter/free', fallbacks: [], quality: 'medium' },
-  '2': { provider: 'openrouter', primary: 'qwen/qwen3-next-80b-a3b-instruct:free', fallbacks: ['openrouter/free'], quality: 'premium' },
-  '3': { provider: 'openrouter', primary: 'nvidia/nemotron-3-super-120b-a12b:free', fallbacks: ['openrouter/free'], contextWindow: 1_048_576, quality: 'high' },
+  '1': { provider: 'mistral', primary: 'mistral-large-latest', fallbacks: [], quality: 'premium' },
+  '2': { provider: 'google', primary: 'gemini-2.0-flash', fallbacks: [], quality: 'premium' },
+  '3': { provider: 'groq', primary: 'llama-3.1-70b-versatile', fallbacks: ['mixtral-8x7b-32768'], quality: 'high' },
   '4': { provider: 'openrouter', primary: 'openai/gpt-oss-120b:free', fallbacks: ['openrouter/free'], quality: 'high' },
-  '5': { provider: 'openrouter', primary: 'nvidia/nemotron-3-ultra-550b-a55b:free', fallbacks: ['openrouter/free'], contextWindow: 1_048_576, quality: 'premium' },
-  '6': { provider: 'google', primary: 'gemini-2.0-flash', fallbacks: [], quality: 'premium' },
-  '7': { provider: 'llamacpp', primary: 'ornith-agent', fallbacks: [], quality: 'medium' },
+  '5': { provider: 'llamacpp', primary: 'ornith-agent', fallbacks: [], quality: 'medium' },
 };
