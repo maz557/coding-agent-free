@@ -65,11 +65,6 @@ describe('server API', () => {
     // Clear in-memory sessions so next test starts fresh
     const mod = await import('../server') as any;
     if (mod.sessions) mod.sessions.clear();
-    // Clear module cache so each test gets fresh state
-    const sep = process.platform === 'win32' ? '\\src\\' : '/src/';
-    for (const key of Object.keys(require.cache)) {
-      if (key.includes(sep) || key.includes('/src/')) delete require.cache[key];
-    }
     delete process.env.SESSIONS_DIR;
     await fsp.rm(sessionsDir, { recursive: true, force: true });
   });
