@@ -1,8 +1,8 @@
 {
-  "coding": { "presets": ["mistral:mistral-medium-2604", "cerebras:gpt-oss-120b", "google:gemini-2.0-flash", "groq:llama-3.1-70b-versatile", "openrouter:openai/gpt-oss-120b:free", "xai:grok-beta", "llamacpp:ornith-agent"], "minQuality": "high" },
-  "fast": { "presets": ["cerebras:gpt-oss-120b", "google:gemini-2.0-flash", "groq:llama-3.1-70b-versatile", "openrouter:openrouter/free", "xai:grok-beta", "mistral:mistral-medium-2604"], "minQuality": "medium" },
+  "coding": { "presets": ["mistral:mistral-large-2512", "cerebras:gpt-oss-120b", "google:gemini-2.0-flash", "groq:llama-3.1-70b-versatile", "openrouter:openai/gpt-oss-120b:free", "xai:grok-beta", "llamacpp:ornith-agent"], "minQuality": "high" },
+  "fast": { "presets": ["cerebras:gpt-oss-120b", "google:gemini-2.0-flash", "groq:llama-3.1-70b-versatile", "openrouter:openrouter/free", "xai:grok-beta", "mistral:mistral-large-2512"], "minQuality": "medium" },
   "cheap": { "presets": ["cerebras:gpt-oss-120b", "google:gemini-2.0-flash", "openrouter:openrouter/free", "groq:llama-3.1-70b-versatile", "xai:grok-beta"], "minQuality": "medium" },
-  "reasoning": { "presets": ["mistral:mistral-medium-2604", "xai:grok-beta", "groq:llama-3.1-70b-versatile", "openrouter:openai/gpt-oss-120b:free", "cerebras:gpt-oss-120b", "llamacpp:ornith-agent"], "minQuality": "high" },
+  "reasoning": { "presets": ["mistral:mistral-large-2512", "xai:grok-beta", "groq:llama-3.1-70b-versatile", "openrouter:openai/gpt-oss-120b:free", "cerebras:gpt-oss-120b", "llamacpp:ornith-agent"], "minQuality": "high" },
   "vision": { "presets": ["google:gemini-2.0-flash", "openrouter:openai/gpt-oss-120b:free"], "minQuality": "medium" },
   "offline": { "presets": ["llamacpp:ornith-agent"], "minQuality": "low" }
 }

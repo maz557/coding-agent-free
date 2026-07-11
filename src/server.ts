@@ -29,7 +29,7 @@ const SUGGESTED_MODELS: Record<string, string> = {
   google: 'gemini-2.0-flash-exp',
   groq: 'llama3-70b-8192',
   deepseek: 'deepseek-chat',
-  mistral: 'mistral-medium-2604',
+  mistral: 'mistral-large-2512',
   ollama: '',
   lmstudio: '',
   llamacpp: '',
