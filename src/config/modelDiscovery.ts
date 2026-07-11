@@ -43,6 +43,36 @@ async function fetchJson(url: string, apiKey: string): Promise<any> {
   }
 }
 
+async function fetchJsonNoAuth(url: string): Promise<any> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(url, {
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function fetchJsonCustom(url: string, apiKey: string, authHeader: string): Promise<any> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(url, {
+      headers: { [authHeader]: apiKey, 'Content-Type': 'application/json' },
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function discoverMistral(): Promise<ProviderModel[]> {
   const key = getApiKey('mistral');
   if (!key) return [];
@@ -67,7 +97,7 @@ async function discoverGroq(): Promise<ProviderModel[]> {
 async function discoverGoogle(): Promise<ProviderModel[]> {
   const key = getApiKey('google');
   if (!key) return [];
-  const json = await fetchJson(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`, 'unused');
+  const json = await fetchJsonNoAuth(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`);
   return (json.models || []).map((m: any) => ({ id: m.name.replace('models/', ''), created: undefined }));
 }
 
@@ -85,6 +115,45 @@ async function discoverCohere(): Promise<ProviderModel[]> {
   return (json.models || []).map((m: any) => ({ id: m.id, created: undefined }));
 }
 
+async function discoverDeepSeek(): Promise<ProviderModel[]> {
+  const key = getApiKey('deepseek');
+  if (!key) return [];
+  const json = await fetchJson('https://api.deepseek.com/v1/models', key);
+  return (json.data || []).map((m: any) => ({ id: m.id, created: m.created }));
+}
+
+async function discoverAnthropic(): Promise<ProviderModel[]> {
+  const key = getApiKey('anthropic');
+  if (!key) return [];
+  const json = await fetchJsonCustom('https://api.anthropic.com/v1/models', key, 'x-api-key');
+  return (json.data || []).map((m: any) => ({ id: m.id, created: undefined }));
+}
+
+async function discoverTogether(): Promise<ProviderModel[]> {
+  const key = getApiKey('together');
+  if (!key) return [];
+  const json = await fetchJson('https://api.together.xyz/v1/models', key);
+  return (json.data || []).map((m: any) => ({ id: m.id, created: undefined }));
+}
+
+async function discoverPerplexity(): Promise<ProviderModel[]> {
+  const key = getApiKey('perplexity');
+  if (!key) return [];
+  const json = await fetchJson('https://api.perplexity.ai/v1/models', key);
+  return (json.data || []).map((m: any) => ({ id: m.id, created: undefined }));
+}
+
+// Static fallback for providers whose APIs restrict model listing
+const KNOWN_MODELS: Record<string, string[]> = {
+  google: ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-1.0-pro'],
+  xai: ['grok-3', 'grok-3-vision', 'grok-3-mini', 'grok-3-mini-vision', 'grok-2', 'grok-2-vision', 'grok-2-vision-1212', 'grok-beta'],
+  cohere: ['command-r-plus', 'command-r', 'command-r7-12-2024', 'command', 'command-light', 'command-nightly'],
+  deepseek: ['deepseek-chat', 'deepseek-reasoner'],
+  anthropic: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307'],
+  together: ['meta-llama/Llama-3.3-70B-Instruct-Turbo', 'mistralai/Mixtral-8x22B-Instruct-v0.1', 'Qwen/Qwen2.5-72B-Instruct-Turbo', 'meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo'],
+  perplexity: ['sonar-pro', 'sonar', 'sonar-reasoning-pro', 'sonar-reasoning', 'sonar-deep-research'],
+};
+
 const DISCOVERERS: Record<string, () => Promise<ProviderModel[]>> = {
   mistral: discoverMistral,
   openrouter: discoverOpenRouter,
@@ -92,6 +161,10 @@ const DISCOVERERS: Record<string, () => Promise<ProviderModel[]>> = {
   google: discoverGoogle,
   xai: discoverXai,
   cohere: discoverCohere,
+  deepseek: discoverDeepSeek,
+  anthropic: discoverAnthropic,
+  together: discoverTogether,
+  perplexity: discoverPerplexity,
 };
 
 export async function discoverProviderModels(provider: string): Promise<ProviderModel[]> {
@@ -106,10 +179,18 @@ export async function discoverProviderModels(provider: string): Promise<Provider
     const models = await discoverer();
     const filtered = models.filter(m => isChatModel(m.id));
     cache.set(provider, { timestamp: now, models: filtered });
-    return filtered;
+    if (filtered.length > 0) return filtered;
   } catch {
-    return [];
+    // API failed — fall through to fallback
   }
+  // Fallback to known models if provider has an API key
+  const key = getApiKey(provider);
+  if (key && KNOWN_MODELS[provider]) {
+    const fallback = KNOWN_MODELS[provider].map(id => ({ id, created: now }));
+    cache.set(provider, { timestamp: now, models: fallback });
+    return fallback;
+  }
+  return [];
 }
 
 export async function discoverAllProviders(): Promise<Record<string, ProviderModel[]>> {
@@ -146,13 +227,17 @@ export function pickBestModel(models: ProviderModel[], preferredKeywords: string
   return scored[0].id;
 }
 
-const PROVDIER_BEST_KEYWORDS: Record<string, string[]> = {
+const PROVIDER_BEST_KEYWORDS: Record<string, string[]> = {
   mistral: ['large'],
   openrouter: ['large', 'opus', 'premium', 'thinking'],
   groq: ['scout', 'large', 'versatile'],
-  google: ['flash', 'pro'],
+  google: ['flash', 'pro', 'gemini'],
   xai: ['grok'],
   cohere: ['command', 'north'],
+  deepseek: ['chat', 'reasoner'],
+  anthropic: ['opus', 'sonnet', 'haiku'],
+  together: ['llama', 'mixtral', 'qwen'],
+  perplexity: ['sonar', 'large'],
 };
 
 export let bestModels: Record<string, string> = {};
@@ -162,7 +247,7 @@ export async function runDiscovery(): Promise<Record<string, string>> {
   const all = await discoverAllProviders();
   for (const [provider, models] of Object.entries(all)) {
     if (models.length === 0) continue;
-    const keywords = PROVDIER_BEST_KEYWORDS[provider] || [];
+    const keywords = PROVIDER_BEST_KEYWORDS[provider] || [];
     const best = pickBestModel(models, keywords);
     if (best) results[provider] = best;
   }
