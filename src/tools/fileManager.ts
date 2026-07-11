@@ -566,38 +566,71 @@ class WorkspaceManager {
 
   private parseDuckDuckGoResults(html: string): Array<{ title: string; url: string; snippet: string }> {
     const results: Array<{ title: string; url: string; snippet: string }> = [];
-    const regex = /<h2[^>]*>[\s\S]*?<a[^>]*rel="nofollow"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>/gi;
-    let match;
-    while ((match = regex.exec(html)) !== null) {
-      let url = match[1].trim();
+    // Each result: <h2 class="result__title"><a rel="nofollow" class="result__a" href="URL">TITLE</a></h2>
+    // Snippet: <a class="result__snippet" href="URL">SNIPPET</a>
+    const titleRegex = /<h2[^>]*class="[^"]*result__title[^"]*"[^>]*>[\s\S]*?<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
+    const snippetRegex = /<a[^>]*class="[^"]*result__snippet[^"]*"[^>]*>([\s\S]*?)<\/a>/gi;
+    const titles: Array<{ url: string; title: string }> = [];
+    let m;
+    while ((m = titleRegex.exec(html)) !== null) {
+      let url = m[1].trim();
       const uddg = url.match(/uddg=([^&]+)/);
       if (uddg) url = decodeURIComponent(uddg[1]);
-      const title = match[2].replace(/<[^>]+>/g, '').trim();
-      const snippet = match[3].replace(/<[^>]+>/g, '').trim();
-      if (title || snippet) results.push({ title, url, snippet });
-      if (results.length >= 8) break;
+      titles.push({ url, title: m[2].replace(/<[^>]+>/g, '').trim() });
+    }
+    const snippets: string[] = [];
+    while ((m = snippetRegex.exec(html)) !== null) {
+      snippets.push(m[1].replace(/<[^>]+>/g, '').trim());
+    }
+    for (let i = 0; i < titles.length && results.length < 8; i++) {
+      results.push({ title: titles[i].title, url: titles[i].url, snippet: snippets[i] || '' });
     }
     return results;
   }
 
+  private decodeBingUrl(ckUrl: string): string {
+    // bing tracking: https://www.bing.com/ck/a?...&u=a1aHR0cHM6Ly9ub2RlanMub3JnLw&ntb=1
+    // u param is base64 of the real URL
+    const uMatch = ckUrl.match(/[?&]u=([^&]+)/i);
+    if (uMatch) {
+      try {
+        return Buffer.from(decodeURIComponent(uMatch[1]), 'base64').toString('utf-8');
+      } catch { /* ignore */ }
+    }
+    return ckUrl;
+  }
+
   private parseBingResults(html: string): Array<{ title: string; url: string; snippet: string }> {
     const results: Array<{ title: string; url: string; snippet: string }> = [];
-    const regex = /<li class="b_algo"[^>]*>[\s\S]*?<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>[\s\S]*?<p[^>]*>([\s\S]*?)<\/p>/gi;
-    let match;
-    while ((match = regex.exec(html)) !== null) {
-      const url = match[1].trim();
-      const title = match[2].replace(/<[^>]+>/g, '').trim();
-      const snippet = match[3].replace(/<[^>]+>/g, '').trim();
-      if (title || snippet) results.push({ title, url, snippet });
-      if (results.length >= 8) break;
+    // Find each b_algo block
+    const blockRegex = /<li class="b_algo"[^>]*>([\s\S]*?)<\/li>/gi;
+    let m;
+    while ((m = blockRegex.exec(html)) !== null) {
+      const block = m[1];
+      // First <a> with href is the result link
+      const linkMatch = block.match(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/i);
+      // First <p> is the snippet
+      const snippetMatch = block.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+      if (linkMatch) {
+        const url = this.decodeBingUrl(linkMatch[1].trim());
+        const title = linkMatch[2].replace(/<[^>]+>/g, '').trim();
+        const snippet = snippetMatch ? snippetMatch[1].replace(/<[^>]+>/g, '').trim() : '';
+        if (title) results.push({ title, url, snippet });
+        if (results.length >= 8) break;
+      }
     }
     return results;
   }
 
   private async searchDuckDuckGo(query: string): Promise<Array<{ title: string; url: string; snippet: string }>> {
     const body = `q=${encodeURIComponent(query)}`;
-    const html = await this.fetchURL('https://html.duckduckgo.com/html/', 'POST', body);
-    return this.parseDuckDuckGoResults(html);
+    // DDG sometimes returns a non-result page; retry once
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const html = await this.fetchURL('https://html.duckduckgo.com/html/', 'POST', body);
+      const results = this.parseDuckDuckGoResults(html);
+      if (results.length > 0) return results;
+    }
+    return [];
   }
 
   private async searchBing(query: string): Promise<Array<{ title: string; url: string; snippet: string }>> {
