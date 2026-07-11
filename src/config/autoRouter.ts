@@ -15,11 +15,11 @@ interface RouteConfig {
 const DEFAULT_ROUTES: Record<RouteType, RouteConfig> = {
   coding: {
     entries: [
+      { provider: 'mistral', model: 'mistral-large-latest', quality: 'premium' },
       { provider: 'google', model: 'gemini-2.0-flash', quality: 'premium' },
-      { provider: 'openrouter', model: 'qwen/qwen3-next-80b-a3b-instruct:free', quality: 'premium' },
-      { provider: 'openrouter', model: 'nvidia/nemotron-3-ultra-550b-a55b:free', quality: 'premium' },
+      { provider: 'groq', model: 'llama-3.1-70b-versatile', quality: 'high' },
       { provider: 'openrouter', model: 'openai/gpt-oss-120b:free', quality: 'high' },
-      { provider: 'openrouter', model: 'nvidia/nemotron-3-super-120b-a12b:free', quality: 'high' },
+      { provider: 'xai', model: 'grok-beta', quality: 'high' },
       { provider: 'llamacpp', model: 'ornith-agent', quality: 'medium' },
     ],
     minQuality: 'high',
@@ -27,29 +27,32 @@ const DEFAULT_ROUTES: Record<RouteType, RouteConfig> = {
   },
   fast: {
     entries: [
-      { provider: 'openrouter', model: 'openrouter/free', quality: 'medium' },
       { provider: 'google', model: 'gemini-2.0-flash', quality: 'premium' },
       { provider: 'openrouter', model: 'openai/gpt-oss-120b:free', quality: 'high' },
-      { provider: 'openrouter', model: 'qwen/qwen3-next-80b-a3b-instruct:free', quality: 'premium' },
+      { provider: 'groq', model: 'llama-3.1-70b-versatile', quality: 'high' },
+      { provider: 'xai', model: 'grok-beta', quality: 'high' },
+      { provider: 'mistral', model: 'mistral-large-latest', quality: 'premium' },
     ],
     minQuality: 'medium',
     label: 'Auto (Fast)',
   },
   cheap: {
     entries: [
-      { provider: 'openrouter', model: 'openrouter/free', quality: 'medium' },
-      { provider: 'openrouter', model: 'qwen/qwen3-next-80b-a3b-instruct:free', quality: 'premium' },
-      { provider: 'google', model: 'gemini-2.0-flash', quality: 'premium' },
       { provider: 'openrouter', model: 'openai/gpt-oss-120b:free', quality: 'high' },
+      { provider: 'google', model: 'gemini-2.0-flash', quality: 'premium' },
+      { provider: 'groq', model: 'llama-3.1-70b-versatile', quality: 'high' },
+      { provider: 'xai', model: 'grok-beta', quality: 'high' },
+      { provider: 'mistral', model: 'mistral-large-latest', quality: 'premium' },
     ],
     minQuality: 'medium',
     label: 'Auto (Cheap)',
   },
   reasoning: {
     entries: [
-      { provider: 'openrouter', model: 'nvidia/nemotron-3-ultra-550b-a55b:free', quality: 'premium' },
-      { provider: 'openrouter', model: 'nvidia/nemotron-3-super-120b-a12b:free', quality: 'high' },
-      { provider: 'openrouter', model: 'qwen/qwen3-next-80b-a3b-instruct:free', quality: 'premium' },
+      { provider: 'mistral', model: 'mistral-large-latest', quality: 'premium' },
+      { provider: 'xai', model: 'grok-beta', quality: 'high' },
+      { provider: 'groq', model: 'llama-3.1-70b-versatile', quality: 'high' },
+      { provider: 'openrouter', model: 'openai/gpt-oss-120b:free', quality: 'high' },
       { provider: 'llamacpp', model: 'ornith-agent', quality: 'medium' },
     ],
     minQuality: 'high',
@@ -57,8 +60,8 @@ const DEFAULT_ROUTES: Record<RouteType, RouteConfig> = {
   },
   vision: {
     entries: [
-      { provider: 'openrouter', model: 'nvidia/nemotron-3-super-120b-a12b:free', quality: 'high' },
-      { provider: 'openrouter', model: 'openrouter/free', quality: 'medium' },
+      { provider: 'openrouter', model: 'openai/gpt-oss-120b:free', quality: 'high' },
+      { provider: 'google', model: 'gemini-2.0-flash', quality: 'premium' },
     ],
     minQuality: 'medium',
     label: 'Auto (Vision)',

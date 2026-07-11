@@ -52,9 +52,9 @@ describe('agent CLI', () => {
       }
     });
 
-    it('should have FIXED_PRESETS 1-7', () => {
+    it('should have FIXED_PRESETS 1-6', () => {
       const { FIXED_PRESETS } = require('../config/models');
-      for (let i = 1; i <= 7; i++) {
+      for (let i = 1; i <= 6; i++) {
         assert(FIXED_PRESETS[String(i)], `Missing fixed preset ${i}`);
       }
     });
@@ -171,7 +171,7 @@ describe('agent CLI', () => {
       assert(idx >= 0);
       const next = entries.slice(idx + 1).find(([, p]: [string, any]) => p.provider !== currentProvider);
       assert(next);
-      assert.equal(next[1].provider, 'google');
+      assert.equal(next[1].provider, 'openrouter');
     });
 
     it('should return undefined when no different provider exists after current', () => {

@@ -1,8 +1,8 @@
 {
-  "coding": { "presets": ["google:gemini-2.0-flash", "openrouter:qwen/qwen3-next-80b-a3b-instruct:free", "openrouter:nvidia/nemotron-3-ultra-550b-a55b:free", "openrouter:openai/gpt-oss-120b:free", "openrouter:nvidia/nemotron-3-super-120b-a12b:free", "llamacpp:ornith-agent"], "minQuality": "high" },
-  "fast": { "presets": ["openrouter:openrouter/free", "google:gemini-2.0-flash", "openrouter:openai/gpt-oss-120b:free"], "minQuality": "medium" },
-  "cheap": { "presets": ["openrouter:openrouter/free", "openrouter:qwen/qwen3-next-80b-a3b-instruct:free", "google:gemini-2.0-flash"], "minQuality": "medium" },
-  "reasoning": { "presets": ["openrouter:nvidia/nemotron-3-ultra-550b-a55b:free", "openrouter:nvidia/nemotron-3-super-120b-a12b:free", "openrouter:qwen/qwen3-next-80b-a3b-instruct:free", "llamacpp:ornith-agent"], "minQuality": "high" },
-  "vision": { "presets": ["openrouter:nvidia/nemotron-3-super-120b-a12b:free", "openrouter:openrouter/free"], "minQuality": "medium" },
+  "coding": { "presets": ["mistral:mistral-large-latest", "google:gemini-2.0-flash", "groq:llama-3.1-70b-versatile", "openrouter:openai/gpt-oss-120b:free", "xai:grok-beta", "llamacpp:ornith-agent"], "minQuality": "high" },
+  "fast": { "presets": ["google:gemini-2.0-flash", "openrouter:openai/gpt-oss-120b:free", "groq:llama-3.1-70b-versatile", "xai:grok-beta", "mistral:mistral-large-latest"], "minQuality": "medium" },
+  "cheap": { "presets": ["openrouter:openai/gpt-oss-120b:free", "google:gemini-2.0-flash", "groq:llama-3.1-70b-versatile", "xai:grok-beta", "mistral:mistral-large-latest"], "minQuality": "medium" },
+  "reasoning": { "presets": ["mistral:mistral-large-latest", "xai:grok-beta", "groq:llama-3.1-70b-versatile", "openrouter:openai/gpt-oss-120b:free", "llamacpp:ornith-agent"], "minQuality": "high" },
+  "vision": { "presets": ["openrouter:openai/gpt-oss-120b:free", "google:gemini-2.0-flash"], "minQuality": "medium" },
   "offline": { "presets": ["llamacpp:ornith-agent"], "minQuality": "low" }
 }
