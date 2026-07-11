@@ -15,7 +15,7 @@ interface RouteConfig {
 const DEFAULT_ROUTES: Record<RouteType, RouteConfig> = {
   coding: {
     entries: [
-      { provider: 'mistral', model: 'mistral-large-latest', quality: 'premium' },
+      { provider: 'mistral', model: 'mistral-medium-2604', quality: 'premium' },
       { provider: 'google', model: 'gemini-2.0-flash', quality: 'premium' },
       { provider: 'groq', model: 'llama-3.1-70b-versatile', quality: 'high' },
       { provider: 'openrouter', model: 'openai/gpt-oss-120b:free', quality: 'high' },
@@ -31,7 +31,7 @@ const DEFAULT_ROUTES: Record<RouteType, RouteConfig> = {
       { provider: 'groq', model: 'llama-3.1-70b-versatile', quality: 'high' },
       { provider: 'openrouter', model: 'openrouter/free', quality: 'medium' },
       { provider: 'xai', model: 'grok-beta', quality: 'high' },
-      { provider: 'mistral', model: 'mistral-large-latest', quality: 'premium' },
+      { provider: 'mistral', model: 'mistral-medium-2604', quality: 'premium' },
     ],
     minQuality: 'medium',
     label: 'Auto (Fast)',
@@ -48,7 +48,7 @@ const DEFAULT_ROUTES: Record<RouteType, RouteConfig> = {
   },
   reasoning: {
     entries: [
-      { provider: 'mistral', model: 'mistral-large-latest', quality: 'premium' },
+      { provider: 'mistral', model: 'mistral-medium-2604', quality: 'premium' },
       { provider: 'xai', model: 'grok-beta', quality: 'high' },
       { provider: 'groq', model: 'llama-3.1-70b-versatile', quality: 'high' },
       { provider: 'openrouter', model: 'openai/gpt-oss-120b:free', quality: 'high' },

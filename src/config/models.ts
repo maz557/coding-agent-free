@@ -57,7 +57,7 @@ Clarifying questions:
 - Prefer taking small actions first and adjust based on feedback, rather than asking multiple questions upfront.`;
 
 export const FIXED_PRESETS: Record<string, ModelPreset> = {
-  '1': { provider: 'mistral', primary: 'mistral-large-latest', fallbacks: [], quality: 'premium' },
+  '1': { provider: 'mistral', primary: 'mistral-medium-2604', fallbacks: [], quality: 'premium' },
   '2': { provider: 'google', primary: 'gemini-2.0-flash', fallbacks: [], quality: 'premium' },
   '3': { provider: 'groq', primary: 'llama-3.1-70b-versatile', fallbacks: ['mixtral-8x7b-32768'], quality: 'high' },
   '4': { provider: 'openrouter', primary: 'openai/gpt-oss-120b:free', fallbacks: ['openrouter/free'], quality: 'high' },
