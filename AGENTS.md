@@ -1,4 +1,4 @@
-# Coding Agent Free v1.24.1
+# Coding Agent Free v1.25.0
 
 This is the Coding Agent Free project itself.
 
@@ -68,14 +68,15 @@ This is the Coding Agent Free project itself.
 - **Keyboard shortcut**: Ctrl+Shift+C for copy session
 - **Conditional LSP prompt**: removed (not needed; `tools[]` is single source of truth)
 
-## v1.24.1 changes
-- **Fixed 20× fallback loop** — `tryNextRouteEntry` now scans all presets when no autoRoute is set; `break` on failure instead of infinite retry
-- **Web UI `/add` & `/remove` commands** — add/remove user presets directly from chat (`/add 7 xai:grok-beta`, `/remove 7`)
+## v1.25.0 changes
+- **Cerebras provider** 🆕 — 14th provider, API key `CEREBRAS_API_KEY`, 3 models (`gpt-oss-120b`, `gemma-4-31b`, `zai-glm-4.7`)
 - **Proactive model discovery** — `runDiscovery()` at startup populates `bestModels` map; `resolveRoute()` in autoRouter checks it first, using best discovered model per provider
-- **10/10 provider discoverers** — mistral, openrouter, groq, google, xai, cohere, deepseek, anthropic, together, perplexity
-- **Known-model fallback** — xAI, Google, Cohere, DeepSeek, Anthropic, Together, Perplexity have static model lists for when their APIs restrict `/v1/models`
-- **`POST /api/presets` & `DELETE /api/presets/:num`** — new API endpoints for user preset management
-- **Welcome screen** updated with `/add` and `/models` command hints
+- **11/10 provider discoverers** (10 cloud + Cerebras) — mistral, openrouter, groq, google, xai, cohere, deepseek, anthropic, together, perplexity, cerebras
+- **Known-model fallback** — Google, xAI, Cohere, DeepSeek, Anthropic, Together, Perplexity, Cerebras have static model lists for when APIs restrict `/v1/models`
+- **Google discovery fix** — uses URL-based auth (no `Authorization: Bearer` header)
+- **Auto-correct** — 400 invalid model → auto-discover → retry
+- **Auto-fallback** — 2 consecutive text-only turns → switch provider
+- **`POST /api/presets` & `DELETE /api/presets/:num`** — API endpoints for user preset management
 
 ## v1.24.0 changes
 - **`run_tests` built-in tool** — auto-detects test framework and runs tests
