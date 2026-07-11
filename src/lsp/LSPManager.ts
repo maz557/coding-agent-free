@@ -43,7 +43,12 @@ export class LSPManager {
   }
 
   addConfig(config: LSPServerConfig): void {
-    this.configs.push(config);
+    const idx = this.configs.findIndex(c => c.languageId === config.languageId);
+    if (idx >= 0) {
+      this.configs[idx] = config; // user config overrides default
+    } else {
+      this.configs.push(config);
+    }
   }
 
   async startForProject(projectRoot: string, quiet?: boolean): Promise<void> {
