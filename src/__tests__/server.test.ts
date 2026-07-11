@@ -85,7 +85,7 @@ describe('server API', () => {
   describe('POST /api/session', () => {
     it('should create a session', async () => {
       const { status, body } = await fetchJson(`${baseUrl}/api/session`, { method: 'POST' });
-      assert.equal(status, 200);
+      assert.equal(status, 200, `Expected 200, got ${status}: ${JSON.stringify(body)}`);
       assert(body.sessionId);
       assert(Array.isArray(body.models));
       sessionId = body.sessionId;

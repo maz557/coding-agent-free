@@ -228,27 +228,31 @@ function buildSystemPrompt(): string {
 }
 
 app.post('/api/session', (req, res) => {
-  const id = uuidv4();
-  const modelConfig = { ...FIXED_PRESETS['1'] };
-  const systemContent = buildSystemPrompt();
-  const provName = PROVIDERS[modelConfig.provider]?.name || modelConfig.provider;
-  const sessionObj: SessionData = {
-    client: createClient(modelConfig.provider),
-    modelConfig,
-    messages: [{ role: 'system', content: systemContent }],
-    meta: {
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      title: req.body?.title || `Session ${new Date().toLocaleString()}`,
-      modelLabel: `${provName} — ${modelConfig.primary}`,
-      firstUserMessage: '',
-    },
-  };
-  sessions.set(id, sessionObj);
-  res.json({
-    sessionId: id,
-    models: Object.entries(getAllPresets()).map(([k, v]) => ({ id: k, name: `${PROVIDERS[v.provider]?.name || v.provider}/${v.primary}` })),
-  });
+  try {
+    const id = uuidv4();
+    const modelConfig = { ...FIXED_PRESETS['1'] };
+    const systemContent = buildSystemPrompt();
+    const provName = PROVIDERS[modelConfig.provider]?.name || modelConfig.provider;
+    const sessionObj: SessionData = {
+      client: createClient(modelConfig.provider),
+      modelConfig,
+      messages: [{ role: 'system', content: systemContent }],
+      meta: {
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        title: req.body?.title || `Session ${new Date().toLocaleString()}`,
+        modelLabel: `${provName} — ${modelConfig.primary}`,
+        firstUserMessage: '',
+      },
+    };
+    sessions.set(id, sessionObj);
+    res.json({
+      sessionId: id,
+      models: Object.entries(getAllPresets()).map(([k, v]) => ({ id: k, name: `${PROVIDERS[v.provider]?.name || v.provider}/${v.primary}` })),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || 'Unknown error', stack: err?.stack });
+  }
 });
 
 app.get('/api/sessions', (_req, res) => {
