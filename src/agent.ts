@@ -87,6 +87,7 @@ async function startChat() {
   let userPresets = await loadUserPresets();
   let activeModelConfig: ModelPreset = { ...FIXED_PRESETS['1'] };
   let lastActualModel = '';
+  let consecutiveTextOnly = 0;
 
   const allowedDir = path.resolve(process.env.ALLOWED_DIR || './workspace');
 
@@ -613,6 +614,41 @@ async function startChat() {
               agent = new CodingAgent(client, typedTools, activeModelConfig, systemPrompt, prevMessages as ChatMessage[]);
               result = await agent.execute(input);
               lastActualModel = result.model;
+              break;
+            }
+          }
+        }
+      }
+
+      // Track consecutive text-only responses (no tool calls)
+      if (result.toolCallsCount === 0) {
+        consecutiveTextOnly++;
+      } else {
+        consecutiveTextOnly = 0;
+      }
+
+      // Auto-fallback if model didn't call tools for 2 consecutive turns
+      if (consecutiveTextOnly >= 2) {
+        const allPresets = getAllPresets(userPresets);
+        const currentNum = Object.entries(allPresets).find(([, p]) =>
+          p.primary === activeModelConfig.primary && p.provider === activeModelConfig.provider
+        )?.[0];
+        if (currentNum) {
+          const entries = Object.entries(allPresets).sort(([a], [b]) => Number(a) - Number(b));
+          const idx = entries.findIndex(([n]) => n === currentNum);
+          for (let i = idx + 1; i < entries.length; i++) {
+            const [nextNum, nextPreset] = entries[i];
+            if (nextPreset.provider !== activeModelConfig.provider) {
+              const prevProvider = PROVIDERS[activeModelConfig.provider]?.name ?? activeModelConfig.provider;
+              const nextProvider = PROVIDERS[nextPreset.provider]?.name ?? nextPreset.provider;
+              console.log(`  ⚠️ ${prevProvider} responded without tool calls for 2 turns → auto-switching to [${nextNum}] ${nextProvider}`);
+              activeModelConfig = { ...nextPreset };
+              client = createClient(activeModelConfig.provider);
+              const prevMessages = agent.getConversationMessages();
+              agent = new CodingAgent(client, typedTools, activeModelConfig, systemPrompt, prevMessages as ChatMessage[]);
+              result = await agent.execute(input);
+              lastActualModel = result.model;
+              consecutiveTextOnly = result.toolCallsCount === 0 ? 1 : 0;
               break;
             }
           }

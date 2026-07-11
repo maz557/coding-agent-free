@@ -44,6 +44,7 @@ Rules:
 - If SCRATCH_DIR env var is set, ALWAYS write temporary test/output files there (e.g. ./scratch/). Never leave test artifacts in project or workspace root. Clean up scratch files after tests complete.
 - Use run_command to execute shell commands.
 - Keep tool calls to a minimum. Plan before you act.
+- Always use the web_search tool for factual questions, current events, or when the user asks you to search the web. Do NOT answer from your training data if web_search is available.
 - If a tool returns an error (e.g. access denied), tell the user and stop — do NOT retry with different paths.
 - When done, summarize what you did and the results.
 - This system runs on Windows with PowerShell 7+. Use PowerShell commands, not Unix/bash commands.

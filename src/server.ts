@@ -37,6 +37,7 @@ interface SessionData {
   client: OpenAI;
   modelConfig: { provider: string; primary: string; fallbacks: string[]; contextWindow?: number };
   messages: any[];
+  noToolTurns: number;
   meta: {
     createdAt: string;
     updatedAt: string;
@@ -105,6 +106,7 @@ async function loadSessionsFromDisk(): Promise<void> {
           client: createClient(mc.provider),
           modelConfig: { provider: mc.provider, primary: mc.primary, fallbacks: mc.fallbacks || [], contextWindow: mc.contextWindow },
           messages: data.messages,
+          noToolTurns: 0,
           meta: {
             createdAt: m.createdAt,
             updatedAt: m.updatedAt || m.createdAt,
@@ -228,31 +230,28 @@ function buildSystemPrompt(): string {
 }
 
 app.post('/api/session', (req, res) => {
-  try {
-    const id = uuidv4();
-    const modelConfig = { ...FIXED_PRESETS['1'] };
-    const systemContent = buildSystemPrompt();
-    const provName = PROVIDERS[modelConfig.provider]?.name || modelConfig.provider;
-    const sessionObj: SessionData = {
-      client: createClient(modelConfig.provider),
-      modelConfig,
-      messages: [{ role: 'system', content: systemContent }],
-      meta: {
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        title: req.body?.title || `Session ${new Date().toLocaleString()}`,
-        modelLabel: `${provName} — ${modelConfig.primary}`,
-        firstUserMessage: '',
-      },
-    };
-    sessions.set(id, sessionObj);
-    res.json({
-      sessionId: id,
-      models: Object.entries(getAllPresets()).map(([k, v]) => ({ id: k, name: `${PROVIDERS[v.provider]?.name || v.provider}/${v.primary}` })),
-    });
-  } catch (err: any) {
-    res.status(500).json({ error: err?.message || 'Unknown error', stack: err?.stack });
-  }
+  const id = uuidv4();
+  const modelConfig = { ...FIXED_PRESETS['1'] };
+  const systemContent = buildSystemPrompt();
+  const provName = PROVIDERS[modelConfig.provider]?.name || modelConfig.provider;
+  const sessionObj: SessionData = {
+    client: createClient(modelConfig.provider),
+    modelConfig,
+    messages: [{ role: 'system', content: systemContent }],
+    noToolTurns: 0,
+    meta: {
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      title: req.body?.title || `Session ${new Date().toLocaleString()}`,
+      modelLabel: `${provName} — ${modelConfig.primary}`,
+      firstUserMessage: '',
+    },
+  };
+  sessions.set(id, sessionObj);
+  res.json({
+    sessionId: id,
+    models: Object.entries(getAllPresets()).map(([k, v]) => ({ id: k, name: `${PROVIDERS[v.provider]?.name || v.provider}/${v.primary}` })),
+  });
 });
 
 app.get('/api/sessions', (_req, res) => {
@@ -454,6 +453,7 @@ app.post('/api/sessions/import', express.text({ type: 'application/json', limit:
       client: createClient(modelConfig.provider),
       modelConfig,
       messages: [{ role: 'system', content: systemContent }, ...data.messages],
+      noToolTurns: 0,
       meta: {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -615,6 +615,18 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
       recordUsage(req.params.sessionId, s.modelConfig.provider, model, s.messages, content || '');
 
       if (tcs.size === 0) {
+        s.noToolTurns++;
+        if (s.noToolTurns >= 2) {
+          // Undo the assistant message we just pushed
+          s.messages.pop();
+          if (tryNextRouteEntry(s)) {
+            const fallbackInfo = `${PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider} — ${s.modelConfig.primary}`;
+            send('error', { message: `No tool calls for 2 consecutive turns — falling back to ${fallbackInfo}` });
+            continue;
+          }
+          // No more presets — push back the message and return
+          s.messages.push({ role: 'assistant', content: content || null });
+        }
         saveSessionToDisk(req.params.sessionId, s).catch(() => {});
         send('done', { toolCallsCount: 0, model: `${PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider} — ${model}` });
         res.end();
@@ -622,6 +634,8 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
       }
 
       const calls = [...tcs.values()].filter((x: any) => x.name);
+      // Tool calls were made — reset no-tool counter
+      s.noToolTurns = 0;
       (s.messages[s.messages.length - 1] as any).tool_calls = calls.map((tc: any) => ({
         id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.args },
       }));
