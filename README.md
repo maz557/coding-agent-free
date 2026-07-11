@@ -630,7 +630,7 @@ Reset mid-session with `/reset` if context gets stale.
 
 ## Tests
 
-- `npm run test:unit` — **235** unit tests (13 files: ConversationState, comprehensive, CodingAgent, loadProjectContext, fileManager, agent, server, mcp, lsp, persistence, toolRegistry, models, validation)
+- `npm run test:unit` — **240** unit tests (13 files: ConversationState, comprehensive, CodingAgent, loadProjectContext, fileManager, agent, server, mcp, lsp, persistence, toolRegistry, models, validation)
 - `npm run test:integration` — 26 provider integration tests
 - `npm test` — 35 integration tests (provider connectivity)
 - CI: `.github/workflows/ci.yml` runs all tests on Windows (Node 22) — Linux/macOS also supported but tested manually
