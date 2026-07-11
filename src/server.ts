@@ -9,7 +9,7 @@ import { loadLSPConfig } from './lsp/config';
 import { lspManager } from './lsp/index';
 import { PROVIDERS, FIXED_PRESETS, SYSTEM_PROMPT, ModelPreset } from './config/models';
 import { resolveRoute, isAutoRoute, getRouteLabel, listAutoRoutes, getRouteEntries } from './config/autoRouter';
-import { discoverProviderModels, discoverAllProviders, pickBestModel } from './config/modelDiscovery';
+import { discoverProviderModels, discoverAllProviders, pickBestModel, runDiscovery as runModelDiscovery } from './config/modelDiscovery';
 import { getUserConfig } from './config/userConfig';
 import { recordUsage, getAggregatedUsage } from './usageTracker';
 import * as path from 'path';
@@ -20,6 +20,9 @@ import { loadProjectContext, generateProjectMap } from './loadProjectContext';
 import { ChatMessage } from './types';
 
 dotenv.config();
+
+// Proactive model discovery: silently find best models for auto-routes
+runModelDiscovery().catch(() => {});
 
 const SUGGESTED_MODELS: Record<string, string> = {
   openrouter: 'openrouter/free',

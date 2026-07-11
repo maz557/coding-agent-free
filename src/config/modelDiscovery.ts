@@ -146,6 +146,30 @@ export function pickBestModel(models: ProviderModel[], preferredKeywords: string
   return scored[0].id;
 }
 
+const PROVDIER_BEST_KEYWORDS: Record<string, string[]> = {
+  mistral: ['large'],
+  openrouter: ['large', 'opus', 'premium', 'thinking'],
+  groq: ['scout', 'large', 'versatile'],
+  google: ['flash', 'pro'],
+  xai: ['grok'],
+  cohere: ['command', 'north'],
+};
+
+export let bestModels: Record<string, string> = {};
+
+export async function runDiscovery(): Promise<Record<string, string>> {
+  const results: Record<string, string> = {};
+  const all = await discoverAllProviders();
+  for (const [provider, models] of Object.entries(all)) {
+    if (models.length === 0) continue;
+    const keywords = PROVDIER_BEST_KEYWORDS[provider] || [];
+    const best = pickBestModel(models, keywords);
+    if (best) results[provider] = best;
+  }
+  bestModels = results;
+  return results;
+}
+
 export function clearCache(): void {
   cache.clear();
 }

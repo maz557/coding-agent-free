@@ -20,7 +20,7 @@ import {
   loadUserPresets, saveUserPresets,
 } from './persistence';
 import { getAllPresets, showModels } from './commands';
-import { discoverAllProviders, pickBestModel, clearCache as clearDiscoveryCache } from './config/modelDiscovery';
+import { discoverAllProviders, pickBestModel, runDiscovery as runModelDiscovery, clearCache as clearDiscoveryCache } from './config/modelDiscovery';
 import { estimateTotalTokens } from './tokenEstimator';
 import { OpenAITool } from './types';
 import { detectLocalModel } from './detectLocalModel';
@@ -183,6 +183,9 @@ async function startChat() {
       console.log(`  🔬 LSP ready (code_definition, code_references, code_hover)`);
     }
   } catch { /* LSP is optional */ }
+
+  // Proactive model discovery: silently find best models for auto-routes
+  runModelDiscovery().catch(() => {});
 
   const typedTools = getAllTools() as OpenAITool[];
   const projectContext = loadProjectContext();

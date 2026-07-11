@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from 'fs';
 import { resolve } from 'path';
 import { ModelPreset, FIXED_PRESETS, PROVIDERS, CodingQuality } from './models';
+import { bestModels } from './modelDiscovery';
 
 export type RouteType = 'coding' | 'fast' | 'cheap' | 'reasoning' | 'vision' | 'offline';
 
@@ -176,7 +177,9 @@ export function resolveRoute(route: string): { preset: ModelPreset | null; sugge
   for (const entry of config.entries) {
     if (qualityToRank(entry.quality) < minRank) continue;
     if (!isProviderAvailable(entry.provider)) continue;
-    return { preset: { provider: entry.provider, primary: entry.model, fallbacks: [] } };
+    const discovered = bestModels[entry.provider];
+    const model = discovered || entry.model;
+    return { preset: { provider: entry.provider, primary: model, fallbacks: [] } };
   }
 
   if (isProviderAvailable('llamacpp') || isProviderAvailable('ollama')) {
