@@ -162,7 +162,7 @@
   <div id="session-list"></div>
   <input type="file" id="import-file-input" accept=".json" style="display:none">
 </div>
-<div id="chat"><div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands" dir="ltr"><span>/model 1</span><span>/safe</span><span>/tools</span><span>/reset</span><span>/active</span><span>/help</span></div></div></div>
+<div id="chat"><div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands" dir="ltr"><span>/model 1</span><span>/add 7 xai:grok-beta</span><span>/safe</span><span>/tools</span><span>/reset</span><span>/active</span><span>/models</span><span>/help</span></div></div></div>
 <div id="toast-container"></div>
 <button id="auto-scroll-btn" title="Auto-scroll">⬇</button>
 <div id="status">Ready</div>
@@ -565,6 +565,32 @@ async function handleCommand(msg) {
     } else {
       const err = await res.text().catch(() => 'Route not found');
       addMessage('error', `⚠️ ${escapeHtml(err)}`);
+    }
+    return true;
+  }
+  const addMatch = msg.match(/^\/add\s+(\d+)\s+(.+)$/i);
+  if (addMatch) {
+    const res = await fetch('/api/presets', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ num: addMatch[1], model: addMatch[2].trim() }),
+    });
+    if (res.ok) {
+      const d = await res.json();
+      addMessage('assistant', `✅ Added preset ${escapeHtml(d.num)}: <strong>${escapeHtml(d.provider)} — ${escapeHtml(d.model)}</strong>`);
+    } else {
+      const err = await res.json().catch(() => ({ error: 'Failed to add preset' }));
+      addMessage('error', `⚠️ ${escapeHtml(err.error)}`);
+    }
+    return true;
+  }
+  const removeMatch = msg.match(/^\/remove\s+(\d+)$/i);
+  if (removeMatch) {
+    const res = await fetch(`/api/presets/${removeMatch[1]}`, { method: 'DELETE' });
+    if (res.ok) {
+      addMessage('assistant', `✅ Removed preset ${escapeHtml(removeMatch[1])}`);
+    } else {
+      const err = await res.json().catch(() => ({ error: 'Failed to remove preset' }));
+      addMessage('error', `⚠️ ${escapeHtml(err.error)}`);
     }
     return true;
   }
@@ -973,7 +999,7 @@ async function refreshSessionList() {
           if (res.ok) {
             if (id === sessionId) {
               sessionId = '';
-              chat.innerHTML = '<div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands" dir="ltr"><span>/model 1</span><span>/safe</span><span>/tools</span><span>/reset</span><span>/active</span><span>/help</span></div></div>';
+              chat.innerHTML = '<div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands" dir="ltr"><span>/model 1</span><span>/add 7 xai:grok-beta</span><span>/safe</span><span>/tools</span><span>/reset</span><span>/active</span><span>/models</span><span>/help</span></div></div>';
             }
             refreshSessionList();
           }
@@ -1288,7 +1314,7 @@ document.getElementById('clear-sessions-btn').addEventListener('click', async ()
     const res = await fetch('/api/sessions', { method: 'DELETE' });
     if (res.ok) {
       sessionId = '';
-      chat.innerHTML = '<div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands" dir="ltr"><span>/model 1</span><span>/safe</span><span>/tools</span><span>/reset</span><span>/active</span><span>/help</span></div></div>';
+      chat.innerHTML = '<div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands" dir="ltr"><span>/model 1</span><span>/add 7 xai:grok-beta</span><span>/safe</span><span>/tools</span><span>/reset</span><span>/active</span><span>/models</span><span>/help</span></div></div>';
       await refreshSessionList();
     }
   } catch {}

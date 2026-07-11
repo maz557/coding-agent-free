@@ -166,20 +166,37 @@ function getAllPresets(): Record<string, any> {
 
 function tryNextRouteEntry(session: any): boolean {
   const route = session.meta?.route;
-  if (!route || !isAutoRoute(route)) return false;
-  const entries = getRouteEntries(route);
-  if (!entries) return false;
+  if (route && isAutoRoute(route)) {
+    const entries = getRouteEntries(route);
+    if (entries) {
+      const currentProvider = session.modelConfig?.provider;
+      const currentModel = session.modelConfig?.primary;
+      const startIdx = entries.findIndex((e: any) => e.provider === currentProvider && e.model === currentModel);
+      if (startIdx >= 0) {
+        for (let i = startIdx + 1; i < entries.length; i++) {
+          const entry = entries[i];
+          if (!isProviderAvailable(entry.provider)) continue;
+          session.modelConfig = { provider: entry.provider, primary: entry.model, fallbacks: [] };
+          session.client = createClient(entry.provider);
+          return true;
+        }
+        return false;
+      }
+    }
+  }
 
-  const currentProvider = session.modelConfig?.provider;
-  const currentModel = session.modelConfig?.primary;
-  const startIdx = entries.findIndex((e: any) => e.provider === currentProvider && e.model === currentModel);
+  // Fallback: try next preset by numeric order
+  const allPresets = getAllPresets();
+  const current = session.modelConfig;
+  const keys = Object.keys(allPresets).sort((a, b) => Number(a) - Number(b));
+  const startIdx = keys.findIndex(k => allPresets[k].provider === current.provider && allPresets[k].primary === current.primary);
   if (startIdx < 0) return false;
 
-  for (let i = startIdx + 1; i < entries.length; i++) {
-    const entry = entries[i];
-    if (!isProviderAvailable(entry.provider)) continue;
-    session.modelConfig = { provider: entry.provider, primary: entry.model, fallbacks: [] };
-    session.client = createClient(entry.provider);
+  for (let i = startIdx + 1; i < keys.length; i++) {
+    const p = allPresets[keys[i]];
+    if (!isProviderAvailable(p.provider)) continue;
+    session.modelConfig = { provider: p.provider, primary: p.primary, fallbacks: [] };
+    session.client = createClient(p.provider);
     return true;
   }
   return false;
@@ -279,6 +296,36 @@ app.get('/api/models', (_req, res) => {
     defaultModel: SUGGESTED_MODELS[k] || '',
   }));
   res.json([...presets, ...providers]);
+});
+
+app.post('/api/presets', express.json(), async (req, res) => {
+  const { num, model } = req.body || {};
+  if (!num || !model) return res.status(400).json({ error: 'Missing num or model' });
+  const numStr = String(num);
+  if (FIXED_PRESETS[numStr]) return res.status(400).json({ error: `Cannot overwrite fixed preset ${numStr}` });
+  const colon = model.indexOf(':');
+  let providerId: string;
+  let modelId: string;
+  if (colon > 0 && PROVIDERS[model.slice(0, colon)]) {
+    providerId = model.slice(0, colon);
+    modelId = model.slice(colon + 1);
+  } else {
+    return res.status(400).json({ error: 'Format: provider:model (e.g. xai:grok-beta)' });
+  }
+  const presets = loadUserPresets();
+  presets[numStr] = { provider: providerId, primary: modelId, fallbacks: ['openrouter/free'] };
+  try { fs.writeFileSync(PRESETS_FILE, JSON.stringify(presets, null, 2), 'utf-8'); } catch {}
+  res.json({ success: true, num: numStr, provider: providerId, model: modelId });
+});
+
+app.delete('/api/presets/:num', (req, res) => {
+  const num = req.params.num;
+  if (FIXED_PRESETS[num]) return res.status(400).json({ error: `Cannot remove fixed preset ${num}` });
+  const presets = loadUserPresets();
+  if (!presets[num]) return res.status(404).json({ error: `Preset ${num} not found` });
+  delete presets[num];
+  try { fs.writeFileSync(PRESETS_FILE, JSON.stringify(presets, null, 2), 'utf-8'); } catch {}
+  res.json({ success: true, num });
 });
 
 app.get('/api/active/:sessionId', (req, res) => {
@@ -634,6 +681,7 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
       }
 
       send('error', { message: errMsg });
+      break;
     } finally {
       clearTimeout(to);
     }

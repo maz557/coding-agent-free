@@ -1,4 +1,4 @@
-# Coding Agent Free v1.24.0
+# Coding Agent Free v1.24.1
 
 This is the Coding Agent Free project itself.
 
@@ -67,6 +67,12 @@ This is the Coding Agent Free project itself.
 - **Help modal**: keyboard shortcuts section added
 - **Keyboard shortcut**: Ctrl+Shift+C for copy session
 - **Conditional LSP prompt**: removed (not needed; `tools[]` is single source of truth)
+
+## v1.24.1 changes
+- **Fixed 20× fallback loop** — `tryNextRouteEntry` now scans all presets when no autoRoute is set; `break` on failure instead of infinite retry
+- **Web UI `/add` & `/remove` commands** — add/remove user presets directly from chat (`/add 7 xai:grok-beta`, `/remove 7`)
+- **`POST /api/presets` & `DELETE /api/presets/:num`** — new API endpoints for user preset management
+- **Welcome screen** updated with `/add` and `/models` command hints
 
 ## v1.24.0 changes
 - **`run_tests` built-in tool** — auto-detects test framework and runs tests
