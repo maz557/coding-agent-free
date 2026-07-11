@@ -26,6 +26,7 @@ export const PROVIDERS: Record<string, ProviderInfo> = {
   perplexity: { name: 'Perplexity', baseURL: 'https://api.perplexity.ai', apiKeyEnv: 'PERPLEXITY_API_KEY', defaultModel: 'llama-3.1-sonar-small-128k-online' },
   xai:        { name: 'xAI (Grok)', baseURL: 'https://api.x.ai/v1', apiKeyEnv: 'XAI_API_KEY', defaultModel: 'grok-beta' },
   cohere:     { name: 'Cohere', baseURL: 'https://api.cohere.com/v2', apiKeyEnv: 'COHERE_API_KEY', defaultModel: 'command-r-plus' },
+  cerebras:   { name: 'Cerebras', baseURL: 'https://api.cerebras.ai/v1', apiKeyEnv: 'CEREBRAS_API_KEY', defaultModel: 'gpt-oss-120b' },
   ollama:     { name: 'Ollama', baseURL: process.env.OLLAMA_HOST || 'http://localhost:11434/v1', apiKeyEnv: '' },
   lmstudio:   { name: 'LM Studio', baseURL: process.env.LMSTUDIO_HOST || 'http://localhost:1234/v1', apiKeyEnv: '' },
   llamacpp:   { name: 'Llama.cpp', baseURL: process.env.LLAMACPP_HOST || 'http://localhost:8080/v1', apiKeyEnv: '' },

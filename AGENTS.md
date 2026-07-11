@@ -39,7 +39,7 @@ This is the Coding Agent Free project itself.
 - **MCP toggle** — 🟢ON/⚫OFF status
 
 ## Tests
-- `npm run test:unit` — **235** unit tests (13 files, `--test-timeout=15000`)
+- `npm run test:unit` — **240** unit tests (13 files, `--test-timeout=15000`)
 - `npm run test:integration` — 26 provider integration tests
 - `npm test` — 35 integration tests
 - CI: `.github/workflows/ci.yml` runs all tests on push/PR
@@ -71,6 +71,9 @@ This is the Coding Agent Free project itself.
 ## v1.24.1 changes
 - **Fixed 20× fallback loop** — `tryNextRouteEntry` now scans all presets when no autoRoute is set; `break` on failure instead of infinite retry
 - **Web UI `/add` & `/remove` commands** — add/remove user presets directly from chat (`/add 7 xai:grok-beta`, `/remove 7`)
+- **Proactive model discovery** — `runDiscovery()` at startup populates `bestModels` map; `resolveRoute()` in autoRouter checks it first, using best discovered model per provider
+- **10/10 provider discoverers** — mistral, openrouter, groq, google, xai, cohere, deepseek, anthropic, together, perplexity
+- **Known-model fallback** — xAI, Google, Cohere, DeepSeek, Anthropic, Together, Perplexity have static model lists for when their APIs restrict `/v1/models`
 - **`POST /api/presets` & `DELETE /api/presets/:num`** — new API endpoints for user preset management
 - **Welcome screen** updated with `/add` and `/models` command hints
 

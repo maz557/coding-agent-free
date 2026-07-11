@@ -136,6 +136,13 @@ async function discoverTogether(): Promise<ProviderModel[]> {
   return (json.data || []).map((m: any) => ({ id: m.id, created: undefined }));
 }
 
+async function discoverCerebras(): Promise<ProviderModel[]> {
+  const key = getApiKey('cerebras');
+  if (!key) return [];
+  const json = await fetchJson('https://api.cerebras.ai/v1/models', key);
+  return (json.data || []).map((m: any) => ({ id: m.id, created: undefined }));
+}
+
 async function discoverPerplexity(): Promise<ProviderModel[]> {
   const key = getApiKey('perplexity');
   if (!key) return [];
@@ -152,6 +159,7 @@ const KNOWN_MODELS: Record<string, string[]> = {
   anthropic: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229', 'claude-3-sonnet-20240229', 'claude-3-haiku-20240307'],
   together: ['meta-llama/Llama-3.3-70B-Instruct-Turbo', 'mistralai/Mixtral-8x22B-Instruct-v0.1', 'Qwen/Qwen2.5-72B-Instruct-Turbo', 'meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo'],
   perplexity: ['sonar-pro', 'sonar', 'sonar-reasoning-pro', 'sonar-reasoning', 'sonar-deep-research'],
+  cerebras: ['gemma-4-31b', 'gpt-oss-120b', 'zai-glm-4.7'],
 };
 
 const DISCOVERERS: Record<string, () => Promise<ProviderModel[]>> = {
@@ -165,6 +173,7 @@ const DISCOVERERS: Record<string, () => Promise<ProviderModel[]>> = {
   anthropic: discoverAnthropic,
   together: discoverTogether,
   perplexity: discoverPerplexity,
+  cerebras: discoverCerebras,
 };
 
 export async function discoverProviderModels(provider: string): Promise<ProviderModel[]> {
@@ -238,6 +247,7 @@ const PROVIDER_BEST_KEYWORDS: Record<string, string[]> = {
   anthropic: ['opus', 'sonnet', 'haiku'],
   together: ['llama', 'mixtral', 'qwen'],
   perplexity: ['sonar', 'large'],
+  cerebras: ['gemma', 'oss', 'glm'],
 };
 
 export let bestModels: Record<string, string> = {};

@@ -5,7 +5,7 @@ describe('models - PROVIDERS', () => {
   it('should have 13 providers', () => {
     const { PROVIDERS } = require('../config/models');
     const keys = Object.keys(PROVIDERS);
-    assert.equal(keys.length, 13);
+    assert.equal(keys.length, 14);
   });
 
   it('should include new providers', () => {
@@ -15,6 +15,7 @@ describe('models - PROVIDERS', () => {
     assert(PROVIDERS.perplexity);
     assert(PROVIDERS.xai);
     assert(PROVIDERS.cohere);
+    assert(PROVIDERS.cerebras);
   });
 
   it('should define apiKeyEnv for new providers', () => {
@@ -26,6 +27,8 @@ describe('models - PROVIDERS', () => {
     assert.equal(PROVIDERS.perplexity.apiKeyEnv, 'PERPLEXITY_API_KEY');
     assert.equal(PROVIDERS.xai.apiKeyEnv, 'XAI_API_KEY');
     assert.equal(PROVIDERS.cohere.apiKeyEnv, 'COHERE_API_KEY');
+    assert.equal(PROVIDERS.cerebras.apiKeyEnv, 'CEREBRAS_API_KEY');
+    assert(PROVIDERS.cerebras.baseURL);
   });
 });
 
