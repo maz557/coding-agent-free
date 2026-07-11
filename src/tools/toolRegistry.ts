@@ -2,9 +2,18 @@ import { OpenAITool } from '../types';
 import { tools as builtinTools, executeTool as executeBuiltin, allowExtraPath, setSafeMode, isSafeModeEnabled } from './fileManager';
 import { mcpManager } from '../mcp/MCPManager';
 import { lspManager, lspToolDefinitions, executeLSPServerTool } from '../lsp/index';
+import { getToolSafetyLevel, ToolSafetyLevel, ApprovalStore } from './governance';
 
 let mcpEnabled = true;
 let lspEnabled = true;
+const approvalStore = new ApprovalStore();
+
+type ApprovalCallback = (toolName: string, args: Record<string, unknown>, level: ToolSafetyLevel) => Promise<boolean>;
+let approvalCallback: ApprovalCallback | null = null;
+
+function setApprovalCallback(cb: ApprovalCallback | null): void {
+  approvalCallback = cb;
+}
 
 export function setMCPEnabled(enabled: boolean): void {
   mcpEnabled = enabled;
@@ -35,7 +44,29 @@ export function getAllTools(): OpenAITool[] {
   return result;
 }
 
+let governanceEnabled = true;
+
+function setGovernanceEnabled(enabled: boolean): void {
+  governanceEnabled = enabled;
+}
+
+function isGovernanceEnabled(): boolean {
+  return governanceEnabled;
+}
+
 export async function executeTool(name: string, args: Record<string, unknown>): Promise<string> {
+  if (governanceEnabled) {
+    const level = getToolSafetyLevel(name);
+    if (level !== 'safe' && !approvalStore.isPermanentlyAllowed(name, args)) {
+      if (approvalCallback) {
+        const ok = await approvalCallback(name, args, level);
+        if (!ok) {
+          return `⚠️ Execution rejected by user: tool "${name}" requires approval.`;
+        }
+      }
+    }
+  }
+
   const builtinNames = builtinTools.map(t => t.function.name);
   if (builtinNames.includes(name)) {
     return executeBuiltin(name, args);
@@ -55,4 +86,4 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
   throw new Error(`Unknown tool "${name}"`);
 }
 
-export { allowExtraPath, setSafeMode, isSafeModeEnabled };
+export { allowExtraPath, setSafeMode, isSafeModeEnabled, approvalStore, setApprovalCallback, setGovernanceEnabled, isGovernanceEnabled };

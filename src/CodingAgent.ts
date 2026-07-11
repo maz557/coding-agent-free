@@ -185,10 +185,46 @@ export class CodingAgent {
     return base;
   }
 
+  private async plan(userInput: string): Promise<string> {
+    const planMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+      { role: 'system', content: 'You are a planning assistant. Given a user request, output a concise numbered plan (3-7 steps) covering what needs to be done. Respond with ONLY the plan, no extra text.' },
+      { role: 'user', content: userInput },
+    ];
+
+    const provInfo = PROVIDERS[this.modelConfig.provider];
+    const isLocal = provInfo && !provInfo.apiKeyEnv;
+    const timeoutMs = isLocal ? getUserConfig().localTimeoutMs : getUserConfig().cloudTimeoutMs;
+
+    try {
+      const controller = new AbortController();
+      const id = setTimeout(() => controller.abort(), timeoutMs);
+      const stream = await this.client.chat.completions.create(
+        { model: this.modelConfig.primary, messages: planMessages, stream: true },
+        { signal: controller.signal }
+      );
+      clearTimeout(id);
+      let planText = '';
+      for await (const chunk of stream) {
+        const delta = chunk.choices?.[0]?.delta?.content;
+        if (delta) planText += delta;
+      }
+      console.log(`\n  📋 Plan:\n${planText.split('\n').filter(l => l.trim()).map(l => `    ${l}`).join('\n')}\n`);
+      return planText.trim();
+    } catch {
+      return '';
+    }
+  }
+
   async execute(userInput: string): Promise<AgentResult> {
     this.toolHistory = [];
 
     this.conversation = this.conversation.addUserMessage(userInput);
+
+    // Planning phase: create a plan before execution
+    const planText = await this.plan(userInput);
+    if (planText) {
+      this.conversation = this.conversation.addSystemMessage(`[Plan]\n${planText}`);
+    }
 
     let depth = 0;
     let usedModel = this.modelConfig.primary;

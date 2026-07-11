@@ -5,7 +5,7 @@ import * as dotenv from 'dotenv';
 import * as path from 'path';
 import pino from 'pino';
 import pinoPretty from 'pino-pretty';
-import { getAllTools, executeTool, allowExtraPath, setSafeMode, isSafeModeEnabled, setMCPEnabled, isMCPEnabled, setLSPEnabled, isLSPEnabled } from './tools/toolRegistry';
+import { getAllTools, executeTool, allowExtraPath, setSafeMode, isSafeModeEnabled, setMCPEnabled, isMCPEnabled, setLSPEnabled, isLSPEnabled, setApprovalCallback, approvalStore, setGovernanceEnabled, isGovernanceEnabled } from './tools/toolRegistry';
 import { mcpManager } from './mcp/MCPManager';
 import { loadMCPConfig } from './mcp/config';
 import { loadLSPConfig } from './lsp/config';
@@ -203,6 +203,31 @@ async function startChat() {
   if (contextParts.length > 0) {
     systemPrompt = `${SYSTEM_PROMPT}\n\n${contextParts.join('\n\n')}`;
   }
+
+  // Set up CLI approval callback for sensitive tools
+  setApprovalCallback(async (toolName, args, level) => {
+    const argStr = Object.entries(args).map(([k, v]) => `${k}=${JSON.stringify(v).slice(0, 80)}`).join(', ');
+    console.log(`\n  ${level === 'dangerous' ? '🔴' : '🟡'} Tool "${toolName}" requires approval:`);
+    console.log(`    ${argStr}`);
+    const answer = await rl.question('  Allow? (y=yes, Y=always, n=no, N=never) ');
+    const trimmed = answer.trim().toLowerCase();
+    if (trimmed === 'y' || trimmed === 'yes') {
+      return true;
+    }
+    if (trimmed === 'a' || trimmed === 'always') {
+      approvalStore.allowPermanently(toolName);
+      console.log(`  ✅ "${toolName}" will always be allowed in this session.`);
+      return true;
+    }
+    if (trimmed === 'n' || trimmed === 'no') {
+      return false;
+    }
+    if (trimmed === 'never') {
+      console.log(`  ❌ "${toolName}" will always be denied in this session.`);
+      return false;
+    }
+    return false;
+  });
 
   let agent = new CodingAgent(client, typedTools, activeModelConfig, systemPrompt, savedMessages ?? undefined);
 
@@ -431,6 +456,25 @@ async function startChat() {
       const now = !isSafeModeEnabled();
       setSafeMode(now);
       console.log(`\n🛡️  Safe mode ${now ? 'ENABLED' : 'DISABLED'} — only whitelisted shell commands are allowed.\n`);
+      rl.prompt();
+      continue;
+    }
+
+    if (input.toLowerCase() === '/gov') {
+      const now = !isGovernanceEnabled();
+      setGovernanceEnabled(now);
+      console.log(`\n🛡️  Governance ${now ? 'ENABLED' : 'DISABLED'} — sensitive tools ${now ? 'require' : 'bypass'} approval.\n`);
+      rl.prompt();
+      continue;
+    }
+
+    if (input.toLowerCase() === '/trust') {
+      const list = approvalStore.toJSON();
+      if (list.length === 0) {
+        console.log('\n  No permanently trusted tools.\n');
+      } else {
+        console.log(`\n  Trusted tools (${list.length}): ${list.join(', ')}\n`);
+      }
       rl.prompt();
       continue;
     }
