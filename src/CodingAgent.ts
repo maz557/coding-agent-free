@@ -54,39 +54,62 @@ async function withRetryAndTimeout<T>(
   throw finalErr;
 }
 
-async function processStreamResponse(
+/**
+ * Wraps an async iterable stream with an idle timeout that resets on each chunk.
+ * Uses the same AbortController (ac) that was passed to the initial API call,
+ * so aborting it cancels the underlying HTTP fetch (matching server.ts pattern).
+ */
+async function processStreamWithIdleTimeout(
   stream: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>,
+  timeoutMs: number,
+  ac: AbortController,
 ): Promise<{ content: string; toolCalls: ToolCall[]; model: string }> {
   let content = '';
   const toolCallAccumulators = new Map<number, { id: string; name: string; arguments: string }>();
   let model = '';
+  let idleTo: ReturnType<typeof setTimeout>;
 
-  for await (const chunk of stream) {
-    if (chunk.model) model = chunk.model;
+  const resetIdle = () => {
+    clearTimeout(idleTo);
+    idleTo = setTimeout(() => { if (!ac.signal.aborted) ac.abort(); }, timeoutMs);
+  };
 
-    const choice = chunk.choices?.[0];
-    if (!choice) continue;
+  // Start idle timeout (covers time between chunks)
+  idleTo = setTimeout(() => { if (!ac.signal.aborted) ac.abort(); }, timeoutMs);
 
-    const delta = choice.delta;
-    if (!delta) continue;
+  try {
+    for await (const chunk of stream) {
+      if (ac.signal.aborted) break;
+      resetIdle();
 
-    if (delta.content) {
-      content += delta.content;
-      process.stdout.write(delta.content);
-    }
+      if (chunk.model) model = chunk.model;
 
-    if (delta.tool_calls) {
-      for (const tc of delta.tool_calls) {
-        const index = tc.index ?? 0;
-        if (!toolCallAccumulators.has(index)) {
-          toolCallAccumulators.set(index, { id: '', name: '', arguments: '' });
+      const choice = chunk.choices?.[0];
+      if (!choice) continue;
+
+      const delta = choice.delta;
+      if (!delta) continue;
+
+      if (delta.content) {
+        content += delta.content;
+        process.stdout.write(delta.content);
+      }
+
+      if (delta.tool_calls) {
+        for (const tc of delta.tool_calls) {
+          const index = tc.index ?? 0;
+          if (!toolCallAccumulators.has(index)) {
+            toolCallAccumulators.set(index, { id: '', name: '', arguments: '' });
+          }
+          const acc = toolCallAccumulators.get(index)!;
+          if (tc.id) acc.id += tc.id;
+          if (tc.function?.name) acc.name += tc.function.name;
+          if (tc.function?.arguments) acc.arguments += tc.function.arguments;
         }
-        const acc = toolCallAccumulators.get(index)!;
-        if (tc.id) acc.id += tc.id;
-        if (tc.function?.name) acc.name += tc.function.name;
-        if (tc.function?.arguments) acc.arguments += tc.function.arguments;
       }
     }
+  } finally {
+    clearTimeout(idleTo);
   }
 
   const toolCalls: ToolCall[] = [];
@@ -184,16 +207,26 @@ export class CodingAgent {
         const isLocal = provInfo && !provInfo.apiKeyEnv;
         const timeoutMs = isLocal ? getUserConfig().localTimeoutMs : getUserConfig().cloudTimeoutMs;
 
+        // Shared AbortController for idle timeout — matches server.ts pattern
+        // The same signal is passed to the HTTP fetch, so aborting it cancels the stream
+        const ac = new AbortController();
+
         const stream = await withRetryAndTimeout(
-          signal => this.client.chat.completions.create(
-            { ...request, stream: true },
-            { signal }
-          ),
+          signal => {
+            // Link per-attempt signal to shared controller so retry timeout also aborts
+            signal.addEventListener('abort', () => { if (!ac.signal.aborted) ac.abort(); });
+            return this.client.chat.completions.create(
+              { ...request, stream: true },
+              { signal: ac.signal }
+            );
+          },
           3,
           timeoutMs
         );
 
-        const { content, toolCalls, model } = await processStreamResponse(stream);
+        // Idle timeout handled entirely inside processStreamWithIdleTimeout
+        // (covers first token + resets on each subsequent chunk)
+        const { content, toolCalls, model } = await processStreamWithIdleTimeout(stream, timeoutMs, ac);
         usedModel = model || this.modelConfig.primary;
         console.log();
         console.log(`  [Model: ${usedModel}]`);
