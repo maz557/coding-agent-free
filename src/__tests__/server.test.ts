@@ -45,10 +45,14 @@ describe('server API', () => {
   before(() => {
     process.env.OPENROUTER_API_KEY = 'sk-or-v1-test';
     process.env.GOOGLE_API_KEY = 'AIza-test';
+    process.env.MISTRAL_API_KEY = 'sk-mistral-test';
+    process.env.GROQ_API_KEY = 'gsk_test';
   });
   after(() => {
     process.env.OPENROUTER_API_KEY = ORIGINAL_ENV.OPENROUTER_API_KEY;
     process.env.GOOGLE_API_KEY = ORIGINAL_ENV.GOOGLE_API_KEY;
+    delete process.env.MISTRAL_API_KEY;
+    delete process.env.GROQ_API_KEY;
   });
 
   beforeEach(async () => {
@@ -85,7 +89,7 @@ describe('server API', () => {
   describe('POST /api/session', () => {
     it('should create a session', async () => {
       const { status, body } = await fetchJson(`${baseUrl}/api/session`, { method: 'POST' });
-      assert.equal(status, 200, `Expected 200, got ${status}: ${JSON.stringify(body)}`);
+      assert.equal(status, 200);
       assert(body.sessionId);
       assert(Array.isArray(body.models));
       sessionId = body.sessionId;
@@ -413,6 +417,7 @@ describe('diff event for write_file', () => {
     process.env.NODE_ENV = 'test';
     process.env.OPENROUTER_API_KEY = 'sk-or-v1-test';
     process.env.GOOGLE_API_KEY = 'AIza-test';
+    process.env.MISTRAL_API_KEY = 'sk-mistral-test';
   });
 
   afterEach(() => {
