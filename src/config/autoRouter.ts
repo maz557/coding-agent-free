@@ -28,8 +28,8 @@ const DEFAULT_ROUTES: Record<RouteType, RouteConfig> = {
   fast: {
     entries: [
       { provider: 'google', model: 'gemini-2.0-flash', quality: 'premium' },
-      { provider: 'openrouter', model: 'openai/gpt-oss-120b:free', quality: 'high' },
       { provider: 'groq', model: 'llama-3.1-70b-versatile', quality: 'high' },
+      { provider: 'openrouter', model: 'openrouter/free', quality: 'medium' },
       { provider: 'xai', model: 'grok-beta', quality: 'high' },
       { provider: 'mistral', model: 'mistral-large-latest', quality: 'premium' },
     ],
@@ -38,11 +38,10 @@ const DEFAULT_ROUTES: Record<RouteType, RouteConfig> = {
   },
   cheap: {
     entries: [
-      { provider: 'openrouter', model: 'openai/gpt-oss-120b:free', quality: 'high' },
       { provider: 'google', model: 'gemini-2.0-flash', quality: 'premium' },
+      { provider: 'openrouter', model: 'openrouter/free', quality: 'medium' },
       { provider: 'groq', model: 'llama-3.1-70b-versatile', quality: 'high' },
       { provider: 'xai', model: 'grok-beta', quality: 'high' },
-      { provider: 'mistral', model: 'mistral-large-latest', quality: 'premium' },
     ],
     minQuality: 'medium',
     label: 'Auto (Cheap)',
@@ -60,8 +59,8 @@ const DEFAULT_ROUTES: Record<RouteType, RouteConfig> = {
   },
   vision: {
     entries: [
-      { provider: 'openrouter', model: 'openai/gpt-oss-120b:free', quality: 'high' },
       { provider: 'google', model: 'gemini-2.0-flash', quality: 'premium' },
+      { provider: 'openrouter', model: 'openai/gpt-oss-120b:free', quality: 'high' },
     ],
     minQuality: 'medium',
     label: 'Auto (Vision)',
