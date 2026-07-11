@@ -1,4 +1,4 @@
-# Coding Agent Free v1.25.0
+# Coding Agent Free v1.26.0
 
 This is the Coding Agent Free project itself.
 
@@ -16,6 +16,7 @@ This is the Coding Agent Free project itself.
 - `src/mcp/` — MCP support (types, StdioTransport, HTTPTransport, MCPManager, config loader)
 - `src/lsp/` — LSP support (LSPClient, LSPManager, tool definitions: code_definition/references/hover/lookup_symbol/get_diagnostics)
 - `src/persistence.ts` — multi-session persistence (sessions/ dir, auto-title, modelPreset)
+- `src/tools/governance.ts` — tool safety levels (safe/sensitive/dangerous), ApprovalStore for permanent allow/deny
 - `src/validation.ts` — Zod schemas for tool input/output validation
 - `scripts/setup.js` — interactive setup wizard
 
@@ -67,6 +68,18 @@ This is the Coding Agent Free project itself.
 - **Help modal**: keyboard shortcuts section added
 - **Keyboard shortcut**: Ctrl+Shift+C for copy session
 - **Conditional LSP prompt**: removed (not needed; `tools[]` is single source of truth)
+
+## v1.26.0 changes
+- **Governance system** 🛡️ — per-tool approval workflow: safe (auto), sensitive (ask), dangerous (block)
+  - `src/tools/governance.ts`: `ToolSafetyLevel`, `ApprovalStore` for permanent allow/deny
+  - CLI prompt on sensitive tools (`y`=once, `Y`=always, `n`=no, `N`=never)
+  - `/gov` toggle command, `/trust` list permanently allowed tools
+  - `executeTool()` checks approval before running sensitive tools
+- **Task Planner** 📋 — automatic planning phase before execution loop
+  - `CodingAgent.plan()` makes an extra API call to create a numbered step plan
+  - Plan injected as system message, guiding the model during tool-calling
+  - Non-blocking: silently skipped if planning call fails
+- **Removed duplicate LSP languages** — `addConfig()` replaces default when same `languageId` (typescript from `.coding-agent.json` overrides hardcoded default)
 
 ## v1.25.0 changes
 - **Cerebras provider** 🆕 — 14th provider, API key `CEREBRAS_API_KEY`, 3 models (`gpt-oss-120b`, `gemma-4-31b`, `zai-glm-4.7`)
