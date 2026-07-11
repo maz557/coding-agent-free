@@ -7,6 +7,7 @@ import { validateToolInput, validateToolOutput, isToolCallArray } from './valida
 import { executeTool } from './tools/toolRegistry';
 import { ModelPreset, PROVIDERS } from './config/models';
 import { getUserConfig } from './config/userConfig';
+import { discoverProviderModels, pickBestModel } from './config/modelDiscovery';
 
 const logger = pino(
   { level: process.env.LOG_LEVEL || 'info' },
@@ -293,6 +294,21 @@ export class CodingAgent {
         console.log(`  🚨 API Error: ${msg}`);
         logger.error({ error: err, depth }, 'Agent execution failed');
         const isRateLimit = err?.status === 429 || err?.code === 'rate_limit_exceeded';
+
+        // Auto-correct invalid model (e.g. "not a valid model ID")
+        if (err?.status === 400 && msg.toLowerCase().includes('valid model')) {
+          const oldModel = this.modelConfig.primary;
+          console.log(`  🔍 Model "${oldModel}" invalid — discovering alternatives for ${this.modelConfig.provider}...`);
+          const models = await discoverProviderModels(this.modelConfig.provider);
+          const best = pickBestModel(models);
+          if (best && best !== oldModel) {
+            console.log(`  ✅ Auto-corrected: ${oldModel} → ${best}`);
+            this.modelConfig.primary = best;
+            continue; // retry with new model
+          }
+          console.log(`  ❌ No alternative found for ${this.modelConfig.provider}.`);
+        }
+
         return {
           model: usedModel,
           content: `An error occurred while communicating with the AI model: ${msg}`,

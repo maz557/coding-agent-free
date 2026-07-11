@@ -9,6 +9,7 @@ import { loadLSPConfig } from './lsp/config';
 import { lspManager } from './lsp/index';
 import { PROVIDERS, FIXED_PRESETS, SYSTEM_PROMPT, ModelPreset } from './config/models';
 import { resolveRoute, isAutoRoute, getRouteLabel, listAutoRoutes, getRouteEntries } from './config/autoRouter';
+import { discoverProviderModels, discoverAllProviders, pickBestModel } from './config/modelDiscovery';
 import { getUserConfig } from './config/userConfig';
 import { recordUsage, getAggregatedUsage } from './usageTracker';
 import * as path from 'path';
@@ -498,7 +499,6 @@ app.get('/api/tools', (_req, res) => {
 
 app.get('/api/discover', async (_req, res) => {
   try {
-    const { discoverAllProviders, pickBestModel } = await import('./config/modelDiscovery');
     const all = await discoverAllProviders();
     const providers = [];
     for (const [provider, models] of Object.entries(all)) {
@@ -703,6 +703,20 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
       }
     } catch (err: any) {
       const errMsg = err?.message || 'API error';
+
+      // Auto-correct invalid model name (e.g. "not a valid model ID")
+      if (err?.status === 400 && errMsg.toLowerCase().includes('valid model')) {
+        const oldModel = s.modelConfig.primary;
+        send('error', { message: `Model "${oldModel}" invalid — discovering alternatives for ${s.modelConfig.provider}...` });
+        const models = await discoverProviderModels(s.modelConfig.provider);
+        const best = pickBestModel(models);
+        if (best && best !== oldModel) {
+          send('error', { message: `Auto-corrected: ${oldModel} → ${best}` });
+          s.modelConfig.primary = best;
+          continue; // retry same provider with new model
+        }
+        send('error', { message: `No alternative found for ${s.modelConfig.provider}.` });
+      }
 
       if (tryNextRouteEntry(s)) {
         send('error', { message: `${errMsg} — falling back to ${s.modelConfig.provider}/${s.modelConfig.primary}` });

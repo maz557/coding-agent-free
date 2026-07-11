@@ -48,6 +48,7 @@ An interactive AI coding assistant that runs in your **terminal** or **web brows
 - **Auto-routing** — 6 quality-filtered routes (`auto/coding`, `auto/fast`, `auto/cheap`, `auto/reasoning`, `auto/vision`, `auto/offline`) with automatic API key detection; user-editable via `route-presets.json`
 - **Usage tracking** — per-session and aggregated token/request counts via API (`GET /api/usage`)
 - **Collapsible fallback errors** — failed fallback attempts shown as expandable ⚠️ N fallback(s) banner inside the assistant message
+- **Model discovery** — auto-detect available models from each provider on invalid model names (400 error); manual `/discover` command and `GET /api/discover` endpoint
 - **User presets** — save/add/remove your own models with `/save`, `/add`, `/remove`
 - **Fallback chain** — auto-fallback across providers on rate limit (429), plus model-level fallbacks
 - **17 built-in tools** — read, write, list, create_folder, delete_file, delete_folder, append_file, copy_file, move_file, file_info, search_content, replace_in_file, run_command, git_diff, git_commit, git_log, web_search
@@ -376,6 +377,7 @@ Tools from connected MCP servers appear automatically alongside built-in tools. 
 | `/mcp disconnect <name>` | Disconnect an MCP server |
 | `/mcp toggle` | Enable / disable all MCP tools |
 | `/lsp` | Toggle LSP tools |
+| `/discover` | Fetch available models from providers (auto-corrects stale names) |
 | `/list-providers` | Show providers with valid keys |
 | `/exit` | Quit |
 
@@ -588,6 +590,7 @@ You: /model 6
 | `429 Rate limit` | Free tier daily limit hit | Wait or use auto-fallback. Manual: `/model <n>` |
 | `Agent stopped: stuck detected` | Same tool called 3×+ consecutively | Recovery message injected automatically |
 | `All 3 attempts failed` | Model unreachable or too slow | Try smaller model or local model |
+| `400 not a valid model` | Model name changed/deprecated | Auto-corrected via discovery module — or run `/discover` + `/add <n> provider:new-model` |
 | `tool_calls` empty arguments | Model doesn't support tool calling | Use a different model |
 | `ENOTFOUND` / `ECONNREFUSED` | Internet restrictions or proxy needed | Enable VPN/proxy or use local models |
 | `Request timed out (120s)` | Cloud timeout too short for response | Use local model or provider with faster response |
