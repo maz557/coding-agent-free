@@ -20,6 +20,7 @@ import {
   loadUserPresets, saveUserPresets,
 } from './persistence';
 import { getAllPresets, showModels } from './commands';
+import { discoverAllProviders, pickBestModel, clearCache as clearDiscoveryCache } from './config/modelDiscovery';
 import { estimateTotalTokens } from './tokenEstimator';
 import { OpenAITool } from './types';
 import { detectLocalModel } from './detectLocalModel';
@@ -110,6 +111,7 @@ async function startChat() {
   console.log('    /reset       Clear conversation history (start fresh)');
   console.log('    /list-providers  Show available providers');
   console.log('    /tools       List all available tools');
+  console.log('    /discover    Discover available models from providers');
   console.log('    /models      Show all presets');
   console.log('    /active      Show current active model');
     console.log('    /mcp list    Show connected MCP servers');
@@ -252,6 +254,26 @@ async function startChat() {
         }
         console.log('──────────────────────────────────────────────────\n');
       }
+      rl.prompt();
+      continue;
+    }
+
+    if (input.toLowerCase() === '/discover') {
+      console.log('\n  🔍 Discovering available models from all providers...\n');
+      clearDiscoveryCache();
+      const all = await discoverAllProviders();
+      let found = false;
+      for (const [provider, models] of Object.entries(all)) {
+        if (models.length === 0) continue;
+        found = true;
+        const names = PROVIDERS[provider]?.name || provider;
+        const best = pickBestModel(models);
+        console.log(`  ${names}: ${models.length} model(s)`);
+        console.log(`    Best: ${best}`);
+        console.log(`    Models: ${models.slice(0, 5).map(m => m.id).join(', ')}${models.length > 5 ? '...' : ''}`);
+      }
+      if (!found) console.log('  No models discovered (check API keys).');
+      console.log('');
       rl.prompt();
       continue;
     }

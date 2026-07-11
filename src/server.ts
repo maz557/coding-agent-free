@@ -496,6 +496,20 @@ app.get('/api/tools', (_req, res) => {
   res.json({ tools, count: tools.length });
 });
 
+app.get('/api/discover', async (_req, res) => {
+  try {
+    const { discoverAllProviders, pickBestModel } = await import('./config/modelDiscovery');
+    const all = await discoverAllProviders();
+    const providers = [];
+    for (const [provider, models] of Object.entries(all)) {
+      if (models.length === 0) continue;
+      const best = pickBestModel(models, ['large', 'medium', 'flash']);
+      providers.push({ name: PROVIDERS[provider]?.name || provider, count: models.length, best });
+    }
+    res.json({ providers });
+  } catch { res.json({ providers: [] }); }
+});
+
 app.get('/api/mcp', (_req, res) => {
   const servers = mcpManager.getServerNames().map(name => ({
     name,
