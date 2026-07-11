@@ -1,7 +1,8 @@
 @echo off
 cd /d "%~dp0"
+for /f "usebackq tokens=*" %%v in (`powershell -NoProfile -Command "Get-Content '%~dp0package.json' | ConvertFrom-Json | Select -ExpandProperty version"`) do set VERSION=%%v
 echo =====================================================
-echo          Coding Agent Free — Web Interface
+echo          Coding Agent Free — Web Interface  v%VERSION%
 echo =====================================================
 echo.
 
