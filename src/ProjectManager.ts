@@ -14,14 +14,18 @@ export interface ProjectData {
   sessionIds: string[];
 }
 
-const PROJECTS_DIR = path.join(process.cwd(), 'projects');
+const DEFAULT_PROJECTS_DIR = path.join(process.cwd(), 'projects');
+
+function projectsDir(): string {
+  return process.env.PROJECTS_DIR || DEFAULT_PROJECTS_DIR;
+}
 
 async function ensureDir(): Promise<void> {
-  try { await fsp.mkdir(PROJECTS_DIR, { recursive: true }); } catch { /* exists */ }
+  try { await fsp.mkdir(projectsDir(), { recursive: true }); } catch { /* exists */ }
 }
 
 function projectFilePath(id: string): string {
-  return path.join(PROJECTS_DIR, `${id}.json`);
+  return path.join(projectsDir(), `${id}.json`);
 }
 
 export class ProjectManager {
@@ -31,7 +35,7 @@ export class ProjectManager {
     await ensureDir();
     this.projects.clear();
     try {
-      const entries = await fsp.readdir(PROJECTS_DIR);
+      const entries = await fsp.readdir(projectsDir());
       for (const entry of entries) {
         if (!entry.endsWith('.json')) continue;
         const id = entry.slice(0, -5);
