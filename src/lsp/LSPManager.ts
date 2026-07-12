@@ -18,15 +18,27 @@ const DEFAULT_LSP_SERVERS: LSPServerConfig[] = [
   },
 ];
 
-export const KNOWN_LSP_SERVERS = [
-  { name: 'TypeScript/JavaScript', binary: 'typescript-language-server', install: 'npm install -g typescript-language-server', patterns: '**/*.ts, **/*.tsx, **/*.js' },
-  { name: 'Python', binary: 'pyright', install: 'npm install -g pyright', patterns: '**/*.py' },
-  { name: 'Rust', binary: 'rust-analyzer', install: 'rustup component add rust-analyzer', patterns: '**/*.rs' },
-  { name: 'Go', binary: 'gopls', install: 'go install golang.org/x/tools/gopls@latest', patterns: '**/*.go' },
-  { name: 'C/C++', binary: 'clangd', install: 'Download from https://clangd.llvm.org/installation.html', patterns: '**/*.c, **/*.h, **/*.cpp' },
-  { name: 'Ruby', binary: 'solargraph', install: 'gem install solargraph', patterns: '**/*.rb' },
-  { name: 'Lua', binary: 'lua-language-server', install: 'Download from https://github.com/LuaLS/lua-language-server', patterns: '**/*.lua' },
-  { name: 'SQL', binary: 'sql-language-server', install: 'npm install -g sql-language-server', patterns: '**/*.sql' },
+export interface KnownLSPServer {
+  name: string;
+  languageId: string;
+  filePatterns: string[];
+  /** npm package name to install */
+  packageName: string;
+  /** Binary/command to use — can be a relative path inside node_modules */
+  command: string;
+  args: string[];
+}
+
+/** Static registry of known LSP servers with their install info */
+export const KNOWN_LSP_SERVERS: KnownLSPServer[] = [
+  { name: 'TypeScript/JavaScript', languageId: 'typescript', filePatterns: ['**/*.ts', '**/*.tsx', '**/*.js'], packageName: 'typescript-language-server', command: 'node.exe', args: ['node_modules/typescript-language-server/lib/cli.mjs', '--stdio'] },
+  { name: 'Python', languageId: 'python', filePatterns: ['**/*.py'], packageName: 'pyright', command: 'node.exe', args: ['node_modules/pyright/langserver.index.js', '--stdio'] },
+  { name: 'JSON', languageId: 'json', filePatterns: ['**/*.json', '**/*.jsonc'], packageName: 'vscode-json-languageserver', command: 'node.exe', args: ['node_modules/vscode-json-languageserver/out/node/jsonServerMain.js', '--stdio'] },
+  { name: 'HTML', languageId: 'html', filePatterns: ['**/*.html', '**/*.htm'], packageName: 'vscode-langservers-extracted', command: 'node.exe', args: ['node_modules/vscode-langservers-extracted/bin/vscode-html-language-server', '--stdio'] },
+  { name: 'CSS', languageId: 'css', filePatterns: ['**/*.css', '**/*.scss', '**/*.less'], packageName: 'vscode-langservers-extracted', command: 'node.exe', args: ['node_modules/vscode-langservers-extracted/bin/vscode-css-language-server', '--stdio'] },
+  { name: 'Rust', languageId: 'rust', filePatterns: ['**/*.rs'], packageName: 'rust-analyzer', command: 'rust-analyzer', args: [] },
+  { name: 'Go', languageId: 'go', filePatterns: ['**/*.go'], packageName: 'gopls', command: 'gopls', args: [] },
+  { name: 'SQL', languageId: 'sql', filePatterns: ['**/*.sql'], packageName: 'sql-language-server', command: 'node.exe', args: ['node_modules/sql-language-server/dist/bin.js', '--stdio'] },
 ];
 
 interface ClientEntry {
@@ -238,6 +250,78 @@ export class LSPManager {
 
   getActiveLanguages(): string[] {
     return this.entries.filter(e => e.client.ready).map(e => e.config.languageId);
+  }
+
+  /** Find a known LSP server config that matches the given file path */
+  static getServerForFile(filePath: string): KnownLSPServer | null {
+    const normPath = filePath.replace(/\\/g, '/');
+    for (const srv of KNOWN_LSP_SERVERS) {
+      for (const pattern of srv.filePatterns) {
+        const regexStr = pattern.split('**').map(s => s.replace(/\*/g, '[^/]*').replace(/\?/g, '.')).join('.*');
+        if (new RegExp('^' + regexStr + '$').test(normPath)) return srv;
+      }
+    }
+    return null;
+  }
+
+  /** Check if a given known LSP server is already registered */
+  hasLanguage(languageId: string): boolean {
+    return this.configs.some(c => c.languageId === languageId);
+  }
+
+  /** Auto-install the npm package, register the LSP server config, and start it */
+  async autoInstallAndStart(filePath: string, cwd: string): Promise<string> {
+    const known = LSPManager.getServerForFile(filePath);
+    if (!known) return `No known LSP server for ${path.extname(filePath)} files`;
+
+    if (this.hasLanguage(known.languageId)) {
+      // Already registered — just ensure it has a client for this file
+      const existing = this.getClientForFile(filePath);
+      if (existing?.ready) return `LSP for ${known.languageId} already running`;
+    }
+
+    // Check if the npm package is already installed
+    const pkgPath = path.join(cwd, 'node_modules', known.packageName, 'package.json');
+    if (!fs.existsSync(pkgPath)) {
+      const { execSync } = require('child_process');
+      try {
+        execSync(`npm install --save-dev ${known.packageName}`, { cwd, stdio: 'pipe', timeout: 120000 });
+      } catch (err: any) {
+        return `Failed to install ${known.packageName}: ${err.message}`;
+      }
+    }
+
+    // Register the config
+    const config: LSPServerConfig = {
+      command: known.command,
+      args: known.args,
+      languageId: known.languageId,
+      filePatterns: known.filePatterns,
+    };
+    this.addConfig(config);
+
+    // Start the server for this project
+    try {
+      const uri = pathToUri(cwd);
+      const client = new LSPClient(config.command, config.args, uri);
+      client.onDiagnostics = (docUri: string, diagnostics: any[]) => {
+        if (diagnostics.length > 0) {
+          console.log(`  📋 LSP diagnostics for ${path.basename(uriToPath(docUri))}: ${diagnostics.length} issue(s)`);
+        }
+      };
+      await client.start();
+      this.entries.push({ client, config });
+
+      // Open the file
+      if (fs.existsSync(filePath)) {
+        const fileUri = pathToUri(filePath);
+        const content = fs.readFileSync(filePath, 'utf-8');
+        await client.openDocument(fileUri, known.languageId, content);
+      }
+      return `✅ LSP ${known.name} installed and started`;
+    } catch (err: any) {
+      return `⚠️ LSP ${known.name} installed but failed to start: ${err.message}`;
+    }
   }
 
   async shutdown(): Promise<void> {

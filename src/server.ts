@@ -601,6 +601,17 @@ app.post('/api/lsp/toggle', (_req, res) => {
   res.json({ enabled, ready: lspManager.isAvailable(), languages: lspManager.getActiveLanguages() });
 });
 
+app.post('/api/lsp/install', async (req, res) => {
+  const { filePath } = req.body || {};
+  if (!filePath || typeof filePath !== 'string') {
+    return res.status(400).json({ error: 'filePath is required' });
+  }
+  const fullPath = path.resolve(filePath);
+  const cwd = process.cwd();
+  const result = await lspManager.autoInstallAndStart(fullPath, cwd);
+  res.json({ result });
+});
+
 // --- Project API ---
 app.get('/api/projects', async (_req, res) => {
   await projectManager.loadAll();

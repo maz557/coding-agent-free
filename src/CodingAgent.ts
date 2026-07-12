@@ -12,6 +12,7 @@ import { getUserConfig } from './config/userConfig';
 import { discoverProviderModels, pickBestModel } from './config/modelDiscovery';
 import { PlanManager, PlanStep } from './PlanManager';
 import { AgentMode, AGENT_MODES, filterToolsForMode, detectIntent, SWITCH_MODE_TOOL } from './AgentMode';
+import { lspManager } from './lsp/index';
 
 export interface AgentCallbacks {
   onToken?: (token: string) => void;
@@ -455,6 +456,17 @@ export class CodingAgent {
                     this.callbacks.onDiff(filePathArg, beforeContent || '', afterContent);
                   }
                 } catch { /* ignore */ }
+              }
+            }
+
+            // Auto-install LSP server when writing a file that matches a known LSP type
+            if (functionName === 'write_file') {
+              const fp = functionArgs.path as string;
+              if (fp && !lspManager.getClientForFile(fp)) {
+                const cwd = process.cwd();
+                lspManager.autoInstallAndStart(fp, cwd)
+                  .then(r => { if (!r.startsWith('✅') && !r.startsWith('LSP for')) console.log(`  ${r}`); })
+                  .catch(() => {});
               }
             }
 
