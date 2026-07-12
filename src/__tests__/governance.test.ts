@@ -1,4 +1,4 @@
-import { describe, it } from 'node:test';
+import { describe, it, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 describe('governance - tool safety levels', () => {
@@ -130,5 +130,10 @@ describe('governance - toolRegistry integration', () => {
     reg.setApprovalCallback(async () => true);
     const result = await reg.executeTool('read_file', { path: 'package.json' });
     assert(typeof result === 'string' && result.length > 0, 'should execute tool normally');
+  });
+
+  after(() => {
+    const reg = require('../tools/toolRegistry');
+    reg.setGovernanceEnabled(false);
   });
 });

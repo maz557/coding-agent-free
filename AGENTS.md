@@ -16,6 +16,8 @@ This is the Coding Agent Free project itself.
 - `src/mcp/` — MCP support (types, StdioTransport, HTTPTransport, MCPManager, config loader)
 - `src/lsp/` — LSP support (LSPClient, LSPManager, tool definitions: code_definition/references/hover/lookup_symbol/get_diagnostics)
 - `src/persistence.ts` — multi-session persistence (sessions/ dir, auto-title, modelPreset)
+- `src/PlanManager.ts` — parse, track, and match plan steps; auto-progress injection
+- `src/ProjectManager.ts` — create/list/load/save/delete projects on disk, linked to PlanManager
 - `src/tools/governance.ts` — tool safety levels (safe/sensitive/dangerous), ApprovalStore for permanent allow/deny
 - `src/validation.ts` — Zod schemas for tool input/output validation
 - `scripts/setup.js` — interactive setup wizard
@@ -38,9 +40,10 @@ This is the Coding Agent Free project itself.
 - **SSE streaming** — raw fetch + ReadableStream (no EventSource dependency)
 - **LSP toggle** — 🟢ON/⚫OFF status with active languages
 - **MCP toggle** — 🟢ON/⚫OFF status
+- **Project panel** — sidebar with project list, detail view, progress bars, status management, create/delete
 
 ## Tests
-- `npm run test:unit` — **240** unit tests (13 files, `--test-timeout=15000`)
+- `npm run test:unit` — **328** unit tests (18 files, `--test-timeout=15000`)
 - `npm run test:integration` — 26 provider integration tests
 - `npm test` — 35 integration tests
 - CI: `.github/workflows/ci.yml` runs all tests on push/PR
@@ -50,6 +53,7 @@ This is the Coding Agent Free project itself.
 - `src/lsp/` — LSP support (LSPClient, LSPManager, tool definitions: code_definition/references/hover/lookup_symbol/get_diagnostics; multi-language via entries[] matching filePatterns)
 - `src/persistence.ts` — multi-session persistence (sessions/ dir, auto-title, modelPreset)
 - `src/tools/toolRegistry.ts` — central tool registry combining builtin + MCP + LSP tools
+- `src/ProjectManager.ts` — create/list/load/save/delete projects on disk, linked to PlanManager
 
 ## Known limitations
 - **Windows LSP binary spawn** — `spawn()` can't find global npm `.cmd` files; shell fallback sometimes causes exit race. Mitigated with `shell: true`. LSP works in tests (mock server) and on Linux/macOS.
@@ -75,11 +79,60 @@ This is the Coding Agent Free project itself.
   - CLI prompt on sensitive tools (`y`=once, `Y`=always, `n`=no, `N`=never)
   - `/gov` toggle command, `/trust` list permanently allowed tools
   - `executeTool()` checks approval before running sensitive tools
+  - API endpoints: `POST /api/approve/:sessionId`, `GET/POST /api/gov`, `GET /api/trust`
+  - Web UI auto-approves when governance disabled; SSE `approval_request` event when enabled
+  - `setApprovalCallback()` returns previous callback for save/restore
+  - `governanceEnabled` default: `true` (CLI & server mode); `/gov` toggles at runtime
+  - Global pending approvals map (`globalPendingApproves`) resolves across SSE/boundaries
+  - 120s approval timeout with `.unref()`
+  - Tests: 14 governance tests
 - **Task Planner** 📋 — automatic planning phase before execution loop
-  - `CodingAgent.plan()` makes an extra API call to create a numbered step plan
-  - Plan injected as system message, guiding the model during tool-calling
+  - `CodingAgent.plan()`: extra API call at start of `execute()` outputs numbered plan
+  - `PlanManager` (`src/PlanManager.ts`): parse steps, track status (pending/in_progress/completed/skipped), auto-match tool calls to steps
+  - Progress summary injected every 3 steps or on completion
   - Non-blocking: silently skipped if planning call fails
+  - 25 unit tests + 4 integration tests
+- **PlanManager** (`src/PlanManager.ts`):
+  - `parsePlan()`: parses numbered lists (1. or 1)) into `PlanStep[]`
+  - `matchToolToStep()`: keyword/path matching to auto-assign tool calls to steps
+  - `recordToolCall()` / `markCompleted()` / `markSkipped()`: status tracking
+  - `getProgressSummary()`: formatted `[Progress X% (M/N)]` with checkmarks
+  - `toJSON()` / `fromJSON()`: serialization for session persistence
+- **Idle timeout fix** (CodingAgent.ts): absolute 120s → per-token reset (matches server.ts pattern)
 - **Removed duplicate LSP languages** — `addConfig()` replaces default when same `languageId` (typescript from `.coding-agent.json` overrides hardcoded default)
+- **Test fixes**: all CodingAgent tests updated for `plan()` call (shifted counters + planOk mock), self-reflection test fixed for validation schema
+- **ProjectManager** 📁 (`src/ProjectManager.ts`):
+  - Create/list/load/save/delete projects on disk (`projects/` dir), linked to PlanManager
+  - `create()`: saves plan steps, status, session linkage
+  - `loadAll()` / `get()` / `getAll()`: in-memory + disk persistence
+  - `setStatus()`: lifecycle management (active/paused/completed/abandoned)
+  - `addSession()` / `findForSession()`: multi-session project association
+  - `restorePlan()`: reconstruct PlanManager from saved project
+  - `toSummary()` / `listSummaries()`: progress percentages for UI
+  - `updatePlan()`: sync plan step status to disk
+  - Sorted by `updatedAt` (newest first)
+- **Project API** (server.ts):
+  - `GET /api/projects` — list summaries
+  - `GET /api/projects/:id` — get full project
+  - `POST /api/projects` — create (requires title, sessionId, planSteps)
+  - `POST /api/projects/:id/status` — update status
+  - `DELETE /api/projects/:id` — delete
+  - Session `meta.projectId` links sessions to projects
+- **CLI commands** (`agent.ts`):
+  - `/project list` — list all projects with progress
+  - `/project show <id>` — full detail + plan steps
+  - `/project status <id> <val>` — update lifecycle status
+  - `/project delete <id>` — remove project
+  - Projects loaded from disk at startup via `projectManager.loadAll()()`
+- **Web UI project panel** (`public/index.html`):
+  - 📋 Projects button in toolbar + status indicator
+  - Slide-out sidebar with project list, progress bars, status colors
+  - Detail view with step-by-step plan, status selector, delete button
+  - "Projects" button toggles panel; overlay click / Escape closes
+  - `/project list` command shows panel
+  - Create button with title/description prompt
+- **11 unit tests** (`projectManager.test.ts`) — creation, persistence, status, session linking, plan restoration, summary, sorting
+- **9 integration tests** (`sessionProjectPlan.test.ts`) — Session ↔ Project ↔ Plan lifecycle: create without project, create project with plan, link new session to project, sync plan completion, restore plan state, find by session, multi-session projects
 
 ## v1.25.0 changes
 - **Cerebras provider** 🆕 — 14th provider, API key `CEREBRAS_API_KEY`, 3 models (`gpt-oss-120b`, `gemma-4-31b`, `zai-glm-4.7`)

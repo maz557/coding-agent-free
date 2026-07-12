@@ -11,8 +11,10 @@ const approvalStore = new ApprovalStore();
 type ApprovalCallback = (toolName: string, args: Record<string, unknown>, level: ToolSafetyLevel) => Promise<boolean>;
 let approvalCallback: ApprovalCallback | null = null;
 
-function setApprovalCallback(cb: ApprovalCallback | null): void {
+function setApprovalCallback(cb: ApprovalCallback | null): ApprovalCallback | null {
+  const prev = approvalCallback;
   approvalCallback = cb;
+  return prev;
 }
 
 export function setMCPEnabled(enabled: boolean): void {

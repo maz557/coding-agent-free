@@ -89,6 +89,26 @@
   .session-item .s-title { font-size: 13px; color: #c9d1d9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .session-item .s-meta { font-size: 11px; color: #8b949e; margin-top: 2px; display: flex; gap: 8px; }
   .session-item .s-model { color: #58a6ff; }
+  /* Project panel */
+  #project-overlay { position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,0.5); display: none; }
+  #project-panel { position: fixed; right: 0; top: 0; bottom: 0; width: 300px; background: #161b22; border-left: 1px solid #30363d; z-index: 501; display: flex; flex-direction: column; direction: ltr; }
+  #project-panel.hidden { display: none; }
+  #project-panel h2 { font-size: 14px; color: #f0f6fc; padding: 12px 16px; border-bottom: 1px solid #30363d; margin: 0; display: flex; align-items: center; gap: 8px; }
+  #project-panel h2 button { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 4px; padding: 2px 10px; font-size: 11px; cursor: pointer; margin-left: auto; }
+  #project-list { flex: 1; overflow-y: auto; padding: 8px; }
+  .project-item { padding: 8px 10px; border-radius: 6px; cursor: pointer; margin-bottom: 4px; border: 1px solid transparent; }
+  .project-item:hover { background: #21262d; border-color: #30363d; }
+  .project-item .p-title { color: #bc8cff; font-weight: 600; font-size: 13px; }
+  .project-item .p-meta { font-size: 11px; color: #8b949e; margin-top: 2px; display: flex; gap: 8px; }
+  .project-item .p-progress { height: 4px; background: #21262d; border-radius: 2px; margin-top: 6px; overflow: hidden; }
+  .project-item .p-progress-bar { height: 100%; background: #bc8cff; border-radius: 2px; transition: width .3s; }
+  #project-detail { flex: 1; overflow-y: auto; padding: 16px; }
+  #project-detail.hidden { display: none; }
+  .project-step { padding: 6px 0; border-bottom: 1px solid #21262d; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  .project-step .step-status { width: 16px; text-align: center; }
+  .project-step.completed { color: #7ee787; }
+  .project-step.in_progress { color: #58a6ff; }
+  .project-step.pending { color: #8b949e; }
   /* Settings modal */
   #settings-modal { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; }
   #settings-modal.show { display: flex; }
@@ -152,6 +172,8 @@
   <span id="mcp-status" style="color:#8b949e;font-size:10px"></span>
   <button id="lsp-toggle-btn" style="background:#21262d;color:#58a6ff;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer" title="Toggle LSP code understanding">🔬 LSP</button>
   <span id="lsp-status" style="color:#8b949e;font-size:10px"></span>
+  <button id="projects-btn" style="background:#21262d;color:#bc8cff;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer" title="Projects">📋 Projects</button>
+  <span id="projects-status" style="color:#8b949e;font-size:10px"></span>
   <input id="allow-input" type="text" placeholder="/allow path..." style="background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:4px;padding:2px 6px;font-size:11px;width:200px;direction:ltr">
   <button id="allow-btn" style="background:#21262d;color:#58a6ff;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer">Allow</button>
   <span id="model-badge" style="margin-left:auto;font-size:11px;color:#58a6ff;background:#0d1117;padding:2px 8px;border-radius:4px;border:1px solid #21262d;direction:ltr"></span>
@@ -161,6 +183,15 @@
   <h2>📋 Sessions <button id="new-session-btn">+ New</button><button id="import-session-btn" style="background:#21262d;color:#8b949e;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:4px" title="Import session">📥</button><button id="clear-sessions-btn" style="background:#21262d;color:#f85149;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:4px" title="Delete all sessions">🗑️ All</button><button id="copy-session-btn" style="background:#21262d;color:#8b949e;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:4px" title="Copy current session">📄 Copy</button></h2>
   <div id="session-list"></div>
   <input type="file" id="import-file-input" accept=".json" style="display:none">
+</div>
+<div id="project-overlay"></div>
+<div id="project-panel" class="hidden">
+  <h2>📋 Projects <button id="new-project-btn" style="background:#21262d;color:#bc8cff;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:4px" title="Create project from current plan">+ New</button></h2>
+  <div id="project-list"></div>
+  <div id="project-detail" class="hidden">
+    <button id="project-back-btn" style="background:transparent;color:#8b949e;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;margin-bottom:8px">← Back</button>
+    <div id="project-detail-content"></div>
+  </div>
 </div>
 <div id="chat"><div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands" dir="ltr"><span>/model 1</span><span>/add 7 xai:grok-beta</span><span>/safe</span><span>/tools</span><span>/discover</span><span>/reset</span><span>/active</span><span>/models</span><span>/help</span></div></div></div>
 <div id="toast-container"></div>
@@ -316,6 +347,8 @@ let autoScroll = true;
 let currentAbortController = null;
 let mcpEnabled = true;
 let lspEnabled = true;
+let pendingApprovalResolve = null;
+let approvalDialogShown = false;
 const chat = document.getElementById('chat');
 const input = document.getElementById('input');
 const sendBtn = document.getElementById('send-btn');
@@ -334,6 +367,12 @@ const sessionPanel = document.getElementById('session-panel');
 const sessionOverlay = document.getElementById('session-overlay');
 const sessionListEl = document.getElementById('session-list');
 const newSessionBtn = document.getElementById('new-session-btn');
+const projectPanel = document.getElementById('project-panel');
+const projectOverlay = document.getElementById('project-overlay');
+const projectListEl = document.getElementById('project-list');
+const projectDetailEl = document.getElementById('project-detail');
+const projectDetailContent = document.getElementById('project-detail-content');
+const newProjectBtn = document.getElementById('new-project-btn');
 
 let sessionList = [];
 let routeList = [];
@@ -672,6 +711,34 @@ async function handleCommand(msg) {
     addMessage('assistant', `LSP ${data.enabled ? 'enabled' : 'disabled'}${langInfo}`);
     return true;
   }
+  if (lower === '/project list') {
+    try {
+      const res = await fetch('/api/projects');
+      const data = await res.json();
+      const list = data.projects || [];
+      if (list.length === 0) {
+        addMessage('assistant', 'No projects.');
+      } else {
+        let text = '📋 Projects:<br>';
+        for (const p of list) {
+          text += `  ${escapeHtml(p.title)} — ${p.status} (${p.progress}%)<br>`;
+        }
+        addMessage('assistant', text);
+      }
+    } catch { addMessage('error', '⚠️ Failed to list projects'); }
+    return true;
+  }
+  const projectMatch = msg.match(/^\/project\s+(.+)$/i);
+  if (projectMatch) {
+    const sub = projectMatch[1].trim();
+    if (sub.toLowerCase() === 'list') {
+      toggleProjectPanel(true);
+      addMessage('assistant', '📋 Opening project panel.');
+    } else {
+      addMessage('assistant', 'Commands: /project list');
+    }
+    return true;
+  }
   return false;
 }
 
@@ -790,6 +857,9 @@ async function sendMessage() {
               break;
             case 'status':
               status.textContent = parsed.text;
+              break;
+            case 'approval_request':
+              showApprovalDialog(parsed.tool, parsed.args, parsed.level);
               break;
             case 'error': {
               fallbackErrors.push(parsed.message);
@@ -1046,6 +1116,135 @@ async function refreshSessionList() {
   } catch {}
 }
 
+// --- Project Manager ---
+async function refreshProjectList() {
+  try {
+    const res = await fetch('/api/projects');
+    if (!res.ok) return;
+    const data = await res.json();
+    const list = data.projects || [];
+    if (!projectListEl) return;
+    if (list.length === 0) {
+      projectListEl.innerHTML = '<div style="padding:16px;color:#8b949e;font-size:13px">No projects. Create one from a plan.</div>';
+      document.getElementById('projects-status').textContent = '';
+      return;
+    }
+    document.getElementById('projects-status').textContent = `${list.length} project(s)`;
+    let html = '';
+    for (const p of list) {
+      const pct = p.progress || 0;
+      const statusIcon = p.status === 'completed' ? '✅' : p.status === 'paused' ? '⏸️' : p.status === 'abandoned' ? '🗑️' : '📋';
+      html += `<div class="project-item" data-id="${p.id}">
+        <div class="p-title">${statusIcon} ${escapeHtml(p.title)}</div>
+        <div class="p-meta"><span>${p.status}</span><span>${p.done || 0}/${p.steps || 0} steps</span></div>
+        <div class="p-progress"><div class="p-progress-bar" style="width:${pct}%"></div></div>
+      </div>`;
+    }
+    projectListEl.innerHTML = html;
+    projectListEl.querySelectorAll('.project-item').forEach(el => {
+      el.addEventListener('click', () => showProjectDetail(el.dataset.id));
+    });
+  } catch {}
+}
+
+async function showProjectDetail(id) {
+  try {
+    const res = await fetch(`/api/projects/${id}`);
+    if (!res.ok) return;
+    const p = await res.json();
+    const statusIcon = p.status === 'completed' ? '✅' : p.status === 'paused' ? '⏸️' : p.status === 'abandoned' ? '🗑️' : '📋';
+    let html = `<h3 style="color:#f0f6fc;font-size:15px;margin:0 0 4px">${statusIcon} ${escapeHtml(p.title)}</h3>
+      <div style="font-size:12px;color:#8b949e;margin-bottom:4px">${escapeHtml(p.description || '')}</div>
+      <div style="font-size:11px;color:#8b949e;margin-bottom:12px">Status: <strong>${p.status}</strong> | Sessions: ${p.sessionIds.length} | Updated: ${new Date(p.updatedAt).toLocaleString()}</div>
+      <div style="font-size:12px;color:#8b949e;margin-bottom:8px">Plan (${p.planSteps.length} steps):</div>`;
+    for (let i = 0; i < p.planSteps.length; i++) {
+      const s = p.planSteps[i];
+      const icon = s.status === 'completed' ? '✅' : s.status === 'in_progress' ? '⏳' : '⬜';
+      const cls = s.status === 'completed' ? 'completed' : s.status === 'in_progress' ? 'in_progress' : 'pending';
+      html += `<div class="project-step ${cls}"><span class="step-status">${icon}</span>${escapeHtml(s.description)}</div>`;
+    }
+    html += `<div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
+      <select id="project-status-select" style="background:#0d1117;color:#c9d1d9;border:1px solid #30363d;border-radius:4px;padding:2px 6px;font-size:11px">
+        <option value="active" ${p.status === 'active' ? 'selected' : ''}>Active</option>
+        <option value="paused" ${p.status === 'paused' ? 'selected' : ''}>Paused</option>
+        <option value="completed" ${p.status === 'completed' ? 'selected' : ''}>Completed</option>
+        <option value="abandoned" ${p.status === 'abandoned' ? 'selected' : ''}>Abandoned</option>
+      </select>
+      <button id="project-update-status-btn" style="background:#21262d;color:#58a6ff;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer">Update</button>
+      <button id="project-delete-btn" style="background:#21262d;color:#f85149;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:auto">Delete</button>
+    </div>`;
+    projectDetailContent.innerHTML = html;
+    document.getElementById('project-update-status-btn')?.addEventListener('click', async () => {
+      const sel = document.getElementById('project-status-select');
+      if (!sel) return;
+      const newStatus = sel.value;
+      await fetch(`/api/projects/${id}/status`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      showProjectDetail(id);
+      refreshProjectList();
+    });
+    document.getElementById('project-delete-btn')?.addEventListener('click', async () => {
+      if (!confirm('Delete this project?')) return;
+      await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+      projectDetailEl.classList.add('hidden');
+      projectListEl.classList.remove('hidden');
+      refreshProjectList();
+    });
+    projectListEl.classList.add('hidden');
+    projectDetailEl.classList.remove('hidden');
+  } catch {}
+}
+
+function toggleProjectPanel(show) {
+  projectPanel.classList.toggle('hidden', !show);
+  projectOverlay.style.display = show ? 'block' : 'none';
+  if (show) {
+    projectListEl.classList.remove('hidden');
+    projectDetailEl.classList.add('hidden');
+    refreshProjectList();
+  }
+}
+
+document.getElementById('projects-btn')?.addEventListener('click', () => {
+  toggleProjectPanel(projectPanel.classList.contains('hidden'));
+});
+
+projectOverlay?.addEventListener('click', () => toggleProjectPanel(false));
+
+document.getElementById('project-back-btn')?.addEventListener('click', () => {
+  projectDetailEl.classList.add('hidden');
+  projectListEl.classList.remove('hidden');
+});
+
+newProjectBtn?.addEventListener('click', async () => {
+  const title = prompt('Project title:');
+  if (!title || !title.trim()) return;
+  const desc = prompt('Description (optional):') || '';
+  try {
+    const res = await fetch('/api/projects', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: title.trim(), description: desc, sessionId, planSteps: [] }),
+    });
+    if (res.ok) {
+      showToast('Project created!', 'success');
+      refreshProjectList();
+    } else {
+      const err = await res.json();
+      showToast('Failed: ' + (err.error || 'unknown'), 'error');
+    }
+  } catch { showToast('Failed to create project', 'error'); }
+});
+
+document.getElementById('project-panel')?.addEventListener('click', (e) => {
+  const header = e.target.closest('h2');
+  if (header && !e.target.closest('button')) {
+    toggleProjectPanel(false);
+  }
+});
+// --- End Project Manager ---
+
 document.getElementById('import-file-input')?.addEventListener('change', async (e) => {
   const file = e.target.files?.[0];
   if (!file) return;
@@ -1140,7 +1339,13 @@ function toggleHelp(show) { helpModal.style.display = show ? 'flex' : 'none'; }
 document.getElementById('help-btn').addEventListener('click', () => toggleHelp(true));
 document.getElementById('help-close').addEventListener('click', () => toggleHelp(false));
 helpModal.addEventListener('click', (e) => { if (e.target === helpModal) toggleHelp(false); });
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggleHelp(false); });
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    toggleHelp(false);
+    toggleSessionPanel(false);
+    toggleProjectPanel(false);
+  }
+});
 
 // Events
 sendBtn.addEventListener('click', sendMessage);
@@ -1423,8 +1628,72 @@ document.addEventListener('keydown', (e) => {
   else if (e.key === 'End') { e.preventDefault(); chat.scrollTop = chat.scrollHeight; }
 });
 
+// Approval dialog
+const approvalDialog = document.getElementById('approval-dialog');
+const approvalToolName = document.getElementById('approval-tool-name');
+const approvalArgs = document.getElementById('approval-args');
+const approvalLevel = document.getElementById('approval-level');
+const approvalDenyBtn = document.getElementById('approval-deny-btn');
+const approvalAllowOnceBtn = document.getElementById('approval-allow-once-btn');
+const approvalAllowAlwaysBtn = document.getElementById('approval-allow-always-btn');
+
+function showApprovalDialog(tool, args, level) {
+  if (approvalDialogShown) return;
+  approvalDialogShown = true;
+  approvalToolName.textContent = tool;
+  approvalArgs.textContent = typeof args === 'string' ? args : JSON.stringify(args, null, 2);
+  const levelLabels = { safe: '✅ Safe', sensitive: '⚠️ Sensitive', dangerous: '🚨 Dangerous' };
+  approvalLevel.textContent = levelLabels[level] || level;
+  approvalDialog.style.display = 'flex';
+}
+
+function hideApprovalDialog() {
+  approvalDialog.style.display = 'none';
+  approvalDialogShown = false;
+  pendingApprovalResolve = null;
+}
+
+approvalDenyBtn.addEventListener('click', async () => {
+  const resolve = pendingApprovalResolve;
+  if (resolve) { resolve(false); pendingApprovalResolve = null; }
+  hideApprovalDialog();
+  if (sessionId) await fetch(`/api/approve/${sessionId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ allow: false }) }).catch(() => {});
+});
+
+approvalAllowOnceBtn.addEventListener('click', async () => {
+  const resolve = pendingApprovalResolve;
+  if (resolve) { resolve(true); pendingApprovalResolve = null; }
+  hideApprovalDialog();
+  if (sessionId) await fetch(`/api/approve/${sessionId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ allow: true }) }).catch(() => {});
+});
+
+approvalAllowAlwaysBtn.addEventListener('click', async () => {
+  const tool = approvalToolName.textContent;
+  const resolve = pendingApprovalResolve;
+  if (resolve) { resolve(true); pendingApprovalResolve = null; }
+  hideApprovalDialog();
+  if (sessionId) await fetch(`/api/approve/${sessionId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ allow: true, permanent: true, tool }) }).catch(() => {});
+});
+
 init();
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+<!-- Approval dialog -->
+<div id="approval-dialog" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:1100;justify-content:center;align-items:center" dir="ltr">
+  <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:24px;max-width:500px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.5)">
+    <div style="font-size:16px;font-weight:600;margin-bottom:12px;color:#f0f6fc">🛡️ Tool Requires Approval</div>
+    <div style="color:#8b949e;font-size:13px;margin-bottom:4px">Tool:</div>
+    <div id="approval-tool-name" style="color:#f0f6fc;font-size:14px;font-weight:500;margin-bottom:12px;word-break:break-all"></div>
+    <div style="color:#8b949e;font-size:13px;margin-bottom:4px">Arguments:</div>
+    <pre id="approval-args" style="background:#0d1117;border:1px solid #30363d;border-radius:4px;padding:8px;font-size:12px;color:#e6edf3;max-height:200px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin:0 0 16px 0"></pre>
+    <div id="approval-level" style="color:#d29922;font-size:12px;margin-bottom:16px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button id="approval-deny-btn" style="background:#21262d;border:1px solid #30363d;color:#f0f6fc;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px">Deny</button>
+      <button id="approval-allow-once-btn" style="background:#1f6feb;border:1px solid #1f6feb;color:#fff;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px">Allow Once</button>
+      <button id="approval-allow-always-btn" style="background:#238636;border:1px solid #238636;color:#fff;padding:8px 16px;border-radius:6px;cursor:pointer;font-size:13px">Always Allow</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

@@ -2,7 +2,8 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import * as dotenv from 'dotenv';
 import OpenAI from 'openai';
-import { getAllTools, executeTool, setSafeMode, isSafeModeEnabled, allowExtraPath, setMCPEnabled, isMCPEnabled, setLSPEnabled, isLSPEnabled } from './tools/toolRegistry';
+import { getAllTools, executeTool, setSafeMode, isSafeModeEnabled, allowExtraPath, setMCPEnabled, isMCPEnabled, setLSPEnabled, isLSPEnabled, setGovernanceEnabled, isGovernanceEnabled, setApprovalCallback, approvalStore } from './tools/toolRegistry';
+import { projectManager } from './ProjectManager';
 import { mcpManager } from './mcp/MCPManager';
 import { loadMCPConfig } from './mcp/config';
 import { loadLSPConfig } from './lsp/config';
@@ -49,11 +50,17 @@ interface SessionData {
     modelLabel: string;
     firstUserMessage: string;
     route?: string;
+    projectId?: string;
   };
+  governance?: { allowedTools: string[] };
+  planSteps?: Array<{ description: string; status: string }>;
 }
 
 const SESSIONS_DIR = path.join(__dirname, '..', 'sessions');
 const sessions = new Map<string, SessionData>();
+
+// Global pending approvals keyed by sessionId — resolved by POST /api/approve
+const globalPendingApproves = new Map<string, (ok: boolean) => void>();
 
 async function ensureSessionsDir(): Promise<void> {
   try { await fsp.mkdir(SESSIONS_DIR, { recursive: true }); } catch { /* exists */ }
@@ -75,7 +82,10 @@ async function saveSessionToDisk(id: string, s: SessionData): Promise<void> {
     messageCount: filteredMsgs.length,
     modelPreset: { provider: s.modelConfig.provider, primary: s.modelConfig.primary, fallbacks: s.modelConfig.fallbacks, contextWindow: s.modelConfig.contextWindow },
   };
-  await fsp.writeFile(path.join(SESSIONS_DIR, `${id}.json`), JSON.stringify({ messages: filteredMsgs, meta }, null, 2), 'utf-8');
+  const governance = approvalStore.toJSON();
+  const governanceData = governance.length > 0 ? { allowedTools: governance } : undefined;
+  const planSteps = s.planSteps || undefined;
+  await fsp.writeFile(path.join(SESSIONS_DIR, `${id}.json`), JSON.stringify({ messages: filteredMsgs, meta, governance: governanceData, planSteps }, null, 2), 'utf-8');
 }
 
 async function deleteSessionFromDisk(id: string): Promise<void> {
@@ -119,6 +129,21 @@ async function loadSessionsFromDisk(): Promise<void> {
             firstUserMessage: '',
           },
         });
+        // Restore plan steps
+        if (data.planSteps && Array.isArray(data.planSteps)) {
+          const s = sessions.get(id);
+          if (s) s.planSteps = data.planSteps;
+        }
+
+        // Restore governance state
+        if (data.governance?.allowedTools?.length > 0) {
+          const s = sessions.get(id);
+          if (s) {
+            s.governance = { allowedTools: data.governance.allowedTools };
+            approvalStore.fromJSON(data.governance.allowedTools);
+          }
+        }
+
         // Restore firstUserMessage
         const firstUser = userMessages.find((m: any) => m.role === 'user');
         const savedSession = sessions.get(id);
@@ -288,7 +313,7 @@ app.get('/api/sessions/:sessionId', (req, res) => {
         function: { name: tc.function.name, arguments: tc.function.arguments },
       })),
     }));
-  res.json({ messages: msgs, modelLabel: s.meta.modelLabel });
+  res.json({ messages: msgs, modelLabel: s.meta.modelLabel, meta: { projectId: s.meta.projectId } });
 });
 
 app.get('/api/models', (_req, res) => {
@@ -492,6 +517,38 @@ app.post('/api/allow', (req, res) => {
   res.json({ allowedPath: allowPath });
 });
 
+app.post('/api/approve/:sessionId', (req: Request<{ sessionId: string }>, res: Response) => {
+  const s = sessions.get(req.params.sessionId);
+  if (!s) return res.status(404).json({ error: 'Session not found' });
+  const { allow, permanent } = req.body;
+  if (typeof allow !== 'boolean') return res.status(400).json({ error: 'allow (boolean) is required' });
+  if (permanent) {
+    const name = req.body.tool || '';
+    if (name) approvalStore.allowPermanently(name);
+  }
+  // Resolve the pending approval promise (handled in SSE loop)
+  if (globalPendingApproves && globalPendingApproves.has(req.params.sessionId)) {
+    const resolve = globalPendingApproves.get(req.params.sessionId)!;
+    globalPendingApproves.delete(req.params.sessionId);
+    resolve(allow);
+  }
+  res.json({ approved: allow });
+});
+
+app.get('/api/gov', (_req, res) => {
+  res.json({ enabled: isGovernanceEnabled() });
+});
+
+app.post('/api/gov', (_req, res) => {
+  const now = !isGovernanceEnabled();
+  setGovernanceEnabled(now);
+  res.json({ enabled: now });
+});
+
+app.get('/api/trust', (_req, res) => {
+  res.json({ tools: approvalStore.toJSON() });
+});
+
 app.get('/api/tools', (_req, res) => {
   const tools = getAllTools().map(t => ({
     name: t.function.name,
@@ -541,6 +598,51 @@ app.post('/api/lsp/toggle', (_req, res) => {
   res.json({ enabled, ready: lspManager.isAvailable(), languages: lspManager.getActiveLanguages() });
 });
 
+// --- Project API ---
+app.get('/api/projects', async (_req, res) => {
+  await projectManager.loadAll();
+  res.json({ projects: projectManager.listSummaries() });
+});
+
+app.get('/api/projects/:id', (req, res) => {
+  const p = projectManager.get(req.params.id);
+  if (!p) return res.status(404).json({ error: 'Project not found' });
+  res.json(p);
+});
+
+app.post('/api/projects', async (req, res) => {
+  const { title, description, sessionId, planSteps } = req.body;
+  if (!title) return res.status(400).json({ error: 'title is required' });
+  if (!sessionId) return res.status(400).json({ error: 'sessionId is required' });
+  const s = sessions.get(sessionId);
+  if (!s) return res.status(404).json({ error: 'Session not found' });
+  await projectManager.loadAll();
+  const { PlanManager } = require('./PlanManager');
+  const pm = new PlanManager();
+  if (planSteps && planSteps.length > 0) pm.fromJSON({ steps: planSteps });
+  const data = await projectManager.create(pm, title, description || '', sessionId);
+  s.meta.projectId = data.id;
+  saveSessionToDisk(sessionId, s).catch(() => {});
+  res.json(data);
+});
+
+app.post('/api/projects/:id/status', async (req, res) => {
+  const { status } = req.body;
+  if (!['active', 'paused', 'completed', 'abandoned'].includes(status))
+    return res.status(400).json({ error: 'Invalid status' });
+  try {
+    await projectManager.setStatus(req.params.id, status);
+    res.json({ status });
+  } catch (e: any) {
+    res.status(404).json({ error: e.message });
+  }
+});
+
+app.delete('/api/projects/:id', async (req, res) => {
+  await projectManager.delete(req.params.id);
+  res.json({ deleted: true });
+});
+
 app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res: Response) => {
   const s = sessions.get(req.params.sessionId);
   if (!s) return res.status(404).json({ error: 'Session not found' });
@@ -562,6 +664,8 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
     res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   };
 
+  // Pending approval state — resolved by POST /api/approve
+
   const provInfo = PROVIDERS[s.modelConfig.provider];
   const isLocal = provInfo && !provInfo.apiKeyEnv;
   let timeoutMs = isLocal ? getUserConfig().localTimeoutMs : getUserConfig().cloudTimeoutMs;
@@ -574,6 +678,29 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
     }
   }
   saveSessionToDisk(req.params.sessionId, s).catch(() => {});
+
+  // Web UI approval: auto-approve unless governance enabled
+  const sessionId = req.params.sessionId;
+  const prevCallback = setApprovalCallback(async (toolName, args, level) => {
+    const wasEnabled = isGovernanceEnabled();
+    if (!wasEnabled) return true;
+    send('approval_request', { tool: toolName, args, level });
+    return new Promise(resolve => {
+      globalPendingApproves.set(sessionId, resolve);
+      // Safety timeout: auto-deny after 120s
+      setTimeout(() => {
+        globalPendingApproves.delete(sessionId);
+        resolve(false);
+      }, 120_000).unref();
+    });
+  });
+  const cleanup = () => {
+    globalPendingApproves.delete(sessionId);
+    setApprovalCallback(prevCallback);
+  };
+  res.on('close', cleanup);
+  res.on('finish', cleanup);
+  res.on('error', cleanup);
 
   const toolErrorCount = new Map<string, number>();
 
@@ -736,6 +863,14 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
     }
   }
 
+  // Sync plan steps to linked project
+  if (s.meta.projectId && s.planSteps && s.planSteps.length > 0) {
+    const { PlanManager } = require('./PlanManager');
+    const pm = new PlanManager();
+    pm.fromJSON({ steps: s.planSteps });
+    // Ensure step statuses are current (planSteps already updated during loop)
+    projectManager.updatePlan(s.meta.projectId, pm).catch(() => {});
+  }
   saveSessionToDisk(req.params.sessionId, s).catch(() => {});
   if (!res.destroyed) {
     send('done', { toolCallsCount: 0, model: `${PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider} — ${s.modelConfig.primary}` });
@@ -821,6 +956,7 @@ if (process.env.NODE_ENV !== 'test') {
   // Initialize services
   (async () => {
     await loadSessionsFromDisk();
+    await projectManager.loadAll();
 
     const mcpConfig = loadMCPConfig();
     for (const [name, def] of Object.entries(mcpConfig)) {

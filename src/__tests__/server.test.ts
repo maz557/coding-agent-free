@@ -403,6 +403,159 @@ describe('server API', () => {
   });
 });
 
+describe('project API', () => {
+  beforeEach(async () => {
+    process.env.NODE_ENV = 'test';
+    sessionsDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'server-test-'));
+    process.env.SESSIONS_DIR = sessionsDir;
+    // Clean projects dir from previous tests
+    const projectsDir = path.join(process.cwd(), 'projects');
+    try { await fsp.rm(projectsDir, { recursive: true, force: true }); } catch { /* ok */ }
+    // Clear module cache to get fresh server with all routes
+    for (const key of Object.keys(require.cache)) {
+      if (key.includes('\\dist\\') || key.includes('/dist/') || key.includes('\\src\\') || key.includes('/src/')) delete require.cache[key];
+    }
+    const started = await startServer();
+    server = started.server;
+    baseUrl = started.baseUrl;
+  });
+
+  afterEach(async () => {
+    server?.close();
+    delete process.env.SESSIONS_DIR;
+    await fsp.rm(sessionsDir, { recursive: true, force: true });
+    const { projectManager } = await import('../ProjectManager');
+    projectManager.clear();
+    const projectsDir = path.join(process.cwd(), 'projects');
+    try { await fsp.rm(projectsDir, { recursive: true, force: true }); } catch { /* ok */ }
+    for (const key of Object.keys(require.cache)) {
+      if (key.includes('\\dist\\') || key.includes('/dist/') || key.includes('\\src\\') || key.includes('/src/')) delete require.cache[key];
+    }
+  });
+
+  it('should list projects (empty)', async () => {
+    const { status, body } = await fetchJson(`${baseUrl}/api/projects`);
+    assert.equal(status, 200);
+    assert(Array.isArray(body.projects));
+    assert.equal(body.projects.length, 0);
+  });
+
+  it('should create a project', async () => {
+    const { body: session } = await fetchJson(`${baseUrl}/api/session`, { method: 'POST' });
+    const { status, body } = await fetchJson(`${baseUrl}/api/projects`, {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Test Project',
+        description: 'A test project',
+        sessionId: session.sessionId,
+        planSteps: [{ description: 'Step 1', status: 'pending' }, { description: 'Step 2', status: 'pending' }],
+      }),
+    });
+    assert.equal(status, 200);
+    assert(body.id);
+    assert.equal(body.title, 'Test Project');
+    assert.equal(body.planSteps.length, 2);
+  });
+
+  it('should create project and find by session', async () => {
+    const { body: session } = await fetchJson(`${baseUrl}/api/session`, { method: 'POST' });
+    const { body: project } = await fetchJson(`${baseUrl}/api/projects`, {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Find Test',
+        sessionId: session.sessionId,
+        planSteps: [{ description: 'Step', status: 'pending' }],
+      }),
+    });
+    const { status, body: list } = await fetchJson(`${baseUrl}/api/projects`);
+    assert.equal(status, 200);
+    const found = list.projects.find((p: any) => p.id === project.id);
+    assert(found);
+    assert.equal(found.title, 'Find Test');
+  });
+
+  it('should get project by id', async () => {
+    const { body: session } = await fetchJson(`${baseUrl}/api/session`, { method: 'POST' });
+    const { body: created } = await fetchJson(`${baseUrl}/api/projects`, {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Get Test',
+        sessionId: session.sessionId,
+        planSteps: [{ description: 'Step', status: 'pending' }],
+      }),
+    });
+    const { status, body } = await fetchJson(`${baseUrl}/api/projects/${created.id}`);
+    assert.equal(status, 200);
+    assert.equal(body.title, 'Get Test');
+    assert.equal(body.status, 'active');
+  });
+
+  it('should return 404 for nonexistent project', async () => {
+    const { status } = await fetchJson(`${baseUrl}/api/projects/nonexistent-id`);
+    assert.equal(status, 404);
+  });
+
+  it('should update project status', async () => {
+    const { body: session } = await fetchJson(`${baseUrl}/api/session`, { method: 'POST' });
+    const { body: created } = await fetchJson(`${baseUrl}/api/projects`, {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Status Test',
+        sessionId: session.sessionId,
+        planSteps: [{ description: 'Step', status: 'pending' }],
+      }),
+    });
+    const { status } = await fetchJson(`${baseUrl}/api/projects/${created.id}/status`, {
+      method: 'POST',
+      body: JSON.stringify({ status: 'completed' }),
+    });
+    assert.equal(status, 200);
+    const { body: updated } = await fetchJson(`${baseUrl}/api/projects/${created.id}`);
+    assert.equal(updated.status, 'completed');
+  });
+
+  it('should reject invalid project status', async () => {
+    const { status } = await fetchJson(`${baseUrl}/api/projects/fake-id/status`, {
+      method: 'POST',
+      body: JSON.stringify({ status: 'invalid' }),
+    });
+    assert.equal(status, 400);
+  });
+
+  it('should delete a project', async () => {
+    const { body: session } = await fetchJson(`${baseUrl}/api/session`, { method: 'POST' });
+    const { body: created } = await fetchJson(`${baseUrl}/api/projects`, {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Delete Test',
+        sessionId: session.sessionId,
+        planSteps: [{ description: 'Step', status: 'pending' }],
+      }),
+    });
+    const { status } = await fetchJson(`${baseUrl}/api/projects/${created.id}`, { method: 'DELETE' });
+    assert.equal(status, 200);
+    const { status: check } = await fetchJson(`${baseUrl}/api/projects/${created.id}`);
+    assert.equal(check, 404);
+  });
+
+  it('should require title for project creation', async () => {
+    const { body: session } = await fetchJson(`${baseUrl}/api/session`, { method: 'POST' });
+    const { status } = await fetchJson(`${baseUrl}/api/projects`, {
+      method: 'POST',
+      body: JSON.stringify({ sessionId: session.sessionId }),
+    });
+    assert.equal(status, 400);
+  });
+
+  it('should require sessionId for project creation', async () => {
+    const { status } = await fetchJson(`${baseUrl}/api/projects`, {
+      method: 'POST',
+      body: JSON.stringify({ title: 'No Session' }),
+    });
+    assert.equal(status, 400);
+  });
+});
+
 describe('diff event for write_file', () => {
   let tempDir: string;
   let server: http.Server;
@@ -430,6 +583,8 @@ describe('diff event for write_file', () => {
 
   it('should emit diff event when write_file modifies existing file', async () => {
     const { app, sessions } = await import('../server');
+    const { setGovernanceEnabled } = await import('../tools/toolRegistry');
+    setGovernanceEnabled(false); // Disable governance for this test (approval requires Web UI)
 
     await new Promise<void>((resolve) => {
       server = app.listen(0, '127.0.0.1', () => resolve());

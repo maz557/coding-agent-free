@@ -8,6 +8,7 @@ import { executeTool } from './tools/toolRegistry';
 import { ModelPreset, PROVIDERS } from './config/models';
 import { getUserConfig } from './config/userConfig';
 import { discoverProviderModels, pickBestModel } from './config/modelDiscovery';
+import { PlanManager } from './PlanManager';
 
 const logger = pino(
   { level: process.env.LOG_LEVEL || 'info' },
@@ -130,6 +131,11 @@ export class CodingAgent {
   private toolHistory: string[] = [];
   private readonly MAX_DEPTH = 20;
   private conversation: ConversationState;
+  private _planManager: PlanManager | null = null;
+
+  get planManager(): PlanManager | null {
+    return this._planManager;
+  }
 
   constructor(
     private readonly client: OpenAI,
@@ -221,15 +227,19 @@ export class CodingAgent {
     this.conversation = this.conversation.addUserMessage(userInput);
 
     // Planning phase: create a plan before execution
+    this._planManager = new PlanManager();
     const planText = await this.plan(userInput);
     if (planText) {
+      const parsed = this._planManager.parsePlan(planText);
       this.conversation = this.conversation.addSystemMessage(`[Plan]\n${planText}`);
+      console.log(`  📋 Plan (${parsed.length} steps)`);
     }
 
     let depth = 0;
     let usedModel = this.modelConfig.primary;
     let totalToolCalls = 0;
     const toolErrorCount = new Map<string, number>();
+    let lastProgressUpdate = -1;
 
     while (depth < this.MAX_DEPTH) {
       depth++;
@@ -317,6 +327,15 @@ export class CodingAgent {
           console.log(`  🔧 ${callKey}`);
           totalToolCalls++;
 
+          // Match tool call to plan step and track progress
+          if (this._planManager.hasPlan()) {
+            const stepIdx = this._planManager.matchToolToStep(functionName, functionArgs);
+            if (stepIdx >= 0) {
+              this._planManager.recordToolCall(stepIdx, callKey);
+              this._planManager.markCompleted(stepIdx);
+            }
+          }
+
           const stuckError = this.detectStuckState();
           if (stuckError) {
             console.log(`  ⛔ Stuck detected: ${stuckError}`);
@@ -341,6 +360,15 @@ export class CodingAgent {
                   : JSON.stringify(validatedResult);
 
             this.conversation = this.conversation.addToolResult(toolCall.id, content, functionName);
+
+            // Inject progress summary every 3 steps or on completion
+            if (this._planManager.hasPlan()) {
+              const done = this._planManager.getSteps().filter(s => s.status === 'completed').length;
+              if (done > lastProgressUpdate && (done % 3 === 0 || done === this._planManager.getSteps().length)) {
+                lastProgressUpdate = done;
+                this.conversation = this.conversation.addSystemMessage(this._planManager.getProgressSummary());
+              }
+            }
           } catch (err: any) {
             const msg = err?.message || 'Unknown tool error';
             console.log(`  ❌ Tool Error: ${msg}`);

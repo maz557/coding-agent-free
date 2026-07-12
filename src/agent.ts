@@ -25,6 +25,7 @@ import { estimateTotalTokens } from './tokenEstimator';
 import { OpenAITool } from './types';
 import { detectLocalModel } from './detectLocalModel';
 import { loadProjectContext, generateProjectMap } from './loadProjectContext';
+import { projectManager } from './ProjectManager';
 
 dotenv.config();
 
@@ -155,6 +156,9 @@ async function startChat() {
   }
 
   const rl = readline.createInterface({ input: stdin, output: stdout, prompt: 'You: ' });
+
+  // Load projects from disk
+  await projectManager.loadAll();
 
   // Initialize MCP servers from config
   const mcpConfig = loadMCPConfig();
@@ -651,6 +655,87 @@ async function startChat() {
         console.log(`\n MCP ${isMCPEnabled() ? 'enabled' : 'disabled'}.\n`);
       } else {
         console.log('\n  Commands: list, connect <name> <cmd> [args], disconnect <name>, toggle\n');
+      }
+      rl.prompt();
+      continue;
+    }
+
+    const projectCommand = input.match(/^\/project\s+(.+)$/i);
+    if (projectCommand) {
+      const sub = projectCommand[1].trim().toLowerCase();
+      if (sub === 'create') {
+        const planSteps = agent.planManager?.getSteps() || [];
+        if (planSteps.length === 0) {
+          console.log('\n  No plan steps available. Start a session with a task first.\n');
+        } else {
+          const existing = projectManager.findForSession('default');
+          if (existing) {
+            console.log(`\n  Session already linked to project "${existing.title}".\n`);
+          } else {
+            const title = planSteps[0].description.slice(0, 50) || 'Untitled';
+            const pm = agent.planManager!;
+            await projectManager.loadAll();
+            const data = await projectManager.create(pm, title, '', 'default');
+            console.log(`\n  ✅ Project "${data.title}" created (id: ${data.id}).\n`);
+          }
+        }
+      } else if (sub === 'list') {
+        const list = projectManager.listSummaries();
+        if (list.length === 0) {
+          console.log('\n  No projects.\n');
+        } else {
+          console.log('\n── Projects ────────────────────────────────');
+          for (const p of list) {
+            const pj = p as any;
+            console.log(`  ${pj.title} — ${pj.status} (${pj.progress}% — ${pj.done}/${pj.steps})`);
+          }
+          console.log('──────────────────────────────────────────────\n');
+        }
+      } else if (sub.startsWith('show ')) {
+        const id = sub.slice(5).trim();
+        const p = projectManager.get(id);
+        if (!p) {
+          console.log(`\n  Project "${id}" not found.\n`);
+        } else {
+          console.log(`\n  Title: ${p.title}`);
+          console.log(`  Description: ${p.description || '(none)'}`);
+          console.log(`  Status: ${p.status}`);
+          console.log(`  Sessions: ${p.sessionIds.join(', ') || '(none)'}`);
+          console.log(`  Created: ${p.createdAt}`);
+          console.log(`  Updated: ${p.updatedAt}`);
+          console.log('  Plan:');
+          for (let i = 0; i < p.planSteps.length; i++) {
+            const s = p.planSteps[i];
+            const mark = s.status === 'completed' ? '✓' : s.status === 'in_progress' ? '…' : ' ';
+            console.log(`    ${i + 1}. [${mark}] ${s.description}`);
+          }
+          console.log();
+        }
+      } else if (sub.startsWith('status ')) {
+        const rest = sub.slice(7).trim();
+        const spaceIdx = rest.indexOf(' ');
+        if (spaceIdx === -1) {
+          console.log('\n  Usage: /project status <id> <active|paused|completed|abandoned>\n');
+        } else {
+          const id = rest.slice(0, spaceIdx);
+          const status = rest.slice(spaceIdx + 1).trim();
+          try {
+            await projectManager.setStatus(id, status as any);
+            console.log(`\n  Project "${id}" status set to "${status}".\n`);
+          } catch (err: any) {
+            console.log(`\n  ${err.message}\n`);
+          }
+        }
+      } else if (sub.startsWith('delete ')) {
+        const id = sub.slice(7).trim();
+        if (!id) {
+          console.log('\n  Usage: /project delete <id>\n');
+        } else {
+          await projectManager.delete(id);
+          console.log(`\n  Project "${id}" deleted.\n`);
+        }
+      } else {
+        console.log('\n  Commands: list, show <id>, status <id> <val>, delete <id>\n');
       }
       rl.prompt();
       continue;

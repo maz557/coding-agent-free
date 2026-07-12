@@ -9,4 +9,5 @@ conversation.json
 src/agent - Copy.ts
 local/
 sessions/
+projects/
 workspace/.env
