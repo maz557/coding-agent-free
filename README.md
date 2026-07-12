@@ -32,6 +32,8 @@ An interactive AI coding assistant that runs in your **terminal** or **web brows
 | Setup is too complex | **`npm run setup`** — interactive wizard, no manual `.env` editing |
 | AI runs dangerous commands | **Safe mode** (`/safe`) — whitelist-only shell commands |
 | Agent gets stuck in loops | **Smart detection** — stops after 3× identical tool calls |
+| Agent needs to research before editing | **Build/Plan modes** — auto-switches to read-only plan mode for research, full build mode for changes |
+| Want to ask a quick code question without context switch | **`@explore` subagent** — spawn a read-only agent mid-conversation for instant code research |
 | Provider rate-limited | **Auto-fallback** — switches provider automatically on 429 |
 | Long tool results waste tokens | **Token compression** — head+tail truncation + duplicate removal |
 | Want to extend with external tools | **MCP support** — connect any Model Context Protocol server |
@@ -45,6 +47,8 @@ An interactive AI coding assistant that runs in your **terminal** or **web brows
 - **LSP (Language Server Protocol)** — `code_definition`, `code_references`, `code_hover` tools. Supports TypeScript, JavaScript, Python (pyright), Rust (rust-analyzer), Go (gopls). `/lsp` toggle
 - **Multi-session management** — named sessions in `sessions/` directory, auto-title, modelPreset metadata. Work on multiple projects independently and switch between them at any time. `/session list/new/rename/delete`
 - **7 built-in presets** — start with `openrouter/free` (auto-discovers working free models), plus Google Gemini and Ollama for local/offline use
+- **Build/Plan modes** — switch between `build` (full tool access) and `plan` (read-only) modes manually via `/mode` or let the agent auto-switch via `switch_mode` tool. Plan mode filters write/edit/run tools; agent can escalate autonomously
+- **`@explore` subagent** — type `@explore <query>` to spawn a read-only agent for instant code research, results injected into conversation
 - **Auto-routing** — 6 quality-filtered routes (`auto/coding`, `auto/fast`, `auto/cheap`, `auto/reasoning`, `auto/vision`, `auto/offline`) with automatic API key detection; user-editable via `route-presets.json`
 - **Usage tracking** — per-session and aggregated token/request counts via API (`GET /api/usage`)
 - **Collapsible fallback errors** — failed fallback attempts shown as expandable ⚠️ N fallback(s) banner inside the assistant message
@@ -340,6 +344,7 @@ Web UI features:
 | `git_diff` | Show diff between working tree and HEAD, or between two commits |
 | `git_commit` | Create a new git commit with a message |
 | `git_log` | Show commit history with optional file path filter |
+| `switch_mode` | Switch between build (full) and plan (read-only) mode — agent-controlled |
 
 #### LSP Tools (toggle with `/lsp`)
 
@@ -377,6 +382,8 @@ Tools from connected MCP servers appear automatically alongside built-in tools. 
 | `/mcp disconnect <name>` | Disconnect an MCP server |
 | `/mcp toggle` | Enable / disable all MCP tools |
 | `/lsp` | Toggle LSP tools |
+| `/mode build\|plan` | Switch between build (full access) and plan (read-only) mode |
+| `@explore <query>` | Spawn a read-only subagent for instant code research |
 | `/discover` | Fetch available models from providers (auto-corrects stale names) |
 | `/list-providers` | Show providers with valid keys |
 | `/exit` | Quit |
@@ -633,7 +640,7 @@ Reset mid-session with `/reset` if context gets stale.
 
 ## Tests
 
-- `npm run test:unit` — **240** unit tests (13 files: ConversationState, comprehensive, CodingAgent, loadProjectContext, fileManager, agent, server, mcp, lsp, persistence, toolRegistry, models, validation)
+- `npm run test:unit` — **334** unit tests (19 files)
 - `npm run test:integration` — 26 provider integration tests
 - `npm test` — 35 integration tests (provider connectivity)
 - CI: `.github/workflows/ci.yml` runs all tests on Windows (Node 22) — Linux/macOS also supported but tested manually

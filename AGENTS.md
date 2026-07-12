@@ -1,4 +1,4 @@
-# Coding Agent Free v1.26.0
+# Coding Agent Free v1.27.0
 
 This is the Coding Agent Free project itself.
 
@@ -19,6 +19,7 @@ This is the Coding Agent Free project itself.
 - `src/PlanManager.ts` — parse, track, and match plan steps; auto-progress injection
 - `src/ProjectManager.ts` — create/list/load/save/delete projects on disk, linked to PlanManager
 - `src/tools/governance.ts` — tool safety levels (safe/sensitive/dangerous), ApprovalStore for permanent allow/deny
+- `src/AgentMode.ts` — build/plan mode definitions, `switch_mode` tool definition, `detectIntent()`, `filterToolsForMode()`
 - `src/validation.ts` — Zod schemas for tool input/output validation
 - `scripts/setup.js` — interactive setup wizard
 
@@ -168,6 +169,20 @@ This is the Coding Agent Free project itself.
 - **Test-like sessions filtered**: titles matching `update *.txt`, `create *.txt` etc hidden from session list
 - **Empty sessions not persisted**: sessions with no user messages are not saved
 - **Delete-all safety**: Web UI requires typing "DELETE", CLI requires "yes"
+
+## v1.27.0 changes
+- **Multi-agent mode switching** 🎛️ — `build` (full access) / `plan` (read-only) modes
+  - `src/AgentMode.ts`: mode types, `filterToolsForMode()`, `detectIntent()`, `SWITCH_MODE_TOOL`
+  - `CodingAgent` accepts `mode` parameter; `buildRequest()` filters tools per mode
+  - Intent detection: read-only keywords → auto `plan`, write keywords → auto `build`
+  - `switch_mode` tool: agent autonomously escalates plan→build or build→plan with reason
+  - Is available in both modes — plan mode is not a cage
+- **`@explore` subagent** — user types `@explore <query>`, spawns read-only CodingAgent, results injected as system message
+- **CLI**: `/mode build|plan` command
+- **Web UI**: mode toggle button (blue=Build, yellow=Plan)
+- **API**: `GET/POST /api/mode/:sessionId` endpoints
+- **Server**: `switch_mode` handled internally in chat endpoint; tools filtered per mode
+- **334 tests** (332 original + 2 smoke mode tests; 0 fail)
 
 ## Conventions
 - No comments in code unless necessary
