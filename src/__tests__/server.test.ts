@@ -404,13 +404,15 @@ describe('server API', () => {
 });
 
 describe('project API', () => {
+  const testProjectsDir = path.join(process.cwd(), 'projects_test_srv');
+
   beforeEach(async () => {
     process.env.NODE_ENV = 'test';
     sessionsDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'server-test-'));
     process.env.SESSIONS_DIR = sessionsDir;
+    process.env.PROJECTS_DIR = testProjectsDir;
     // Clean projects dir from previous tests
-    const projectsDir = path.join(process.cwd(), 'projects');
-    try { await fsp.rm(projectsDir, { recursive: true, force: true }); } catch { /* ok */ }
+    try { await fsp.rm(testProjectsDir, { recursive: true, force: true }); } catch { /* ok */ }
     // Clear module cache to get fresh server with all routes
     for (const key of Object.keys(require.cache)) {
       if (key.includes('\\dist\\') || key.includes('/dist/') || key.includes('\\src\\') || key.includes('/src/')) delete require.cache[key];
@@ -423,11 +425,11 @@ describe('project API', () => {
   afterEach(async () => {
     server?.close();
     delete process.env.SESSIONS_DIR;
+    delete process.env.PROJECTS_DIR;
     await fsp.rm(sessionsDir, { recursive: true, force: true });
     const { projectManager } = await import('../ProjectManager');
     projectManager.clear();
-    const projectsDir = path.join(process.cwd(), 'projects');
-    try { await fsp.rm(projectsDir, { recursive: true, force: true }); } catch { /* ok */ }
+    try { await fsp.rm(testProjectsDir, { recursive: true, force: true }); } catch { /* ok */ }
     for (const key of Object.keys(require.cache)) {
       if (key.includes('\\dist\\') || key.includes('/dist/') || key.includes('\\src\\') || key.includes('/src/')) delete require.cache[key];
     }

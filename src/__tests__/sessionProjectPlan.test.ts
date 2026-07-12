@@ -42,6 +42,7 @@ describe('Session-Project-Plan integration', () => {
     process.env.NODE_ENV = 'test';
     sessionsDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'sp-test-'));
     process.env.SESSIONS_DIR = sessionsDir;
+    process.env.PROJECTS_DIR = TEST_PROJECTS_DIR;
     // Clean project dir
     try { await fsp.rm(TEST_PROJECTS_DIR, { recursive: true, force: true }); } catch { /* ok */ }
     // Clear cache for fresh server
@@ -59,6 +60,7 @@ describe('Session-Project-Plan integration', () => {
   afterEach(async () => {
     server?.close();
     delete process.env.SESSIONS_DIR;
+    delete process.env.PROJECTS_DIR;
     await fsp.rm(sessionsDir, { recursive: true, force: true }).catch(() => {});
     await fsp.rm(TEST_PROJECTS_DIR, { recursive: true, force: true }).catch(() => {});
     for (const key of Object.keys(require.cache)) {
