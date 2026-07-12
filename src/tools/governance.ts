@@ -8,23 +8,29 @@ export interface ApprovalEntry {
 }
 
 const TOOL_SAFETY: Record<string, ToolSafetyLevel> = {
-  read: 'safe',
+  read_file: 'safe',
   write_file: 'sensitive',
   replace_in_file: 'sensitive',
   append_file: 'safe',
+  list_files: 'safe',
+  create_folder: 'safe',
+  delete_file: 'sensitive',
+  delete_folder: 'sensitive',
+  file_info: 'safe',
+  search_content: 'safe',
+  copy_file: 'safe',
+  move_file: 'sensitive',
   run_command: 'sensitive',
   run_tests: 'sensitive',
   web_search: 'safe',
-  web_fetch: 'safe',
-  glob: 'safe',
-  grep: 'safe',
   git_diff: 'safe',
   git_log: 'safe',
   git_commit: 'sensitive',
-  task: 'safe',
-  question: 'safe',
-  todowrite: 'safe',
-  skill: 'safe',
+  code_definition: 'safe',
+  code_references: 'safe',
+  code_hover: 'safe',
+  lookup_symbol: 'safe',
+  get_diagnostics: 'safe',
 };
 
 export function getToolSafetyLevel(name: string): ToolSafetyLevel {
