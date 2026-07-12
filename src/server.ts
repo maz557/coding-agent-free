@@ -247,6 +247,9 @@ app.use(express.json());
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
+// Static files — placed after API routes in the module-level app
+// Tests that import { app } and create their own server will still
+// get express.static because it's attached to the app object.
 app.use(express.static(PUBLIC_DIR));
 
 function buildSystemPrompt(): string {
@@ -981,6 +984,9 @@ if (process.env.NODE_ENV !== 'test') {
         console.log(`   🔬 LSP ready (${langs}): code_definition, code_references, code_hover`);
       }
     } catch { /* LSP optional */ }
+
+    // Static files AFTER all API routes to avoid catching /api/* paths
+    app.use(express.static(PUBLIC_DIR));
 
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🌐 Web interface: http://localhost:${PORT}`);

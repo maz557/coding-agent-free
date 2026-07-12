@@ -27,6 +27,10 @@ async function startServer(port = 0): Promise<{ server: http.Server; baseUrl: st
   });
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise(r => setTimeout(r, ms));
+}
+
 function fetchJson(url: string, opts?: RequestInit): Promise<any> {
   return fetch(url, {
     ...opts,
@@ -420,6 +424,8 @@ describe('project API', () => {
     const started = await startServer();
     server = started.server;
     baseUrl = started.baseUrl;
+    // Work around Node 22 Windows race: ensure server is accepting connections
+    await sleep(200);
   });
 
   afterEach(async () => {
