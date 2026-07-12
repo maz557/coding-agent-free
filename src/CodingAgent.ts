@@ -460,6 +460,29 @@ export class CodingAgent {
 
             this.callbacks?.onToolResult?.(functionName, content);
 
+            // Auto-inject LSP diagnostics when run_command/run_tests fails with code errors
+            const errorPatterns = ['ImportError', 'SyntaxError', 'TypeError', 'ModuleNotFoundError',
+              'FileNotFoundError', 'ReferenceError', 'ValueError', 'KeyError',
+              'AttributeError', 'IndentationError', 'NameError', 'OSError'];
+            if (['run_command', 'run_tests'].includes(functionName) &&
+                typeof content === 'string' && errorPatterns.some(p => content.includes(p))) {
+              const fileMatches = content.matchAll(/File\s+"([^"]+)"/g);
+              const fpaths = [...new Set([...fileMatches].map(m => m[1]))];
+              if (fpaths.length > 0) {
+                const diags: string[] = [];
+                for (const fp of fpaths) {
+                  try {
+                    const r = await executeTool('code_get_diagnostics', { file: fp });
+                    if (r && typeof r === 'string' && r.trim()) diags.push(`📋 Diagnostics for ${fp}:\n${r}`);
+                  } catch { /* LSP not available */ }
+                }
+                if (diags.length > 0) {
+                  this.conversation = this.conversation.addSystemMessage(diags.join('\n'));
+                  this.callbacks?.onStatus?.('📋 Auto-injected LSP diagnostics');
+                }
+              }
+            }
+
             // Inject progress summary every 3 steps or on completion
             if (this._planManager.hasPlan()) {
               const done = this._planManager.getSteps().filter(s => s.status === 'completed').length;

@@ -207,6 +207,7 @@ This is the Coding Agent Free project itself.
 - **Tool call display** simplified: `🔧` icon-only collapse (was full header)
 - **System prompt** updated: commands to use LSP diagnostics when scripts fail (instead of retrying pip install/environments)
 - **Self-reflection recovery** enhanced: suggests `code_get_diagnostics` after 3 consecutive tool failures
+- **Auto-inject LSP diagnostics**: when `run_command`/`run_tests` fails with Python errors (ImportError, SyntaxError, etc.), CodingAgent automatically calls `code_get_diagnostics` on the failing file and injects results as a system message — no model involvement needed
 - **341 unit tests** + 26 integration tests (was 334 + 26)
 
 ## Conventions
