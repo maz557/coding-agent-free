@@ -22,9 +22,13 @@ const TEST_PROJECTS_DIR = path.join(process.cwd(), 'projects_test_sp');
  */
 
 function fetchJson(url: string, opts?: RequestInit): Promise<any> {
+  const headers: Record<string, string> = { ...(opts?.headers as Record<string, string> || {}) };
+  if (opts?.body) {
+    headers['Content-Type'] = 'application/json';
+  }
   return fetch(url, {
     ...opts,
-    headers: { 'Content-Type': 'application/json', ...opts?.headers },
+    headers,
   }).then(async (r) => {
     const body = r.headers.get('content-type')?.includes('json')
       ? await r.json()

@@ -32,9 +32,13 @@ function sleep(ms: number): Promise<void> {
 }
 
 function fetchJson(url: string, opts?: RequestInit): Promise<any> {
+  const headers: Record<string, string> = { ...(opts?.headers as Record<string, string> || {}) };
+  if (opts?.body) {
+    headers['Content-Type'] = 'application/json';
+  }
   return fetch(url, {
     ...opts,
-    headers: { 'Content-Type': 'application/json', ...opts?.headers },
+    headers,
   }).then(async (r) => {
     const body = r.headers.get('content-type')?.includes('json')
       ? await r.json()
@@ -424,8 +428,6 @@ describe('project API', () => {
     const started = await startServer();
     server = started.server;
     baseUrl = started.baseUrl;
-    // Work around Node 22 Windows race: ensure server is accepting connections
-    await sleep(200);
   });
 
   afterEach(async () => {
