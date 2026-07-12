@@ -10,7 +10,7 @@
   body { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; height: 100vh; display: flex; flex-direction: column; --msg-font-size: 14px; }
   body.compact .msg { margin-bottom: 2px !important; }
   body.compact #chat { gap: 4px !important; }
-  body.compact .msg.tool { font-size: 11px !important; }
+  body.compact .tool-call { font-size: 11px !important; }
   #header { background: #161b22; border-bottom: 1px solid #30363d; padding: 8px 16px; display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
   #header h1 { font-size: 16px; font-weight: 600; color: #f0f6fc; }
   #model-info { font-size: 12px; color: #8b949e; margin-left: auto; cursor: default; padding: 2px 8px; background: #0d1117; border-radius: 4px; border: 1px solid #21262d; }
@@ -21,17 +21,12 @@
   .msg { max-width: 85%; padding: 10px 14px; border-radius: 12px; line-height: 1.5; font-size: var(--msg-font-size); white-space: pre-wrap; word-wrap: break-word; }
   .msg.user { align-self: flex-start; background: #1f6feb; color: #fff; border-bottom-left-radius: 4px; }
   .msg.assistant { align-self: flex-end; background: #161b22; border: 1px solid #30363d; border-bottom-right-radius: 4px; }
-  .msg.tool { align-self: flex-end; background: #0d1117; border: 1px solid #21262d; font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 12px; color: #8b949e; max-width: 100%; }
-  .msg.tool .tool-name { color: #58a6ff; font-weight: 600; }
-  .msg.tool .tool-result { color: #7ee787; margin-top: 4px; }
+  .tool-result-text { color: #7ee787; margin-top: 8px; padding-top: 6px; border-top: 1px solid #21262d; }
   /* Collapsible tool calls */
   .tool-call { align-self: flex-end; background: #0d1117; border: 1px solid #21262d; border-radius: 8px; font-family: 'Cascadia Code','Fira Code',monospace; font-size: 12px; color: #8b949e; max-width: 100%; width: 100%; margin: 4px 0; overflow: hidden; }
   .tool-call-header { display: flex; align-items: center; gap: 6px; padding: 6px 10px; cursor: pointer; user-select: none; }
   .tool-call-header:hover { background: #161b22; }
-  .tool-call-header .collapse-icon { font-size: 10px; color: #484f58; width: 14px; flex-shrink: 0; transition: transform 0.15s; }
-  .tool-call-header .collapse-icon.expanded { transform: rotate(90deg); }
-  .tool-call-header .tool-name { color: #58a6ff; font-weight: 600; }
-  .tool-call-header .tool-args { color: #ffa657; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .tool-call-header .collapse-icon { font-size: 14px; user-select: none; }
   .tool-call-body { padding: 8px 10px 10px 24px; border-top: 1px solid #21262d; color: #7ee787; white-space: pre-wrap; word-wrap: break-word; max-height: 400px; overflow-y: auto; }
   .msg.error { align-self: flex-end; background: #3d1f1f; border: 1px solid #f85149; color: #ff7b72; }
   .msg.model { align-self: flex-end; font-size: 11px; color: #8b949e; background: transparent; border: none; padding: 2px 14px; }
@@ -377,7 +372,7 @@ const newProjectBtn = document.getElementById('new-project-btn');
 
 let sessionList = [];
 let routeList = [];
-let timeoutMs = 120000;
+let timeoutMs = 300000;
 
 async function populateModels() {
   const [modelRes, routeRes] = await Promise.all([
@@ -457,6 +452,28 @@ async function init() {
       if (opt.value === 'preset:1') { opt.selected = true; break; }
     }
   }
+
+  // Register approval dialog event listeners (dialog HTML is after the script tag)
+  const g = (id) => document.getElementById(id);
+  g('approval-deny-btn')?.addEventListener('click', async () => {
+    const resolve = pendingApprovalResolve;
+    if (resolve) { resolve(false); pendingApprovalResolve = null; }
+    hideApprovalDialog();
+    if (sessionId) await fetch(`/api/approve/${sessionId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ allow: false }) }).catch(() => {});
+  });
+  g('approval-allow-once-btn')?.addEventListener('click', async () => {
+    const resolve = pendingApprovalResolve;
+    if (resolve) { resolve(true); pendingApprovalResolve = null; }
+    hideApprovalDialog();
+    if (sessionId) await fetch(`/api/approve/${sessionId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ allow: true }) }).catch(() => {});
+  });
+  g('approval-allow-always-btn')?.addEventListener('click', async () => {
+    const tool = document.getElementById('approval-tool-name')?.textContent || '';
+    const resolve = pendingApprovalResolve;
+    if (resolve) { resolve(true); pendingApprovalResolve = null; }
+    hideApprovalDialog();
+    if (sessionId) await fetch(`/api/approve/${sessionId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ allow: true, permanent: true, tool }) }).catch(() => {});
+  });
 }
 
 function updateSafeUI() {
@@ -819,13 +836,11 @@ async function sendMessage() {
             case 'tool_call': {
               const toolDiv = document.createElement('div');
               toolDiv.className = 'tool-call msg';
-              toolDiv.innerHTML = `<div class="tool-call-header"><span class="collapse-icon expanded">▶</span><span class="tool-name">🔧 ${escapeHtml(parsed.name)}</span><span class="tool-args">${escapeHtml(parsed.args)}</span></div><div class="tool-call-body"></div>`;
+              toolDiv.innerHTML = `<div class="tool-call-header"><span class="collapse-icon">🔧</span></div><div class="tool-call-body"><strong>${escapeHtml(parsed.name)}</strong><pre>${escapeHtml(parsed.args)}</pre></div>`;
+              const body = toolDiv.querySelector('.tool-call-body');
+              body.style.display = 'none';
               toolDiv.querySelector('.tool-call-header').addEventListener('click', () => {
-                const icon = toolDiv.querySelector('.collapse-icon');
-                const body = toolDiv.querySelector('.tool-call-body');
-                const expanded = body.style.display !== 'none';
-                body.style.display = expanded ? 'none' : 'block';
-                icon.classList.toggle('expanded', !expanded);
+                body.style.display = body.style.display === 'none' ? 'block' : 'none';
               });
               chat.appendChild(toolDiv);
               chat.scrollTop = chat.scrollHeight;
@@ -838,12 +853,9 @@ async function sendMessage() {
               if (lastTool) {
                 const body = lastTool.querySelector('.tool-call-body');
                 if (body) {
-                  body.textContent = parsed.content.slice(0, 5000);
+                  body.innerHTML += `<div class="tool-result-text"><em>${escapeHtml(parsed.content).slice(0, 5000)}</em></div>`;
                   body.style.display = 'block';
-                  lastTool.querySelector('.collapse-icon')?.classList.add('expanded');
                 }
-                const header = lastTool.querySelector('.tool-call-header .tool-name');
-                if (header) header.innerHTML = '✅ ' + escapeHtml(parsed.name);
               }
               break;
             }
@@ -1173,6 +1185,7 @@ async function showProjectDetail(id) {
         <option value="abandoned" ${p.status === 'abandoned' ? 'selected' : ''}>Abandoned</option>
       </select>
       <button id="project-update-status-btn" style="background:#21262d;color:#58a6ff;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer">Update</button>
+      <button id="project-continue-btn" style="background:#238636;color:#fff;border:none;border-radius:4px;padding:2px 10px;font-size:11px;cursor:pointer;font-weight:600">▶ Continue</button>
       <button id="project-delete-btn" style="background:#21262d;color:#f85149;border:1px solid #30363d;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;margin-left:auto">Delete</button>
     </div>`;
     projectDetailContent.innerHTML = html;
@@ -1186,6 +1199,15 @@ async function showProjectDetail(id) {
       });
       showProjectDetail(id);
       refreshProjectList();
+    });
+    document.getElementById('project-continue-btn')?.addEventListener('click', async () => {
+      const sessionToResume = p.sessionIds && p.sessionIds[0];
+      if (sessionToResume) {
+        toggleProjectPanel(false);
+        await switchToSession(sessionToResume);
+      } else {
+        showToast('No session found for this project', 'error');
+      }
     });
     document.getElementById('project-delete-btn')?.addEventListener('click', async () => {
       if (!confirm('Delete this project?')) return;
@@ -1291,13 +1313,11 @@ async function switchToSession(id) {
           const tc = m.tool_calls[0];
           const toolDiv = document.createElement('div');
           toolDiv.className = 'tool-call msg';
-          toolDiv.innerHTML = `<div class="tool-call-header"><span class="collapse-icon expanded">▶</span><span class="tool-name">🔧 ${escapeHtml(tc.function.name)}</span><span class="tool-args">${escapeHtml(tc.function.arguments)}</span></div><div class="tool-call-body"></div>`;
+          toolDiv.innerHTML = `<div class="tool-call-header"><span class="collapse-icon">🔧</span></div><div class="tool-call-body"><strong>${escapeHtml(tc.function.name)}</strong><pre>${escapeHtml(tc.function.arguments)}</pre></div>`;
+          const body = toolDiv.querySelector('.tool-call-body');
+          body.style.display = 'none';
           toolDiv.querySelector('.tool-call-header').addEventListener('click', () => {
-            const icon = toolDiv.querySelector('.collapse-icon');
-            const body = toolDiv.querySelector('.tool-call-body');
-            const expanded = body.style.display !== 'none';
-            body.style.display = expanded ? 'none' : 'block';
-            icon.classList.toggle('expanded', !expanded);
+            body.style.display = body.style.display === 'none' ? 'block' : 'none';
           });
           chat.appendChild(toolDiv);
           highlightCode();
@@ -1308,11 +1328,8 @@ async function switchToSession(id) {
         if (lastTool) {
           const body = lastTool.querySelector('.tool-call-body');
           if (body) {
-            body.textContent = (m.content || '').slice(0, 5000);
-            lastTool.querySelector('.collapse-icon')?.classList.add('expanded');
+            body.innerHTML += `<div class="tool-result-text"><em>${escapeHtml(m.content || '').slice(0, 5000)}</em></div>`;
           }
-          const header = lastTool.querySelector('.tool-call-header .tool-name');
-          if (header) header.innerHTML = '✅ ' + escapeHtml(m.name || 'tool');
         }
       }
     }
@@ -1666,56 +1683,30 @@ document.addEventListener('keydown', (e) => {
 });
 
 // Approval dialog
-const approvalDialog = document.getElementById('approval-dialog');
-const approvalToolName = document.getElementById('approval-tool-name');
-const approvalArgs = document.getElementById('approval-args');
-const approvalLevel = document.getElementById('approval-level');
-const approvalDenyBtn = document.getElementById('approval-deny-btn');
-const approvalAllowOnceBtn = document.getElementById('approval-allow-once-btn');
-const approvalAllowAlwaysBtn = document.getElementById('approval-allow-always-btn');
-
 function showApprovalDialog(tool, args, level) {
   if (approvalDialogShown) return;
   approvalDialogShown = true;
-  approvalToolName.textContent = tool;
-  approvalArgs.textContent = typeof args === 'string' ? args : JSON.stringify(args, null, 2);
+  const dialog = document.getElementById('approval-dialog');
+  const toolName = document.getElementById('approval-tool-name');
+  const argsEl = document.getElementById('approval-args');
+  const levelEl = document.getElementById('approval-level');
+  if (!dialog || !toolName || !argsEl || !levelEl) return;
+  toolName.textContent = tool;
+  argsEl.textContent = typeof args === 'string' ? args : JSON.stringify(args, null, 2);
   const levelLabels = { safe: '✅ Safe', sensitive: '⚠️ Sensitive', dangerous: '🚨 Dangerous' };
-  approvalLevel.textContent = levelLabels[level] || level;
-  approvalDialog.style.display = 'flex';
+  levelEl.textContent = levelLabels[level] || level;
+  dialog.style.display = 'flex';
 }
 
 function hideApprovalDialog() {
-  approvalDialog.style.display = 'none';
+  const dialog = document.getElementById('approval-dialog');
+  if (dialog) dialog.style.display = 'none';
   approvalDialogShown = false;
   pendingApprovalResolve = null;
 }
 
-approvalDenyBtn.addEventListener('click', async () => {
-  const resolve = pendingApprovalResolve;
-  if (resolve) { resolve(false); pendingApprovalResolve = null; }
-  hideApprovalDialog();
-  if (sessionId) await fetch(`/api/approve/${sessionId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ allow: false }) }).catch(() => {});
-});
-
-approvalAllowOnceBtn.addEventListener('click', async () => {
-  const resolve = pendingApprovalResolve;
-  if (resolve) { resolve(true); pendingApprovalResolve = null; }
-  hideApprovalDialog();
-  if (sessionId) await fetch(`/api/approve/${sessionId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ allow: true }) }).catch(() => {});
-});
-
-approvalAllowAlwaysBtn.addEventListener('click', async () => {
-  const tool = approvalToolName.textContent;
-  const resolve = pendingApprovalResolve;
-  if (resolve) { resolve(true); pendingApprovalResolve = null; }
-  hideApprovalDialog();
-  if (sessionId) await fetch(`/api/approve/${sessionId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ allow: true, permanent: true, tool }) }).catch(() => {});
-});
-
 init();
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-
 <!-- Approval dialog -->
 <div id="approval-dialog" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:1100;justify-content:center;align-items:center" dir="ltr">
   <div style="background:#161b22;border:1px solid #30363d;border-radius:8px;padding:24px;max-width:500px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.5)">
@@ -1732,5 +1723,6 @@ init();
     </div>
   </div>
 </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 </body>
 </html>

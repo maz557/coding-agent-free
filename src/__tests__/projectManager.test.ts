@@ -1,4 +1,4 @@
-import { describe, it, afterEach, before } from 'node:test';
+import { describe, it, afterEach, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import * as fsp from 'fs/promises';
 import * as fs from 'fs';
@@ -10,12 +10,20 @@ const TEST_DIR = path.join(process.cwd(), 'projects_test');
 
 describe('ProjectManager', () => {
   let pm: ProjectManager;
+  const origProjectsDir = process.env.PROJECTS_DIR;
 
   before(() => {
     process.env.NODE_ENV = 'test';
+    process.env.PROJECTS_DIR = TEST_DIR;
+  });
+
+  after(() => {
+    if (origProjectsDir) process.env.PROJECTS_DIR = origProjectsDir;
+    else delete process.env.PROJECTS_DIR;
   });
 
   afterEach(async () => {
+    pm.clear();
     try { await fsp.rm(TEST_DIR, { recursive: true }); } catch { /* ok */ }
   });
 
@@ -140,5 +148,41 @@ describe('ProjectManager', () => {
     pm = new ProjectManager();
     assert.equal(pm.getAll().length, 0);
     assert.equal(pm.listSummaries().length, 0);
+  });
+
+  it('should filter empty sessionId on create', async () => {
+    pm = new ProjectManager();
+    const plan = new PlanManager();
+    const data = await pm.create(plan, 'No Session', '', '');
+    assert.equal(data.sessionIds.length, 0);
+  });
+
+  it('should not add empty sessionId via addSession', async () => {
+    pm = new ProjectManager();
+    const plan = new PlanManager();
+    const data = await pm.create(plan, 'Add Empty', '', 's1');
+    assert.equal(data.sessionIds.length, 1);
+    await pm.addSession(data.id, '');
+    const loaded = pm.get(data.id)!;
+    assert.equal(loaded.sessionIds.length, 1);
+    assert(loaded.sessionIds.includes('s1'));
+  });
+
+  it('should filter empty sessionIds on loadAll from disk', async () => {
+    pm = new ProjectManager();
+    const plan = new PlanManager();
+    const data = await pm.create(plan, 'Disk Filter', '', 's1');
+    // Manually inject empty sessionId into the saved file
+    const filePath = path.join(TEST_DIR, `${data.id}.json`);
+    const raw = JSON.parse(await fsp.readFile(filePath, 'utf-8'));
+    raw.sessionIds.push('');
+    await fsp.writeFile(filePath, JSON.stringify(raw, null, 2), 'utf-8');
+
+    pm = new ProjectManager(); // fresh instance
+    await pm.loadAll();
+    const loaded = pm.get(data.id)!;
+    assert.equal(loaded.sessionIds.length, 1);
+    assert(loaded.sessionIds.includes('s1'));
+    assert(!loaded.sessionIds.includes(''));
   });
 });

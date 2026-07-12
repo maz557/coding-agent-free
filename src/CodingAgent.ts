@@ -1,6 +1,8 @@
 import OpenAI from 'openai';
 import pino from 'pino';
 import pinoPretty from 'pino-pretty';
+import * as fsp from 'fs/promises';
+import * as path from 'path';
 import { ChatMessage, ToolCall, OpenAITool, AgentResult, OpenRouterCreateParams } from './types';
 import { ConversationState } from './ConversationState';
 import { validateToolInput, validateToolOutput, isToolCallArray } from './validation';
@@ -8,8 +10,19 @@ import { executeTool } from './tools/toolRegistry';
 import { ModelPreset, PROVIDERS } from './config/models';
 import { getUserConfig } from './config/userConfig';
 import { discoverProviderModels, pickBestModel } from './config/modelDiscovery';
-import { PlanManager } from './PlanManager';
+import { PlanManager, PlanStep } from './PlanManager';
 import { AgentMode, AGENT_MODES, filterToolsForMode, detectIntent, SWITCH_MODE_TOOL } from './AgentMode';
+
+export interface AgentCallbacks {
+  onToken?: (token: string) => void;
+  onToolCall?: (name: string, args: string) => void;
+  onToolResult?: (name: string, content: string) => void;
+  onDiff?: (path: string, before: string, after: string) => void;
+  onStatus?: (text: string) => void;
+  onModel?: (model: string) => void;
+  onPlan?: (steps: PlanStep[]) => void;
+  onError?: (message: string) => void;
+}
 
 const logger = pino(
   { level: process.env.LOG_LEVEL || 'info' },
@@ -65,6 +78,7 @@ async function processStreamWithIdleTimeout(
   stream: AsyncIterable<OpenAI.Chat.Completions.ChatCompletionChunk>,
   timeoutMs: number,
   ac: AbortController,
+  onToken?: (token: string) => void,
 ): Promise<{ content: string; toolCalls: ToolCall[]; model: string }> {
   let content = '';
   const toolCallAccumulators = new Map<number, { id: string; name: string; arguments: string }>();
@@ -95,6 +109,7 @@ async function processStreamWithIdleTimeout(
       if (delta.content) {
         content += delta.content;
         process.stdout.write(delta.content);
+        onToken?.(delta.content);
       }
 
       if (delta.tool_calls) {
@@ -134,6 +149,7 @@ export class CodingAgent {
   private conversation: ConversationState;
   private _planManager: PlanManager | null = null;
   private _mode: AgentMode;
+  private callbacks?: AgentCallbacks;
 
   get planManager(): PlanManager | null {
     return this._planManager;
@@ -150,8 +166,10 @@ export class CodingAgent {
     systemPrompt: string,
     savedMessages?: ReadonlyArray<ChatMessage>,
     mode: AgentMode = 'build',
+    callbacks?: AgentCallbacks,
   ) {
     this._mode = mode;
+    this.callbacks = callbacks;
     if (savedMessages && savedMessages.length > 0) {
       this.conversation = ConversationState.fromMessages(savedMessages);
     } else {
@@ -253,12 +271,15 @@ export class CodingAgent {
 
     // Planning phase: create a plan before execution
     this._planManager = new PlanManager();
+    this.callbacks?.onStatus?.('planning');
     const planText = await this.plan(userInput);
     if (planText) {
       const parsed = this._planManager.parsePlan(planText);
       this.conversation = this.conversation.addSystemMessage(`[Plan]\n${planText}`);
       console.log(`  📋 Plan (${parsed.length} steps)`);
+      this.callbacks?.onPlan?.(parsed);
     }
+    this.callbacks?.onStatus?.('executing');
 
     let depth = 0;
     let usedModel = this.modelConfig.primary;
@@ -297,10 +318,14 @@ export class CodingAgent {
 
         // Idle timeout handled entirely inside processStreamWithIdleTimeout
         // (covers first token + resets on each subsequent chunk)
-        const { content, toolCalls, model } = await processStreamWithIdleTimeout(stream, timeoutMs, ac);
+        const { content, toolCalls, model } = await processStreamWithIdleTimeout(
+          stream, timeoutMs, ac,
+          this.callbacks?.onToken,
+        );
         usedModel = model || this.modelConfig.primary;
         console.log();
         console.log(`  [Model: ${usedModel}]`);
+        this.callbacks?.onModel?.(usedModel);
 
         if (!isToolCallArray(toolCalls) || toolCalls.length === 0) {
           this.conversation = this.conversation.addAssistantMessage(content || null);
@@ -390,6 +415,22 @@ export class CodingAgent {
             continue;
           }
 
+          // Capture diff for file-writing tools
+          const fileWriteTools = ['write_file', 'replace_in_file', 'append_file'];
+          let beforeContent: string | null = null;
+          if (this.callbacks?.onDiff && fileWriteTools.includes(functionName)) {
+            const filePathArg = functionArgs.path as string;
+            if (filePathArg) {
+              try {
+                const allowedDir = path.resolve(process.env.ALLOWED_DIR || './workspace');
+                const fullPath = path.resolve(allowedDir, filePathArg);
+                beforeContent = await fsp.readFile(fullPath, 'utf-8');
+              } catch { /* file may not exist yet */ }
+            }
+          }
+
+          this.callbacks?.onToolCall?.(functionName, toolCall.function.arguments);
+
           try {
             const rawResult = await executeTool(functionName, functionArgs);
             const validatedResult = validateToolOutput(functionName, rawResult);
@@ -402,6 +443,23 @@ export class CodingAgent {
 
             this.conversation = this.conversation.addToolResult(toolCall.id, content, functionName);
 
+            // Emit diff event after file write
+            if (this.callbacks?.onDiff && fileWriteTools.includes(functionName)) {
+              const filePathArg = functionArgs.path as string;
+              if (filePathArg) {
+                try {
+                  const allowedDir = path.resolve(process.env.ALLOWED_DIR || './workspace');
+                  const fullPath = path.resolve(allowedDir, filePathArg);
+                  const afterContent = await fsp.readFile(fullPath, 'utf-8');
+                  if (afterContent !== beforeContent) {
+                    this.callbacks.onDiff(filePathArg, beforeContent || '', afterContent);
+                  }
+                } catch { /* ignore */ }
+              }
+            }
+
+            this.callbacks?.onToolResult?.(functionName, content);
+
             // Inject progress summary every 3 steps or on completion
             if (this._planManager.hasPlan()) {
               const done = this._planManager.getSteps().filter(s => s.status === 'completed').length;
@@ -413,6 +471,7 @@ export class CodingAgent {
           } catch (err: any) {
             const msg = err?.message || 'Unknown tool error';
             console.log(`  ❌ Tool Error: ${msg}`);
+            this.callbacks?.onError?.(msg);
             const errCount = (toolErrorCount.get(functionName) || 0) + 1;
             toolErrorCount.set(functionName, errCount);
             if (errCount >= 3) {
@@ -430,6 +489,7 @@ export class CodingAgent {
       } catch (err: any) {
         const msg = err?.message || 'Unknown API error';
         console.log(`  🚨 API Error: ${msg}`);
+        this.callbacks?.onError?.(msg);
         logger.error({ error: err, depth }, 'Agent execution failed');
         const isRateLimit = err?.status === 429 || err?.code === 'rate_limit_exceeded';
 

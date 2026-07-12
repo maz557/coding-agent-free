@@ -7,6 +7,21 @@ import * as dotenv from 'dotenv';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { DockerSandbox } from './dockerSandbox';
+import { projectManager } from '../ProjectManager';
+import { PlanManager } from '../PlanManager';
+
+let currentSessionId = '';
+let onProjectCreated: ((sessionId: string, projectId: string) => void) | null = null;
+
+export function setCurrentSessionId(id: string): void {
+  currentSessionId = id;
+}
+
+export function setOnProjectCreated(cb: ((sessionId: string, projectId: string) => void) | null): ((sessionId: string, projectId: string) => void) | null {
+  const prev = onProjectCreated;
+  onProjectCreated = cb;
+  return prev;
+}
 
 const execAsync = promisify(exec);
 
@@ -130,6 +145,7 @@ interface GitCommitArgs { message: string; files?: string; }
 interface GitLogArgs { maxCount?: number; }
 interface WebSearchArgs { query: string; }
 interface RunTestsArgs { directory?: string; }
+interface CreateProjectArgs { title: string; description?: string; sessionId?: string; }
 
 export type ToolArguments = 
   | ReadFileArgs 
@@ -702,6 +718,19 @@ class WorkspaceManager {
   }
 }
 
+async function createProject(args: CreateProjectArgs): Promise<string> {
+  try {
+    const pm = new PlanManager();
+    const sessionId = args.sessionId || currentSessionId;
+    const data = await projectManager.create(pm, args.title, args.description || '', sessionId);
+    if (onProjectCreated && sessionId) onProjectCreated(sessionId, data.id);
+    const dir = projectManager.getDir(data.id);
+    return `✅ Project "${data.title}" created successfully.\nID: ${data.id}\nDirectory: ${dir}\nUse write_file with paths like "${data.directory}/welcome.html".`;
+  } catch (err: any) {
+    return `⚠️ Failed to create project: ${err.message}`;
+  }
+}
+
 // --- 3. Tool Definitions (Strictly Typed for OpenAI SDK) ---
 export const tools = [
   {
@@ -970,6 +999,22 @@ export const tools = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'create_project',
+      description: 'Creates a new project with a numbered directory (e.g. 1/, 2/) under the workspace root. Registers the project and returns the directory number. Use this FIRST when the user asks to start a new project, then write all project files inside that directory.',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Project title (e.g. "Welcome Page").' },
+          description: { type: 'string', description: 'Optional description of the project.' },
+          sessionId: { type: 'string', description: 'Optional session ID to link to this project.' },
+        },
+        required: ['title'],
+      },
+    },
+  },
 ];
 
 // --- 4. Instantiation & Executor Export ---
@@ -1008,6 +1053,7 @@ export async function executeTool(name: string, args: ToolArguments): Promise<st
     case 'git_log':         result = await workspace.gitLog(args as GitLogArgs); break;
     case 'web_search':      result = await workspace.webSearch((args as WebSearchArgs).query); break;
     case 'run_tests':       result = await workspace.runTests((args as RunTestsArgs).directory); break;
+    case 'create_project':  result = await createProject(args as CreateProjectArgs); break;
     default:
       return `Error: Unknown tool "${name}"`;
   }

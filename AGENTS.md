@@ -184,6 +184,29 @@ This is the Coding Agent Free project itself.
 - **Server**: `switch_mode` handled internally in chat endpoint; tools filtered per mode
 - **334 tests** (332 original + 2 smoke mode tests; 0 fail)
 
+## v1.28.0 changes
+- **Event callback interface** (`src/CodingAgent.ts`): `AgentCallbacks` with `onToken`, `onToolCall`, `onToolResult`, `onDiff`, `onStatus`, `onModel`, `onPlan`, `onError` for SSE integration
+- **`CodingAgent.execute()` now invokes callbacks** at all key points: streaming tokens, model selection, plan generation, tool execution, diffs, errors
+- **server.ts refactored** to use `CodingAgent.execute()` with callbacks instead of a manual depth loop:
+  - Replaced ~180 lines of manual stream parsing, tool execution, diff computation, keepalive, and fallback routing with a single `new CodingAgent(...)` + `agent.execute(message)`
+  - Removed `tryNextRouteEntry()`, `MAX_DEPTH`, dead imports (`executeTool`, `getRouteEntries`)
+  - Added 15s keepalive SSE interval during agent execution
+  - Plan steps are synced back to session + linked project after execution
+  - Governance approval callback preserved (set before CodingAgent creation)
+- **Diff capture in CodingAgent**: resolves file paths via `ALLOWED_DIR` before reading for diff events
+- **Session-Project-Plan integrity** 🛡️ — atomic reference lifecycle across all three entities:
+  - `projectId` persisted in session disk files (survives restart)
+  - Session deletion cleans up `sessionIds[]` in linked project via `removeSession()`
+  - Project deletion clears `projectId` from all linked sessions
+  - `create_project` tool callback links `s.meta.projectId` (both API and tool path work)
+  - Empty sessionId (`""`) filtered in `create()`, `addSession()`, `loadAll()`
+  - `setCurrentSessionId()` global prevents orphan projects from agent-dispatched `create_project`
+- **Atomic file writes** — `write .tmp → rename` pattern in `ProjectManager._save()` and `saveSessionToDisk()` prevents corrupt JSON on crash
+- **PROJECTS_DIR always aligned** with `ALLOWED_DIR` (removed `if` guard + removed `PROJECTS_DIR=./projects` from `.env`)
+- **Continue button** in Web UI project detail panel (green `▶ Continue` → `switchToSession(p.sessionIds[0])`)
+- **Tool call display** simplified: `🔧` icon-only collapse (was full header)
+- **341 unit tests** + 26 integration tests (was 334 + 26)
+
 ## Conventions
 - No comments in code unless necessary
 - Use async/await, not raw promises

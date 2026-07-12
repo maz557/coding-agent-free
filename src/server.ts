@@ -2,15 +2,17 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import * as dotenv from 'dotenv';
 import OpenAI from 'openai';
-import { getAllTools, executeTool, setSafeMode, isSafeModeEnabled, allowExtraPath, setMCPEnabled, isMCPEnabled, setLSPEnabled, isLSPEnabled, setGovernanceEnabled, isGovernanceEnabled, setApprovalCallback, approvalStore } from './tools/toolRegistry';
+import { getAllTools, setSafeMode, isSafeModeEnabled, allowExtraPath, setMCPEnabled, isMCPEnabled, setLSPEnabled, isLSPEnabled, setGovernanceEnabled, isGovernanceEnabled, setApprovalCallback, approvalStore } from './tools/toolRegistry';
 import { AgentMode, AGENT_MODES, filterToolsForMode } from './AgentMode';
+import { CodingAgent } from './CodingAgent';
+import { setCurrentSessionId, setOnProjectCreated } from './tools/fileManager';
 import { projectManager } from './ProjectManager';
 import { mcpManager } from './mcp/MCPManager';
 import { loadMCPConfig } from './mcp/config';
 import { loadLSPConfig } from './lsp/config';
 import { lspManager } from './lsp/index';
 import { PROVIDERS, FIXED_PRESETS, SYSTEM_PROMPT, ModelPreset } from './config/models';
-import { resolveRoute, isAutoRoute, getRouteLabel, listAutoRoutes, getRouteEntries } from './config/autoRouter';
+import { resolveRoute, isAutoRoute, getRouteLabel, listAutoRoutes } from './config/autoRouter';
 import { discoverProviderModels, discoverAllProviders, pickBestModel, runDiscovery as runModelDiscovery } from './config/modelDiscovery';
 import { getUserConfig } from './config/userConfig';
 import { recordUsage, getAggregatedUsage } from './usageTracker';
@@ -36,8 +38,6 @@ const SUGGESTED_MODELS: Record<string, string> = {
   lmstudio: '',
   llamacpp: '',
 };
-
-const MAX_DEPTH = 20;
 
 interface SessionData {
   client: OpenAI;
@@ -77,17 +77,21 @@ async function saveSessionToDisk(id: string, s: SessionData): Promise<void> {
     await deleteSessionFromDisk(id).catch(() => {});
     return;
   }
-  const meta = {
+  const meta: Record<string, any> = {
     name: s.meta.title,
     createdAt: s.meta.createdAt,
     updatedAt: s.meta.updatedAt,
     messageCount: filteredMsgs.length,
     modelPreset: { provider: s.modelConfig.provider, primary: s.modelConfig.primary, fallbacks: s.modelConfig.fallbacks, contextWindow: s.modelConfig.contextWindow },
   };
+  if (s.meta.projectId) meta.projectId = s.meta.projectId;
   const governance = approvalStore.toJSON();
   const governanceData = governance.length > 0 ? { allowedTools: governance } : undefined;
   const planSteps = s.planSteps || undefined;
-  await fsp.writeFile(path.join(SESSIONS_DIR, `${id}.json`), JSON.stringify({ messages: filteredMsgs, meta, governance: governanceData, planSteps }, null, 2), 'utf-8');
+  const filePath = path.join(SESSIONS_DIR, `${id}.json`);
+  const tmpPath = filePath + '.tmp.' + process.pid;
+  await fsp.writeFile(tmpPath, JSON.stringify({ messages: filteredMsgs, meta, governance: governanceData, planSteps }, null, 2), 'utf-8');
+  await fsp.rename(tmpPath, filePath);
 }
 
 async function deleteSessionFromDisk(id: string): Promise<void> {
@@ -129,6 +133,7 @@ async function loadSessionsFromDisk(): Promise<void> {
             title: m.name || 'Session',
             modelLabel: `${PROVIDERS[mc.provider]?.name || mc.provider} — ${mc.primary}`,
             firstUserMessage: '',
+            projectId: m.projectId || undefined,
           },
         });
         // Restore plan steps
@@ -195,44 +200,6 @@ function loadUserPresets(): Record<string, { provider: string; primary: string; 
 
 function getAllPresets(): Record<string, any> {
   return { ...FIXED_PRESETS, ...loadUserPresets() };
-}
-
-function tryNextRouteEntry(session: any): boolean {
-  const route = session.meta?.route;
-  if (route && isAutoRoute(route)) {
-    const entries = getRouteEntries(route);
-    if (entries) {
-      const currentProvider = session.modelConfig?.provider;
-      const currentModel = session.modelConfig?.primary;
-      const startIdx = entries.findIndex((e: any) => e.provider === currentProvider && e.model === currentModel);
-      if (startIdx >= 0) {
-        for (let i = startIdx + 1; i < entries.length; i++) {
-          const entry = entries[i];
-          if (!isProviderAvailable(entry.provider)) continue;
-          session.modelConfig = { provider: entry.provider, primary: entry.model, fallbacks: [] };
-          session.client = createClient(entry.provider);
-          return true;
-        }
-        return false;
-      }
-    }
-  }
-
-  // Fallback: try next preset by numeric order
-  const allPresets = getAllPresets();
-  const current = session.modelConfig;
-  const keys = Object.keys(allPresets).sort((a, b) => Number(a) - Number(b));
-  const startIdx = keys.findIndex(k => allPresets[k].provider === current.provider && allPresets[k].primary === current.primary);
-  if (startIdx < 0) return false;
-
-  for (let i = startIdx + 1; i < keys.length; i++) {
-    const p = allPresets[keys[i]];
-    if (!isProviderAvailable(p.provider)) continue;
-    session.modelConfig = { provider: p.provider, primary: p.primary, fallbacks: [] };
-    session.client = createClient(p.provider);
-    return true;
-  }
-  return false;
 }
 
 function isProviderAvailable(provider: string): boolean {
@@ -465,6 +432,12 @@ app.post('/api/sessions/:sessionId/rename', async (req, res) => {
 });
 
 app.delete('/api/sessions', async (_req, res) => {
+  // Remove all sessionIds from all projects before clearing sessions
+  for (const [sid, s] of sessions) {
+    if (s.meta.projectId) {
+      await projectManager.removeSession(s.meta.projectId, sid).catch(() => {});
+    }
+  }
   sessions.clear();
   try { await fsp.rm(SESSIONS_DIR, { recursive: true, force: true }); } catch { /* ignore */ }
   await ensureSessionsDir();
@@ -473,6 +446,11 @@ app.delete('/api/sessions', async (_req, res) => {
 
 app.delete('/api/sessions/:sessionId', async (req, res) => {
   const id = req.params.sessionId;
+  const s = sessions.get(id);
+  // Remove sessionId from linked project
+  if (s?.meta.projectId) {
+    await projectManager.removeSession(s.meta.projectId, id).catch(() => {});
+  }
   sessions.delete(id);
   await deleteSessionFromDisk(id);
   res.json({ status: 'ok' });
@@ -664,7 +642,15 @@ app.post('/api/projects/:id/status', async (req, res) => {
 });
 
 app.delete('/api/projects/:id', async (req, res) => {
-  await projectManager.delete(req.params.id);
+  const projectId = req.params.id;
+  // Clean up projectId from all linked sessions before deleting project
+  for (const [sid, s] of sessions) {
+    if (s.meta.projectId === projectId) {
+      s.meta.projectId = undefined;
+      saveSessionToDisk(sid, s).catch(() => {});
+    }
+  }
+  await projectManager.delete(projectId);
   res.json({ deleted: true });
 });
 
@@ -691,18 +677,12 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
 
   // Pending approval state — resolved by POST /api/approve
 
-  const provInfo = PROVIDERS[s.modelConfig.provider];
-  const isLocal = provInfo && !provInfo.apiKeyEnv;
-  let timeoutMs = isLocal ? getUserConfig().localTimeoutMs : getUserConfig().cloudTimeoutMs;
-
-  s.messages.push({ role: 'user', content: message });
   if (!s.meta.firstUserMessage) {
     s.meta.firstUserMessage = message;
     if (s.meta.title.startsWith('Session ')) {
       s.meta.title = message.slice(0, 60) + (message.length > 60 ? '...' : '');
     }
   }
-  saveSessionToDisk(req.params.sessionId, s).catch(() => {});
 
   // Web UI approval: auto-approve unless governance enabled
   const sessionId = req.params.sessionId;
@@ -727,196 +707,85 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
   res.on('finish', cleanup);
   res.on('error', cleanup);
 
-  const toolErrorCount = new Map<string, number>();
-
   const currentMode = s.meta.mode || 'build';
+  const systemContent = buildSystemPrompt();
 
-  for (let depth = 0; depth < MAX_DEPTH; depth++) {
-    const modeTools = filterToolsForMode(getAllTools(), currentMode);
-    const base: any = {
-      model: s.modelConfig.primary,
-      messages: s.messages,
-      tools: modeTools,
-      tool_choice: 'auto',
-      stream: true,
-    };
+  const modeTools = filterToolsForMode(getAllTools(), currentMode) as any;
 
-    if (s.modelConfig.provider === 'openrouter') {
-      const models = [s.modelConfig.primary, ...s.modelConfig.fallbacks].filter(Boolean);
-      base.extra_body = { models: [...new Set(models)] };
+  const keepaliveTo = setInterval(() => {
+    try { send('status', { text: 'Working...' }); } catch { /* ignore */ }
+  }, 15000);
+
+  let prevOnProjectCreated: ((sid: string, pid: string) => void) | null = null;
+  try {
+    setCurrentSessionId(sessionId);
+    // When create_project tool fires, link projectId to session
+    prevOnProjectCreated = setOnProjectCreated((sid, projectId) => {
+      const target = sessions.get(sid);
+      if (target) {
+        target.meta.projectId = projectId;
+        saveSessionToDisk(sid, target).catch(() => {});
+      }
+    });
+    const agent = new CodingAgent(
+      s.client,
+      modeTools,
+      {
+        provider: s.modelConfig.provider,
+        primary: s.modelConfig.primary,
+        fallbacks: s.modelConfig.fallbacks || [],
+        contextWindow: s.modelConfig.contextWindow,
+      } as ModelPreset,
+      systemContent,
+      s.messages as ChatMessage[],
+      currentMode,
+      {
+        onToken: (token) => send('token', { token }),
+        onToolCall: (name, args) => send('tool_call', { name, args }),
+        onToolResult: (name, content) => send('tool_result', { name, content: content.slice(0, 300) }),
+        onDiff: (path, before, after) => send('diff', { path, before, after }),
+        onStatus: (text) => send('status', { text }),
+        onModel: (model) => send('model', { model: `${PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider} — ${model}` }),
+        onPlan: (steps) => { s.planSteps = steps; },
+        onError: (msg) => send('error', { message: msg }),
+      }
+    );
+
+    const result = await agent.execute(message);
+
+    // Sync messages back to session (includes system, user, assistant, tool messages)
+    s.messages = [...agent.getConversationMessages()];
+
+    // Sync plan steps from agent's PlanManager
+    if (agent.planManager?.hasPlan()) {
+      s.planSteps = [...agent.planManager.getSteps()];
     }
 
-    const ac = new AbortController();
-    let to = setTimeout(() => ac.abort(), timeoutMs);
-
-    try {
-      const stream: any = await s.client.chat.completions.create(base, { signal: ac.signal });
-
-      // Reset timeout on each token — idle timeout only
-      clearTimeout(to);
-
-      let content = '';
-      const tcs = new Map<number, any>();
-      let usedModel = '';
-
-      for await (const chunk of stream) {
-        clearTimeout(to);
-        to = setTimeout(() => ac.abort(), timeoutMs);
-        if (res.destroyed) break;
-        if (chunk.model) usedModel = chunk.model;
-        const delta = chunk.choices?.[0]?.delta;
-        if (!delta) continue;
-        if (delta.content) { content += delta.content; send('token', { token: delta.content }); }
-        if (delta.tool_calls) {
-          for (const tc of delta.tool_calls) {
-            const idx = tc.index ?? 0;
-            if (!tcs.has(idx)) tcs.set(idx, { id: '', name: '', args: '' });
-            const a = tcs.get(idx);
-            if (tc.id) a.id += tc.id;
-            if (tc.function?.name) a.name += tc.function.name;
-            if (tc.function?.arguments) a.args += tc.function.arguments;
-          }
-        }
-      }
-
-      if (res.destroyed) break;
-
-      const model = usedModel || s.modelConfig.primary;
-      send('model', { model: `${PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider} — ${model}` });
-      s.messages.push({ role: 'assistant', content: content || null });
-      recordUsage(req.params.sessionId, s.modelConfig.provider, model, s.messages, content || '');
-
-      if (tcs.size === 0) {
-        s.noToolTurns++;
-        if (s.noToolTurns >= 2) {
-          // Undo the assistant message we just pushed
-          s.messages.pop();
-          if (tryNextRouteEntry(s)) {
-            const fallbackInfo = `${PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider} — ${s.modelConfig.primary}`;
-            send('error', { message: `No tool calls for 2 consecutive turns — falling back to ${fallbackInfo}` });
-            continue;
-          }
-          // No more presets — push back the message and return
-          s.messages.push({ role: 'assistant', content: content || null });
-        }
-        saveSessionToDisk(req.params.sessionId, s).catch(() => {});
-        send('done', { toolCallsCount: 0, model: `${PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider} — ${model}` });
-        res.end();
-        return;
-      }
-
-      const calls = [...tcs.values()].filter((x: any) => x.name);
-      // Tool calls were made — reset no-tool counter
-      s.noToolTurns = 0;
-      (s.messages[s.messages.length - 1] as any).tool_calls = calls.map((tc: any) => ({
-        id: tc.id, type: 'function', function: { name: tc.name, arguments: tc.args },
-      }));
-
-      for (const tc of calls) {
-        if (res.destroyed) break;
-        send('tool_call', { name: tc.name, args: tc.args });
-        try {
-          const parsed = JSON.parse(tc.args);
-
-          // Capture before-content for write_file / replace_in_file / append_file
-          let diffData: { path: string; before: string; after: string } | null = null;
-          if ((tc.name === 'write_file' || tc.name === 'replace_in_file' || tc.name === 'append_file') && parsed.path) {
-            try {
-              const allowedDir = path.resolve(process.env.ALLOWED_DIR || './workspace');
-              const fullPath = path.resolve(allowedDir, parsed.path);
-              const beforeContent = await fsp.readFile(fullPath, 'utf-8');
-              let afterContent: string;
-              if (tc.name === 'write_file') {
-                afterContent = String(parsed.content);
-              } else if (tc.name === 'replace_in_file') {
-                const idx = beforeContent.indexOf(parsed.old_str);
-                afterContent = idx === -1 ? beforeContent
-                  : beforeContent.slice(0, idx) + parsed.new_str + beforeContent.slice(idx + parsed.old_str.length);
-              } else { // append_file
-                afterContent = beforeContent + parsed.content;
-              }
-              if (beforeContent !== afterContent) {
-                diffData = { path: parsed.path, before: beforeContent, after: afterContent };
-              }
-            } catch { /* new file or unreadable — skip diff */ }
-          }
-
-          // Handle switch_mode tool internally
-          if (tc.name === 'switch_mode') {
-            const targetMode = parsed.mode as string;
-            const reason = parsed.reason as string || '';
-            if (targetMode === 'build' || targetMode === 'plan') {
-              s.meta.mode = targetMode;
-              send('system', { message: `Switched to ${AGENT_MODES[targetMode].label} mode: ${reason}` });
-              s.messages.push({ role: 'system', content: `[Mode: ${AGENT_MODES[targetMode].label}]\n${AGENT_MODES[targetMode].instruction}` });
-            } else {
-              send('error', { message: `Invalid mode "${targetMode}"` });
-            }
-            continue;
-          }
-
-          const result = await executeTool(tc.name, parsed);
-          const text = typeof result === 'string' ? result : JSON.stringify(result);
-
-          if (diffData) { send('diff', diffData); await new Promise(r => setTimeout(r, 5)); }
-          send('tool_result', { name: tc.name, content: text.slice(0, 300) });
-          s.messages.push({ role: 'tool', tool_call_id: tc.id, content: text, name: tc.name });
-        } catch (err: any) {
-          send('error', { message: `${tc.name}: ${err.message}` });
-          s.messages.push({ role: 'tool', tool_call_id: tc.id, content: `Error: ${err.message}`, name: tc.name });
-          const prev = (toolErrorCount.get(tc.name) || 0) + 1;
-          toolErrorCount.set(tc.name, prev);
-          if (prev >= 3) {
-            send('error', { message: `Tool "${tc.name}" failed ${prev} times — aborting` });
-            depth = MAX_DEPTH;
-            break;
-          }
-        }
-      }
-    } catch (err: any) {
-      const errMsg = err?.message || 'API error';
-
-      // Auto-correct invalid model name (e.g. "not a valid model ID")
-      if (err?.status === 400 && errMsg.toLowerCase().includes('valid model')) {
-        const oldModel = s.modelConfig.primary;
-        send('error', { message: `Model "${oldModel}" invalid — discovering alternatives for ${s.modelConfig.provider}...` });
-        const models = await discoverProviderModels(s.modelConfig.provider);
-        const best = pickBestModel(models);
-        if (best && best !== oldModel) {
-          send('error', { message: `Auto-corrected: ${oldModel} → ${best}` });
-          s.modelConfig.primary = best;
-          continue; // retry same provider with new model
-        }
-        send('error', { message: `No alternative found for ${s.modelConfig.provider}.` });
-      }
-
-      if (tryNextRouteEntry(s)) {
-        send('error', { message: `${errMsg} — falling back to ${s.modelConfig.provider}/${s.modelConfig.primary}` });
-        const fallbackProvInfo = PROVIDERS[s.modelConfig.provider];
-        const isLocalFallback = fallbackProvInfo && !fallbackProvInfo.apiKeyEnv;
-        timeoutMs = isLocalFallback ? getUserConfig().localTimeoutMs : getUserConfig().cloudTimeoutMs;
-        continue;
-      }
-
-      send('error', { message: errMsg });
-      break;
-    } finally {
-      clearTimeout(to);
+    // Sync plan steps to linked project
+    if (s.meta.projectId && s.planSteps && s.planSteps.length > 0) {
+      const { PlanManager } = require('./PlanManager');
+      const pm = new PlanManager();
+      pm.fromJSON({ steps: s.planSteps });
+      projectManager.updatePlan(s.meta.projectId, pm).catch(() => {});
     }
-  }
 
-  // Sync plan steps to linked project
-  if (s.meta.projectId && s.planSteps && s.planSteps.length > 0) {
-    const { PlanManager } = require('./PlanManager');
-    const pm = new PlanManager();
-    pm.fromJSON({ steps: s.planSteps });
-    // Ensure step statuses are current (planSteps already updated during loop)
-    projectManager.updatePlan(s.meta.projectId, pm).catch(() => {});
-  }
-  saveSessionToDisk(req.params.sessionId, s).catch(() => {});
-  if (!res.destroyed) {
-    send('done', { toolCallsCount: 0, model: `${PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider} — ${s.modelConfig.primary}` });
-    res.end();
+    setOnProjectCreated(prevOnProjectCreated);
+    recordUsage(req.params.sessionId, s.modelConfig.provider, result.model || s.modelConfig.primary, s.messages, '');
+
+    if (!res.destroyed) {
+      send('done', {
+        toolCallsCount: result.toolCallsCount || 0,
+        model: `${PROVIDERS[s.modelConfig.provider]?.name || s.modelConfig.provider} — ${result.model || s.modelConfig.primary}`,
+      });
+    }
+  } catch (err: any) {
+    setOnProjectCreated(prevOnProjectCreated);
+    const errMsg = err?.message || 'Unknown error';
+    send('error', { message: errMsg });
+  } finally {
+    clearInterval(keepaliveTo);
+    saveSessionToDisk(req.params.sessionId, s).catch(() => {});
+    if (!res.destroyed) res.end();
   }
 });
 
@@ -998,6 +867,10 @@ if (process.env.NODE_ENV !== 'test') {
   // Initialize services
   (async () => {
     await loadSessionsFromDisk();
+
+    // Align PROJECTS_DIR with workspace BEFORE loading projects
+    const allowedDir = path.resolve(process.env.ALLOWED_DIR || './workspace');
+    process.env.PROJECTS_DIR = allowedDir;
     await projectManager.loadAll();
 
     const mcpConfig = loadMCPConfig();

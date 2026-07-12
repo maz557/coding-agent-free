@@ -161,6 +161,7 @@ async function startChat() {
   const rl = readline.createInterface({ input: stdin, output: stdout, prompt: 'You: ' });
 
   // Load projects from disk
+  process.env.PROJECTS_DIR = path.resolve(process.env.ALLOWED_DIR || './workspace');
   await projectManager.loadAll();
 
   // Initialize MCP servers from config

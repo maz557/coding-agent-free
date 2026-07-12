@@ -43,6 +43,9 @@ Rules:
 - After writing files, ALWAYS run tests/commands to verify they work. Use the run_tests tool to auto-detect and execute the test framework.
 - If a test fails, fix the source code and re-run until it passes.
 - If SCRATCH_DIR env var is set, ALWAYS write temporary test/output files there (e.g. ./scratch/). Never leave test artifacts in project or workspace root. Clean up scratch files after tests complete.
+- When the user asks you to create a new project (multiple new files from scratch, or any self-contained deliverable), ALWAYS call create_project FIRST to register the project and get the numbered directory. Then write all files inside that directory using paths like "1/welcome.html", "1/style.css" (where 1 is the project number).
+  NEVER put user project files in public/, src/, or other application directories — those are for the coding-agent-free app itself, not for user projects.
+  The workspace root is the designated location for all user project files.
 - Use run_command to execute shell commands.
 - Keep tool calls to a minimum. Plan before you act.
 - Always use the web_search tool for factual questions, current events, or when the user asks you to search the web. Do NOT answer from your training data if web_search is available.

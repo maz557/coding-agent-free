@@ -26,6 +26,7 @@ const TOOL_SAFETY: Record<string, ToolSafetyLevel> = {
   git_diff: 'safe',
   git_log: 'safe',
   git_commit: 'sensitive',
+  create_project: 'safe',
   code_definition: 'safe',
   code_references: 'safe',
   code_hover: 'safe',

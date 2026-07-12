@@ -226,7 +226,63 @@ describe('Session-Project-Plan integration', () => {
     assert.equal(pm.findForSession('session_2')!.id, data.id);
   });
 
-  // 9. CodingAgent planManager getter
+  // 9. Verify sessionIds are correctly linked when creating project via API
+  it('should link sessionId to project.sessionIds on create', async () => {
+    const { body: session } = await fetchJson(`${baseUrl}/api/session`, { method: 'POST' });
+    const planSteps = [
+      { description: 'Step 1', status: 'pending' },
+    ];
+    const { body: project } = await fetchJson(`${baseUrl}/api/projects`, {
+      method: 'POST',
+      body: JSON.stringify({ title: 'Session Link', sessionId: session.sessionId, planSteps }),
+    });
+    assert(project.sessionIds.includes(session.sessionId), 'sessionIds should contain the creating session');
+  });
+
+  // 10. Continue: switch to the project's linked session and verify messages
+  it('should switch to a project linked session and load its state', async () => {
+    // Create session
+    const { body: session } = await fetchJson(`${baseUrl}/api/session`, { method: 'POST' });
+    // Create project linked to session
+    const { body: project } = await fetchJson(`${baseUrl}/api/projects`, {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Continue Test',
+        sessionId: session.sessionId,
+        planSteps: [{ description: 'Do something', status: 'pending' }],
+      }),
+    });
+    // Verify project has the session
+    assert(project.sessionIds.length >= 1);
+    const linkedSessionId = project.sessionIds[0];
+    assert.equal(linkedSessionId, session.sessionId);
+
+    // Switch to the linked session (simulates "Continue" button)
+    const { body: sessionData } = await fetchJson(`${baseUrl}/api/sessions/${linkedSessionId}`);
+    assert(sessionData.messages);
+    assert.equal(sessionData.meta?.projectId, project.id);
+  });
+
+  // 11. Delete project and verify session meta is not affected
+  it('should handle session state when project is deleted', async () => {
+    const { body: session } = await fetchJson(`${baseUrl}/api/session`, { method: 'POST' });
+    const { body: project } = await fetchJson(`${baseUrl}/api/projects`, {
+      method: 'POST',
+      body: JSON.stringify({
+        title: 'Delete Test',
+        sessionId: session.sessionId,
+        planSteps: [{ description: 'Step', status: 'pending' }],
+      }),
+    });
+    // Delete project
+    await fetchJson(`${baseUrl}/api/projects/${project.id}`, { method: 'DELETE' });
+    // Session should still exist and be accessible
+    const { status, body: sessionAfter } = await fetchJson(`${baseUrl}/api/sessions/${session.sessionId}`);
+    assert.equal(status, 200);
+    assert(sessionAfter.messages);
+  });
+
+  // 12. CodingAgent planManager getter
   it('should expose planManager with plan steps after execute (mock)', async () => {
     // This test creates a PlanManager directly to verify the integration pattern
     const plan = new PlanManager();
