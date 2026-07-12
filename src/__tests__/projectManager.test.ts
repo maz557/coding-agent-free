@@ -120,6 +120,7 @@ describe('ProjectManager', () => {
     const planManager = new PlanManager();
     const p1 = await pm.create(planManager, 'First', '', 's1');
     await pm.setStatus(p1.id, 'completed');
+    await new Promise(r => setTimeout(r, 5)); // ensure distinct timestamps
     const p2 = await pm.create(planManager, 'Second', '', 's2');
     const list = pm.getAll();
     assert.equal(list.length, 2);
