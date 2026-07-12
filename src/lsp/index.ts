@@ -81,12 +81,16 @@ export const lspToolDefinitions = [
   },
 ];
 
-/** Auto-install LSP server for the given file if missing */
+/** Auto-install LSP server for the given file if missing — never throws */
 async function ensureLSPForFile(filePath: string): Promise<boolean> {
-  if (lspManager.getClientForFile(filePath)) return true; // already available
-  const cwd = process.cwd();
-  const result = await lspManager.autoInstallAndStart(filePath, cwd);
-  return result.startsWith('✅') || result.startsWith('LSP for');
+  try {
+    if (lspManager.getClientForFile(filePath)) return true;
+    const cwd = process.cwd();
+    const result = await lspManager.autoInstallAndStart(filePath, cwd);
+    return result.startsWith('✅') || result.startsWith('LSP for');
+  } catch {
+    return false;
+  }
 }
 
 export async function executeLSPServerTool(name: string, args: Record<string, unknown>): Promise<string> {
