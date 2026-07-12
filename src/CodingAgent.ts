@@ -479,7 +479,8 @@ export class CodingAgent {
                 .removeLastAssistantTurn()
                 .addSystemMessage(
                   `[RECOVERY] Tool "${functionName}" failed ${errCount} consecutive times with error: ${msg}. ` +
-                  `The last assistant turn has been undone. Think carefully about what went wrong and try a COMPLETELY DIFFERENT approach.`
+                  `The last assistant turn has been undone. Try a COMPLETELY DIFFERENT approach. ` +
+                  `If the error involves a file, use code_get_diagnostics on that file FIRST to check for syntax/type errors, then fix them.`
                 );
               break;
             }

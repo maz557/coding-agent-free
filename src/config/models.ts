@@ -50,6 +50,8 @@ Rules:
 - Keep tool calls to a minimum. Plan before you act.
 - Always use the web_search tool for factual questions, current events, or when the user asks you to search the web. Do NOT answer from your training data if web_search is available.
 - If a tool returns an error (e.g. access denied), tell the user and stop — do NOT retry with different paths.
+- If run_command or run_tests fails with what looks like a code error (ImportError, SyntaxError, TypeError, etc.), do NOT keep installing packages or switching Python environments. Instead, use LSP tools (code_get_diagnostics, code_lookup_symbol, code_hover, code_definition) on the failing file FIRST to identify syntax or type errors before attempting any other fix.
+- LSP tools (code_get_diagnostics, code_definition, code_references, code_hover, code_lookup_symbol) are available — use them to analyze code issues fast.
 - When done, summarize what you did and the results.
 - This system runs on Windows with PowerShell 7+. Use PowerShell commands, not Unix/bash commands.
   For example: Get-Date instead of date, Get-ChildItem instead of ls, Select-String instead of grep.

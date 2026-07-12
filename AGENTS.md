@@ -205,6 +205,8 @@ This is the Coding Agent Free project itself.
 - **PROJECTS_DIR always aligned** with `ALLOWED_DIR` (removed `if` guard + removed `PROJECTS_DIR=./projects` from `.env`)
 - **Continue button** in Web UI project detail panel (green `▶ Continue` → `switchToSession(p.sessionIds[0])`)
 - **Tool call display** simplified: `🔧` icon-only collapse (was full header)
+- **System prompt** updated: commands to use LSP diagnostics when scripts fail (instead of retrying pip install/environments)
+- **Self-reflection recovery** enhanced: suggests `code_get_diagnostics` after 3 consecutive tool failures
 - **341 unit tests** + 26 integration tests (was 334 + 26)
 
 ## Conventions
