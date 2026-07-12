@@ -9,7 +9,7 @@ import { ModelPreset, PROVIDERS } from './config/models';
 import { getUserConfig } from './config/userConfig';
 import { discoverProviderModels, pickBestModel } from './config/modelDiscovery';
 import { PlanManager } from './PlanManager';
-import { AgentMode, AGENT_MODES, filterToolsForMode } from './AgentMode';
+import { AgentMode, AGENT_MODES, filterToolsForMode, detectIntent, SWITCH_MODE_TOOL } from './AgentMode';
 
 const logger = pino(
   { level: process.env.LOG_LEVEL || 'info' },
@@ -234,7 +234,16 @@ export class CodingAgent {
   async execute(userInput: string, modeOverride?: AgentMode): Promise<AgentResult> {
     this.toolHistory = [];
 
-    if (modeOverride) this._mode = modeOverride;
+    // Auto-detect intent if no explicit override
+    if (!modeOverride) {
+      const detected = detectIntent(userInput);
+      if (detected && detected !== this._mode) {
+        this._mode = detected;
+        console.log(`  [Auto-switched to ${AGENT_MODES[detected].label} mode]`);
+      }
+    } else {
+      this._mode = modeOverride;
+    }
 
     this.conversation = this.conversation.addUserMessage(userInput);
 
@@ -363,6 +372,22 @@ export class CodingAgent {
                 `Do NOT repeat the same tool call with identical arguments.`
               );
             break;
+          }
+
+          // Handle switch_mode tool internally
+          if (functionName === 'switch_mode') {
+            const targetMode = functionArgs.mode as string;
+            const reason = functionArgs.reason as string || '';
+            if (targetMode === 'build' || targetMode === 'plan') {
+              const oldMode = this._mode;
+              this._mode = targetMode;
+              this.conversation = this.conversation.addToolResult(toolCall.id, `Switched from ${AGENT_MODES[oldMode].label} to ${AGENT_MODES[this._mode].label} mode. Reason: ${reason}`, functionName);
+              this.conversation = this.conversation.addSystemMessage(`[Mode: ${AGENT_MODES[this._mode].label}]\n${AGENT_MODES[this._mode].instruction}`);
+              console.log(`  🔄 Switched to ${AGENT_MODES[this._mode].label} mode: ${reason}`);
+            } else {
+              this.conversation = this.conversation.addToolResult(toolCall.id, `Error: Invalid mode "${targetMode}". Use "build" or "plan".`, functionName);
+            }
+            continue;
           }
 
           try {

@@ -841,6 +841,20 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
             } catch { /* new file or unreadable — skip diff */ }
           }
 
+          // Handle switch_mode tool internally
+          if (tc.name === 'switch_mode') {
+            const targetMode = parsed.mode as string;
+            const reason = parsed.reason as string || '';
+            if (targetMode === 'build' || targetMode === 'plan') {
+              s.meta.mode = targetMode;
+              send('system', { message: `Switched to ${AGENT_MODES[targetMode].label} mode: ${reason}` });
+              s.messages.push({ role: 'system', content: `[Mode: ${AGENT_MODES[targetMode].label}]\n${AGENT_MODES[targetMode].instruction}` });
+            } else {
+              send('error', { message: `Invalid mode "${targetMode}"` });
+            }
+            continue;
+          }
+
           const result = await executeTool(tc.name, parsed);
           const text = typeof result === 'string' ? result : JSON.stringify(result);
 
