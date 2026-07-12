@@ -81,6 +81,14 @@ export const lspToolDefinitions = [
   },
 ];
 
+/** Auto-install LSP server for the given file if missing */
+async function ensureLSPForFile(filePath: string): Promise<boolean> {
+  if (lspManager.getClientForFile(filePath)) return true; // already available
+  const cwd = process.cwd();
+  const result = await lspManager.autoInstallAndStart(filePath, cwd);
+  return result.startsWith('✅') || result.startsWith('LSP for');
+}
+
 export async function executeLSPServerTool(name: string, args: Record<string, unknown>): Promise<string> {
   const pathMod = require('path');
   const allowedDir = process.env.ALLOWED_DIR || './workspace';
@@ -88,20 +96,24 @@ export async function executeLSPServerTool(name: string, args: Record<string, un
   switch (name) {
     case 'code_definition': {
       const absFile = pathMod.resolve(allowedDir, args.file as string);
+      await ensureLSPForFile(absFile);
       return lspManager.goToDefinition(absFile, args.line as number, args.column as number);
     }
     case 'code_references': {
       const absFile = pathMod.resolve(allowedDir, args.file as string);
+      await ensureLSPForFile(absFile);
       return lspManager.findReferences(absFile, args.line as number, args.column as number);
     }
     case 'code_hover': {
       const absFile = pathMod.resolve(allowedDir, args.file as string);
+      await ensureLSPForFile(absFile);
       return lspManager.hoverInfo(absFile, args.line as number, args.column as number);
     }
     case 'code_lookup_symbol':
       return lspManager.lookupSymbol(args.name as string);
     case 'code_get_diagnostics': {
       const absFile = pathMod.resolve(allowedDir, args.file as string);
+      await ensureLSPForFile(absFile);
       return lspManager.getFileDiagnostics(absFile);
     }
     default:
