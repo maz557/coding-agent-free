@@ -902,17 +902,6 @@ if (process.env.NODE_ENV !== 'test') {
       }
       const allowedDir = path.resolve(process.env.ALLOWED_DIR || './workspace');
       await lspManager.startForProject(allowedDir);
-
-      // Auto-install known LSP servers for matching files found in workspace
-      const { KNOWN_LSP_SERVERS } = require('./lsp/LSPManager');
-      for (const known of KNOWN_LSP_SERVERS) {
-        if (lspManager.hasLanguage(known.languageId)) continue;
-        const found = findProjectFilesByPatterns(allowedDir, known.filePatterns, 1);
-        if (found.length > 0) {
-          await lspManager.autoInstallAndStart(found[0], process.cwd()).catch(() => {});
-        }
-      }
-
       if (lspManager.isAvailable()) {
         const langs = lspManager.getActiveLanguages().join(', ') || 'TypeScript';
         console.log(`   🔬 LSP ready (${langs}): code_definition, code_references, code_hover`);
@@ -928,33 +917,6 @@ if (process.env.NODE_ENV !== 'test') {
       console.log(`   Workspace: ${path.resolve(process.env.ALLOWED_DIR || './workspace')}`);
     });
   })();
-}
-
-/** Find files in root matching given glob-like patterns, limited to maxResults */
-function findProjectFilesByPatterns(root: string, patterns: string[], maxResults: number): string[] {
-  const result: string[] = [];
-  try {
-    const entries = fs.readdirSync(root, { withFileTypes: true });
-    for (const entry of entries) {
-      if (result.length >= maxResults) break;
-      const full = path.join(root, entry.name);
-      if (entry.isDirectory()) {
-        if (!entry.name.startsWith('.') && entry.name !== 'node_modules' && entry.name !== 'dist') {
-          result.push(...findProjectFilesByPatterns(full, patterns, maxResults - result.length));
-        }
-      } else {
-        const normPath = full.replace(/\\/g, '/');
-        for (const p of patterns) {
-          const regexStr = p.split('**').map(s => s.replace(/\*/g, '[^/]*').replace(/\?/g, '.')).join('.*');
-          if (new RegExp('^' + regexStr + '$').test(normPath)) {
-            result.push(full);
-            break;
-          }
-        }
-      }
-    }
-  } catch { /* skip unreadable */ }
-  return result;
 }
 
 export { app, createClient, sessions };
