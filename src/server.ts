@@ -247,11 +247,6 @@ app.use(express.json());
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
-// Static files — placed after API routes in the module-level app
-// Tests that import { app } and create their own server will still
-// get express.static because it's attached to the app object.
-app.use(express.static(PUBLIC_DIR));
-
 function buildSystemPrompt(): string {
   const parts: string[] = [];
   const pc = loadProjectContext();
