@@ -160,7 +160,7 @@ async function loadSessionsFromDisk(): Promise<void> {
 
 function createClient(providerId: string): OpenAI {
   const info = PROVIDERS[providerId] ?? PROVIDERS.openrouter;
-  const apiKey = info.apiKeyEnv ? (process.env[info.apiKeyEnv] || '') : 'local';
+  const apiKey = info.apiKeyEnv ? (process.env[info.apiKeyEnv] || 'placeholder') : 'local';
   const headers: Record<string, string> = {};
   if (providerId === 'openrouter') {
     headers['HTTP-Referer'] = 'https://github.com';
@@ -246,6 +246,11 @@ app.use(express.json());
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
+
+// Static files — placed after API routes so /api/* paths are not intercepted.
+// When tests import { app } and listen on their own port, express.static is attached
+// here (at module level) — API routes registered before it take priority.
+app.use(express.static(PUBLIC_DIR));
 
 function buildSystemPrompt(): string {
   const parts: string[] = [];
