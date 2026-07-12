@@ -62,4 +62,25 @@ describe('smoke', () => {
     const body = await r.json();
     assert.ok(body.sessionId);
   });
+
+  it('GET /api/mode/:sid returns build by default', async () => {
+    const create = await (await fetch(baseUrl + '/api/session', { method: 'POST' })).json();
+    const r = await fetch(baseUrl + '/api/mode/' + create.sessionId);
+    assert.equal(r.status, 200);
+    const body = await r.json();
+    assert.equal(body.mode, 'build');
+  });
+
+  it('POST /api/mode/:sid switches mode', async () => {
+    const create = await (await fetch(baseUrl + '/api/session', { method: 'POST' })).json();
+    const r = await fetch(baseUrl + '/api/mode/' + create.sessionId, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'plan' }),
+    });
+    assert.equal(r.status, 200);
+    const body = await r.json();
+    assert.equal(body.mode, 'plan');
+    assert.equal(body.label, 'Plan');
+  });
 });

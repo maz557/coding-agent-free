@@ -9,6 +9,7 @@ import { ModelPreset, PROVIDERS } from './config/models';
 import { getUserConfig } from './config/userConfig';
 import { discoverProviderModels, pickBestModel } from './config/modelDiscovery';
 import { PlanManager } from './PlanManager';
+import { AgentMode, AGENT_MODES, filterToolsForMode } from './AgentMode';
 
 const logger = pino(
   { level: process.env.LOG_LEVEL || 'info' },
@@ -132,9 +133,14 @@ export class CodingAgent {
   private readonly MAX_DEPTH = 20;
   private conversation: ConversationState;
   private _planManager: PlanManager | null = null;
+  private _mode: AgentMode;
 
   get planManager(): PlanManager | null {
     return this._planManager;
+  }
+
+  get mode(): AgentMode {
+    return this._mode;
   }
 
   constructor(
@@ -143,7 +149,9 @@ export class CodingAgent {
     private readonly modelConfig: ModelPreset,
     systemPrompt: string,
     savedMessages?: ReadonlyArray<ChatMessage>,
+    mode: AgentMode = 'build',
   ) {
+    this._mode = mode;
     if (savedMessages && savedMessages.length > 0) {
       this.conversation = ConversationState.fromMessages(savedMessages);
     } else {
@@ -177,10 +185,11 @@ export class CodingAgent {
   }
 
   private buildRequest(messages: ReadonlyArray<ChatMessage>): OpenAI.ChatCompletionCreateParams {
+    const modeTools = filterToolsForMode(this.tools, this._mode);
     const base: OpenAI.ChatCompletionCreateParams = {
       model: this.modelConfig.primary,
       messages: messages as OpenAI.ChatCompletionMessageParam[],
-      tools: this.tools as OpenAI.ChatCompletionTool[],
+      tools: modeTools as OpenAI.ChatCompletionTool[],
       tool_choice: 'auto',
     };
     if (this.modelConfig.provider === 'openrouter') {
@@ -222,10 +231,16 @@ export class CodingAgent {
     }
   }
 
-  async execute(userInput: string): Promise<AgentResult> {
+  async execute(userInput: string, modeOverride?: AgentMode): Promise<AgentResult> {
     this.toolHistory = [];
 
+    if (modeOverride) this._mode = modeOverride;
+
     this.conversation = this.conversation.addUserMessage(userInput);
+
+    // Inject mode instruction
+    const modeConfig = AGENT_MODES[this._mode];
+    this.conversation = this.conversation.addSystemMessage(`[Mode: ${modeConfig.label}]\n${modeConfig.instruction}`);
 
     // Planning phase: create a plan before execution
     this._planManager = new PlanManager();

@@ -161,6 +161,7 @@
   <span id="route-badge" style="display:none;background:#1f6feb;color:#fff;border-radius:4px;padding:2px 6px;font-size:11px;font-weight:600"></span>
   <span id="model-info"></span>
   <button id="safe-mode-btn" style="background:#21262d;color:#ffa657;border:1px solid #30363d;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer" title="Toggle safe mode (restrict shell commands)">🛡️</button>
+  <button id="mode-btn" style="background:#1f6feb;color:#fff;border:1px solid #1f6feb;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer;font-weight:600" title="Switch mode: build (full) / plan (read-only)">Build</button>
   <button id="sessions-btn" style="background:#21262d;color:#58a6ff;border:1px solid #30363d;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer" title="Sessions">📋</button>
   <button id="reset-btn" style="background:#21262d;color:#f85149;border:1px solid #30363d;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer">Reset</button>
   <button id="settings-btn" style="background:#21262d;color:#8b949e;border:1px solid #30363d;border-radius:4px;padding:4px 8px;font-size:13px;cursor:pointer" title="Settings">⚙️</button>
@@ -433,6 +434,7 @@ async function init() {
   updateSafeUI();
   updateMCPUI();
   updateLSPUI(lspData.ready ? (lspData.languages || ['TypeScript']).join(', ') : '');
+  updateModeUI();
   const routeBadge = document.getElementById('route-badge');
   const routeLabel = active.route ? (routeList.find(r => r.id === active.route)?.label || active.route) : '';
   const modelText = active.route ? routeLabel : `${active.provider} / ${active.model}`;
@@ -1448,6 +1450,41 @@ safeModeBtn.addEventListener('click', async () => {
   });
   updateSafeUI();
   addMessage('assistant', `🛡️ Safe mode ${safeModeOn ? 'enabled' : 'disabled'}`);
+});
+
+const modeBtn = document.getElementById('mode-btn');
+let currentMode = 'build';
+
+async function updateModeUI() {
+  if (!sessionId) return;
+  try {
+    const r = await fetch(`/api/mode/${sessionId}`);
+    const data = await r.json();
+    currentMode = data.mode || 'build';
+    modeBtn.textContent = currentMode === 'build' ? 'Build' : 'Plan';
+    modeBtn.style.background = currentMode === 'build' ? '#1f6feb' : '#d29922';
+    modeBtn.style.borderColor = currentMode === 'build' ? '#1f6feb' : '#d29922';
+  } catch {}
+}
+
+modeBtn.addEventListener('click', async () => {
+  if (!sessionId) return;
+  const newMode = currentMode === 'build' ? 'plan' : 'build';
+  try {
+    const r = await fetch(`/api/mode/${sessionId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: newMode }),
+    });
+    const data = await r.json();
+    currentMode = data.mode;
+    modeBtn.textContent = data.label;
+    modeBtn.style.background = data.mode === 'build' ? '#1f6feb' : '#d29922';
+    modeBtn.style.borderColor = data.mode === 'build' ? '#1f6feb' : '#d29922';
+    addMessage('assistant', `🔄 Switched to <strong>${data.label}</strong> mode — ${data.description}`);
+  } catch (err) {
+    addMessage('assistant', `❌ Failed to switch mode: ${err.message}`);
+  }
 });
 
 document.getElementById('mcp-toggle-btn').addEventListener('click', async () => {

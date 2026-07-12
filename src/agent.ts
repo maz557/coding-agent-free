@@ -26,6 +26,7 @@ import { OpenAITool } from './types';
 import { detectLocalModel } from './detectLocalModel';
 import { loadProjectContext, generateProjectMap } from './loadProjectContext';
 import { projectManager } from './ProjectManager';
+import { AgentMode, AGENT_MODES, filterToolsForMode } from './AgentMode';
 
 dotenv.config();
 
@@ -125,6 +126,8 @@ async function startChat() {
     console.log('    /session clear          Delete ALL sessions');
     console.log('    /mcp disconnect <name>     Disconnect MCP server');
     console.log('    /mcp toggle  Enable/disable MCP tools');
+    console.log('    /mode build|plan  Switch mode (build=full, plan=read-only)');
+    console.log('    @explore <q>  Spawn read-only subagent for research');
     console.log('    /exit        Quit');
     console.log('═══════════════════════════════════════════════');
   console.log(`  💡 Tip: Set ALLOWED_DIR=. in .env to access the project root.`);
@@ -489,6 +492,48 @@ async function startChat() {
       typedTools.length = 0;
       typedTools.push(...getAllTools() as OpenAITool[]);
       console.log(`\n🔬 LSP ${now ? 'ENABLED' : 'DISABLED'} — ${lspManager.isAvailable() ? 'server ready' : 'no LSP server found'}.\n`);
+      rl.prompt();
+      continue;
+    }
+
+    const modeMatch = input.match(/^\/mode\s+(build|plan)$/i);
+    if (modeMatch) {
+      const newMode = modeMatch[1].toLowerCase() as AgentMode;
+      const modeTools = filterToolsForMode(typedTools as any, newMode) as OpenAITool[];
+      const prevMsgs = agent.getConversationMessages();
+      agent = new CodingAgent(client, modeTools, activeModelConfig, systemPrompt, prevMsgs as ChatMessage[], newMode);
+      console.log(`\n  Switched to ${AGENT_MODES[newMode].label} mode — ${AGENT_MODES[newMode].description}\n`);
+      rl.prompt();
+      continue;
+    }
+
+    if (input.toLowerCase().startsWith('/mode')) {
+      console.log('\n  Usage: /mode build  (full access)');
+      console.log('         /mode plan   (read-only)\n');
+      rl.prompt();
+      continue;
+    }
+
+    // @explore subagent: spawn a read-only agent to research a question
+    const exploreMatch = input.match(/^@explore\s+(.+)$/is);
+    if (exploreMatch) {
+      const query = exploreMatch[1].trim();
+      console.log(`\n  🔍 Exploring: ${query}\n`);
+      const exploreTools = filterToolsForMode(typedTools as any, 'plan') as OpenAITool[];
+      const exploreAgent = new CodingAgent(client, exploreTools, activeModelConfig,
+        'You are a code exploration assistant. Use read-only tools to answer the user\'s question about the codebase. Be concise and direct.',
+        undefined, 'plan');
+      try {
+        const result = await exploreAgent.execute(query);
+        const answer = result.content || '(no answer)';
+        console.log(`\n  📝 Exploration result:\n    ${answer}\n`);
+        // Inject exploration result as system message for context
+        const conv = agent.getConversationMessages();
+        const newConv = [...conv, { role: 'system' as const, content: `[Exploration: ${query}]\n${answer}` }];
+        agent = new CodingAgent(client, typedTools, activeModelConfig, systemPrompt, newConv as ChatMessage[]);
+      } catch (err: any) {
+        console.log(`  ❌ Exploration failed: ${err.message}\n`);
+      }
       rl.prompt();
       continue;
     }

@@ -3,6 +3,7 @@ import cors from 'cors';
 import * as dotenv from 'dotenv';
 import OpenAI from 'openai';
 import { getAllTools, executeTool, setSafeMode, isSafeModeEnabled, allowExtraPath, setMCPEnabled, isMCPEnabled, setLSPEnabled, isLSPEnabled, setGovernanceEnabled, isGovernanceEnabled, setApprovalCallback, approvalStore } from './tools/toolRegistry';
+import { AgentMode, AGENT_MODES, filterToolsForMode } from './AgentMode';
 import { projectManager } from './ProjectManager';
 import { mcpManager } from './mcp/MCPManager';
 import { loadMCPConfig } from './mcp/config';
@@ -51,6 +52,7 @@ interface SessionData {
     firstUserMessage: string;
     route?: string;
     projectId?: string;
+    mode?: AgentMode;
   };
   governance?: { allowedTools: string[] };
   planSteps?: Array<{ description: string; status: string }>;
@@ -377,6 +379,26 @@ app.get('/api/config/:sessionId', (req, res) => {
   const isLocal = provInfo && !provInfo.apiKeyEnv;
   const timeoutMs = isLocal ? getUserConfig().localTimeoutMs : getUserConfig().cloudTimeoutMs;
   res.json({ timeoutMs });
+});
+
+app.get('/api/mode/:sessionId', (req, res) => {
+  const s = sessions.get(req.params.sessionId);
+  if (!s) return res.status(404).json({ error: 'Session not found' });
+  res.json({ mode: s.meta.mode || 'build' });
+});
+
+app.post('/api/mode/:sessionId', (req, res) => {
+  const s = sessions.get(req.params.sessionId);
+  if (!s) return res.status(404).json({ error: 'Session not found' });
+  const { mode } = req.body || {};
+  if (mode !== 'build' && mode !== 'plan') {
+    return res.status(400).json({ error: 'mode must be "build" or "plan"' });
+  }
+  const newMode = mode as AgentMode;
+  s.meta.mode = newMode;
+  s.messages.push({ role: 'system', content: `[Mode: ${AGENT_MODES[newMode].label}]\n${AGENT_MODES[newMode].instruction}` });
+  saveSessionToDisk(req.params.sessionId, s).catch(() => {});
+  res.json({ mode: newMode, label: AGENT_MODES[newMode].label, description: AGENT_MODES[newMode].description });
 });
 
 app.post('/api/model/:sessionId', (req, res) => {
@@ -707,11 +729,14 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
 
   const toolErrorCount = new Map<string, number>();
 
+  const currentMode = s.meta.mode || 'build';
+
   for (let depth = 0; depth < MAX_DEPTH; depth++) {
+    const modeTools = filterToolsForMode(getAllTools(), currentMode);
     const base: any = {
       model: s.modelConfig.primary,
       messages: s.messages,
-      tools: getAllTools(),
+      tools: modeTools,
       tool_choice: 'auto',
       stream: true,
     };
