@@ -201,9 +201,9 @@ export class CodingAgent {
     const isLocal = provInfo && !provInfo.apiKeyEnv;
     const timeoutMs = isLocal ? getUserConfig().localTimeoutMs : getUserConfig().cloudTimeoutMs;
 
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), timeoutMs);
       const stream = await this.client.chat.completions.create(
         { model: this.modelConfig.primary, messages: planMessages, stream: true },
         { signal: controller.signal }
@@ -217,6 +217,7 @@ export class CodingAgent {
       console.log(`\n  📋 Plan:\n${planText.split('\n').filter(l => l.trim()).map(l => `    ${l}`).join('\n')}\n`);
       return planText.trim();
     } catch {
+      clearTimeout(id);
       return '';
     }
   }
