@@ -1,4 +1,4 @@
-# Coding Agent Free v1.29.0
+# Coding Agent Free v1.30.0
 
 This is the Coding Agent Free project itself.
 
@@ -27,6 +27,19 @@ This is the Coding Agent Free project itself.
 - `npm run test:integration` — 26 provider integration tests
 - `npm test` — 35 integration tests
 - CI: `.github/workflows/ci.yml` runs all tests on push/PR
+
+## v1.30.0 changes
+- **5 code-level guards** 🛡️ — enforced before tool execution (not just prompt):
+  - `pipAttempted` flag — blocks 2nd+ `pip install`, suggests stdlib instead
+  - `writtenFiles` Map — blocks `write_file`/`replace_in_file`/`append_file` with identical content
+  - Source-code workaround guard — blocks `.py` files containing `sys.path.append`/`sys.path.insert`
+  - Question + tools same-turn detection — if model asks a question AND calls tools, injects wait reminder
+  - Broadened auto-LSP — triggers on ANY `[Command Failed]`, not just Python tracebacks
+- **System prompt strengthened** — creation-first, wait-for-answer, mandatory LSP, requirements.txt edit limit
+- **Doc generation improved** — tech design and API spec no longer filter steps; PRD auto-fills Target Users
+- **CI fixes** — 3 tests using `.ts` extension changed to `.xyz` to prevent `autoInstallAndStart` from launching real LSP server, causing timeouts in CI
+- **21 built-in tools** (unchanged)
+- **363 unit tests** (was 359, +4 new guard tests)
 
 ## v1.29.0 changes
 - **Blocked calls guard** 🛑 — after stuck detection fires, the exact `callKey` is added to a `blockedCalls` Set. If the model repeats the same tool call, it gets a hard error instead of executing. Prevents the agent from getting stuck in loops (e.g., repeated `flake8` calls).
@@ -69,6 +82,19 @@ This is the Coding Agent Free project itself.
 - `npm run test:integration` — 26 provider integration tests
 - `npm test` — 35 integration tests
 - CI: `.github/workflows/ci.yml` runs all tests on push/PR
+
+## v1.30.0 changes
+- **5 code-level guards** 🛡️ — enforced before tool execution (not just prompt):
+  - `pipAttempted` flag — blocks 2nd+ `pip install`, suggests stdlib instead
+  - `writtenFiles` Map — blocks `write_file`/`replace_in_file`/`append_file` with identical content
+  - Source-code workaround guard — blocks `.py` files containing `sys.path.append`/`sys.path.insert`
+  - Question + tools same-turn detection — if model asks a question AND calls tools, injects wait reminder
+  - Broadened auto-LSP — triggers on ANY `[Command Failed]`, not just Python tracebacks
+- **System prompt strengthened** — creation-first, wait-for-answer, mandatory LSP, requirements.txt edit limit
+- **Doc generation improved** — tech design and API spec no longer filter steps; PRD auto-fills Target Users
+- **CI fixes** — 3 tests using `.ts` extension changed to `.xyz` to prevent `autoInstallAndStart` from launching real LSP server, causing timeouts in CI
+- **21 built-in tools** (unchanged)
+- **363 unit tests** (was 359, +4 new guard tests)
 
 ## v1.29.0 changes
 - **Blocked calls guard** 🛑 — after stuck detection fires, the exact `callKey` is added to a `blockedCalls` Set. If the model repeats the same tool call, it gets a hard error instead of executing. Prevents the agent from getting stuck in loops (e.g., repeated `flake8` calls).
