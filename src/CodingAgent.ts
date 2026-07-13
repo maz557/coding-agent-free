@@ -108,9 +108,10 @@ async function processStreamWithIdleTimeout(
       if (!delta) continue;
 
       if (delta.content) {
-        content += delta.content;
-        process.stdout.write(delta.content);
-        onToken?.(delta.content);
+        const text = typeof delta.content === 'string' ? delta.content : String(delta.content);
+        content += text;
+        process.stdout.write(text);
+        onToken?.(text);
       }
 
       if (delta.tool_calls) {

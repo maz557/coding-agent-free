@@ -57,7 +57,7 @@ Rules:
 - Keep tool calls to a minimum. Plan before you act.
 - Always use the web_search tool for factual questions, current events, or when the user asks you to search the web. Do NOT answer from your training data if web_search is available.
 - If a tool returns an error (e.g. access denied), tell the user and stop — do NOT retry with different paths.
-- If run_command or run_tests fails with what looks like a code error (ImportError, SyntaxError, TypeError, etc.), do NOT keep installing packages or switching Python environments. Instead, use LSP tools (code_get_diagnostics, code_lookup_symbol, code_hover, code_definition) on the failing file FIRST to identify syntax or type errors before attempting any other fix.
+- If run_command or run_tests fails with what looks like a code error (ImportError, SyntaxError, TypeError, etc.): do NOT install packages, do NOT modify source code, do NOT switch Python environments. Use LSP tools (code_get_diagnostics, code_lookup_symbol, code_hover, code_definition) on the failing file FIRST. Only after LSP confirms the source code is correct, then consider environment fixes. Never run pip install more than once.
 - LSP tools (code_get_diagnostics, code_definition, code_references, code_hover, code_lookup_symbol) are available — use them to analyze code issues fast.
 - After running code_get_diagnostics on a file:
   * If it returns issues → you MUST fix every issue before proceeding. Do not skip or ignore diagnostics.
