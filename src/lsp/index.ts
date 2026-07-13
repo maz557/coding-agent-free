@@ -69,13 +69,13 @@ export const lspToolDefinitions = [
     type: 'function' as const,
     function: {
       name: 'code_get_diagnostics',
-      description: 'Get errors and warnings for a given file (works with any configured LSP language server: TypeScript, Python, etc.). Use this after editing code to check for type errors, missing imports, etc.',
+      description: 'Get errors, warnings, and hints for a given file using LSP. Works with TypeScript, Python, JSON, HTML, CSS, etc. Use after editing code to check for issues.',
       parameters: {
         type: 'object',
         properties: {
           file: { type: 'string', description: 'Path to the file (relative to workspace)' },
+          path: { type: 'string', description: 'Alias for "file" — path to the file' },
         },
-        required: ['file'],
       } as Record<string, unknown>,
     },
   },
@@ -93,33 +93,36 @@ async function ensureLSPForFile(filePath: string): Promise<boolean> {
   }
 }
 
+/** Normalize argument — accept either `file` or `path` */
+function argPath(args: Record<string, unknown>): string | null {
+  const v = args.file || args.path;
+  return typeof v === 'string' && v.length > 0 ? v : null;
+}
+
 export async function executeLSPServerTool(name: string, args: Record<string, unknown>): Promise<string> {
   const pathMod = require('path');
   const allowedDir = process.env.ALLOWED_DIR || './workspace';
 
+  const fp = argPath(args);
+  if (!fp) return 'Missing required path — provide "file" or "path" parameter';
+
+  const absFile = pathMod.resolve(allowedDir, fp);
+
   switch (name) {
-    case 'code_definition': {
-      const absFile = pathMod.resolve(allowedDir, args.file as string);
+    case 'code_definition':
       await ensureLSPForFile(absFile);
       return lspManager.goToDefinition(absFile, args.line as number, args.column as number);
-    }
-    case 'code_references': {
-      const absFile = pathMod.resolve(allowedDir, args.file as string);
+    case 'code_references':
       await ensureLSPForFile(absFile);
       return lspManager.findReferences(absFile, args.line as number, args.column as number);
-    }
-    case 'code_hover': {
-      const absFile = pathMod.resolve(allowedDir, args.file as string);
+    case 'code_hover':
       await ensureLSPForFile(absFile);
       return lspManager.hoverInfo(absFile, args.line as number, args.column as number);
-    }
     case 'code_lookup_symbol':
       return lspManager.lookupSymbol(args.name as string);
-    case 'code_get_diagnostics': {
-      const absFile = pathMod.resolve(allowedDir, args.file as string);
+    case 'code_get_diagnostics':
       await ensureLSPForFile(absFile);
       return lspManager.getFileDiagnostics(absFile);
-    }
     default:
       throw new Error(`Unknown LSP tool "${name}"`);
   }
