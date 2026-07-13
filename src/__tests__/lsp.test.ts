@@ -83,7 +83,7 @@ describe('LSP tool execution without server', () => {
     await lspManager.shutdown();
 
     const result = await executeLSPServerTool('code_definition', {
-      file: 'test.ts',
+      file: 'test.xyz',
       line: 0,
       column: 0,
     });
