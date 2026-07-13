@@ -16,7 +16,11 @@ function generatePRD(title: string, description: string, planSteps: readonly Pla
 ${description || 'No description provided.'}
 
 ## 2. Target Users
-(Define who will use this project and their primary goals.)
+${(() => {
+  const lower = description.toLowerCase();
+  if (/user|developer|general|public|everyone|customer|client/i.test(lower)) return description;
+  return 'End users who need this functionality. (Define specific user groups and their primary goals.)';
+})()}
 
 ## 3. Core Requirements
 ${reqs || '*(To be defined)*'}
@@ -33,9 +37,9 @@ ${reqs || '*(To be defined)*'}
 
 /** Generate a Technical Design Document */
 function generateTechDesign(title: string, planSteps: readonly PlanStep[]): string {
-  const files = planSteps
-    .filter(s => /file|create|write|implement/i.test(s.description))
-    .map((s, i) => `${i + 1}. \`${s.description}\``)
+  const components = planSteps
+    .filter(s => !/setup|init|config|test/i.test(s.description))
+    .map((s, i) => `${i + 1}. **${s.description}** — (component/module to implement)`)
     .join('\n');
   return `# Technical Design — ${title}
 
@@ -45,8 +49,8 @@ function generateTechDesign(title: string, planSteps: readonly PlanStep[]): stri
 ## 1. Architecture Overview
 (Describe the high-level architecture, components, and how they interact.)
 
-## 2. File Structure
-${files || '*(To be defined during implementation)*'}
+## 2. Components / Modules
+${components || '*(To be defined during implementation)*'}
 
 ## 3. Data Flow
 (Describe how data moves through the system — inputs, processing, outputs.)
@@ -65,8 +69,8 @@ ${files || '*(To be defined during implementation)*'}
 /** Generate an API Specification */
 function generateAPISpec(title: string, planSteps: readonly PlanStep[]): string {
   const endpoints = planSteps
-    .filter(s => /api|endpoint|route|function|method/i.test(s.description))
-    .map((s, i) => `- \`${s.description}\``)
+    .filter(s => !/setup|init|config|test|install/i.test(s.description))
+    .map((s, i) => `- \`${s.description}\` — endpoint/function`)
     .join('\n');
   return `# API Specification — ${title}
 
