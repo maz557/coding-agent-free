@@ -151,6 +151,9 @@ export class CodingAgent {
   private _planManager: PlanManager | null = null;
   private _mode: AgentMode;
   private callbacks?: AgentCallbacks;
+  /** Track how many times we auto-injected LSP diagnostics for the same file */
+  private lspAutoCheckCount = new Map<string, number>();
+  static readonly MAX_LSP_AUTO_CHECKS = 3;
 
   get planManager(): PlanManager | null {
     return this._planManager;
@@ -466,29 +469,39 @@ export class CodingAgent {
               if (fp) {
                 const allowedDir = path.resolve(process.env.ALLOWED_DIR || './workspace');
                 const fullPath = path.resolve(allowedDir, fp);
-                try {
-                  const installResult = await lspManager.autoInstallAndStart(fullPath, process.cwd());
-                  if (installResult.startsWith('✅') || installResult.startsWith('LSP for')) {
-                    // LSP ready — wait briefly for push diagnostics, then pull
-                    await new Promise(r => setTimeout(r, 1500));
-                    const diagResult = await lspManager.getFileDiagnostics(fullPath);
-                    if (diagResult && diagResult !== 'No diagnostics' && !diagResult.startsWith('LSP not available')) {
+
+                // Guard against infinite LSP auto-check loops
+                const prevChecks = this.lspAutoCheckCount.get(fp) || 0;
+                if (prevChecks >= CodingAgent.MAX_LSP_AUTO_CHECKS) {
+                  this.conversation = this.conversation.addSystemMessage(
+                    `[LSP] Skipping auto-check for ${fp} — already checked ${prevChecks} times. Proceed with the current code.`
+                  );
+                  this.callbacks?.onStatus?.(`⏭️ Auto-LSP skipped for ${fp} (limit reached)`);
+                } else {
+                  try {
+                    const installResult = await lspManager.autoInstallAndStart(fullPath, process.cwd());
+                    if (installResult.startsWith('✅') || installResult.startsWith('LSP for')) {
+                      await new Promise(r => setTimeout(r, 1500));
+                      const diagResult = await lspManager.getFileDiagnostics(fullPath);
+                      if (diagResult && diagResult !== 'No diagnostics' && !diagResult.startsWith('LSP not available')) {
+                        this.lspAutoCheckCount.set(fp, prevChecks + 1);
+                        this.conversation = this.conversation.addSystemMessage(
+                          `[LSP Diagnostics for ${fp}]\n${diagResult}\nFix every issue before proceeding.`
+                        );
+                        this.callbacks?.onStatus?.(`📋 Auto-checked ${fp} via LSP — issues found`);
+                      }
+                    } else {
+                      console.log(`  ${installResult}`);
                       this.conversation = this.conversation.addSystemMessage(
-                        `[LSP Diagnostics for ${fp}]\n${diagResult}\nFix every issue before proceeding.`
+                        `[LSP] ${installResult}. Manually review the code for syntax errors, type errors, undefined variables, missing imports, and logical bugs — fix any issues you find.`
                       );
-                      this.callbacks?.onStatus?.(`📋 Auto-checked ${fp} via LSP — issues found`);
                     }
-                  } else {
-                    console.log(`  ${installResult}`);
+                  } catch (err: any) {
+                    console.log(`  ⚠️ LSP error: ${err.message}`);
                     this.conversation = this.conversation.addSystemMessage(
-                      `[LSP] ${installResult}. Manually review the code for syntax errors, type errors, undefined variables, missing imports, and logical bugs — fix any issues you find.`
+                      `[LSP] Not available for ${fp}: ${err.message}. Manually review the code for errors and fix any issues.`
                     );
                   }
-                } catch (err: any) {
-                  console.log(`  ⚠️ LSP error: ${err.message}`);
-                  this.conversation = this.conversation.addSystemMessage(
-                    `[LSP] Not available for ${fp}: ${err.message}. Manually review the code for errors and fix any issues.`
-                  );
                 }
               }
             }
