@@ -107,7 +107,7 @@ describe('toolRegistry - executeTool', () => {
     reg.setLSPEnabled(true);
     reg.setMCPEnabled(false);
     const result = await reg.executeTool('code_definition', {
-      file: 'test.ts',
+      file: 'test.xyz',
       line: 0,
       column: 0,
     });
