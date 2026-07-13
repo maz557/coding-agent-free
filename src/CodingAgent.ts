@@ -347,6 +347,29 @@ export class CodingAgent {
           };
         }
 
+        // Guard: detect when model asks a question AND executes tools in the same turn
+        if (content) {
+          const hasQuestion = /[?؟]\s*$/m.test(content.trim()) ||
+            /should I|shall I|do you want|do you prefer|confirm|approve|please review|لطفا|آیا|باید|میشه|میشه که/i.test(content);
+          if (hasQuestion) {
+            console.log('  ⚠️ Model asked a question but also called tools — injecting wait reminder');
+            this.conversation = this.conversation.addSystemMessage(
+              '[SELF-CORRECT] You asked the user a question but also prepared tool calls. ' +
+              'Wait for the user to answer your question before executing any tools. ' +
+              'The tool calls below have been cancelled. Respond only with text until the user replies.'
+            );
+            this.conversation = this.conversation.addAssistantMessage(
+              (content || '') + '\n\n_Please answer the question above before I proceed._'
+            );
+            return {
+              model: usedModel,
+              content: null,
+              logs: [],
+              toolCallsCount: totalToolCalls,
+            };
+          }
+        }
+
         this.conversation = this.conversation.addAssistantMessage(content || null, toolCalls);
         console.log();
 
@@ -386,6 +409,25 @@ export class CodingAgent {
           this.toolHistory.push(callKey);
           console.log(`  🔧 ${callKey}`);
           totalToolCalls++;
+
+          // Source code workaround guard: block sys.path.append and similar monkey-patches
+          const WORKAROUND_PATTERNS = [/sys\.path\.append/i, /sys\.path\.insert/i,
+            /os\.environ\[.*\].*=.*site-packages/i, /sys\.path\.remove/i];
+          if (['write_file', 'replace_in_file'].includes(functionName) && functionArgs.path) {
+            const fp = functionArgs.path as string;
+            const fileContent = functionArgs.content as string || functionArgs.new_str as string || '';
+            if (fp.endsWith('.py') && fileContent && WORKAROUND_PATTERNS.some(p => p.test(fileContent))) {
+              console.log(`  ⛔ Workaround blocked: ${fp} contains sys.path.append or similar`);
+              this.conversation = this.conversation.addToolResult(
+                toolCall.id,
+                `Error: File "${fp}" contains a Python path workaround (sys.path.append, etc.) which is not allowed. ` +
+                `Instead of patching sys.path in the source code, use code_get_diagnostics on the file to check for import issues, ` +
+                `then fix the actual environment problem.`,
+                functionName
+              );
+              continue;
+            }
+          }
 
           // Pip install guard: block 2nd+ attempt to install packages
           if (functionName === 'run_command') {
