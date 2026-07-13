@@ -386,10 +386,13 @@ export class CodingAgent {
           // Blocked calls: prevent re-executing the same call after stuck recovery
           if (this.blockedCalls.has(callKey)) {
             console.log(`  ⛔ Blocked (stuck recovery): ${callKey}`);
+            const specifics = functionName === 'run_command' && callKey.includes('pip install')
+              ? ' Do NOT modify requirements.txt or run pip again. Use a different strategy: either use stdlib only, or write a simpler implementation.'
+              : '';
             this.conversation = this.conversation.addToolResult(
               toolCall.id,
               `Error: This tool call "${callKey}" was blocked because it previously caused a stuck loop. ` +
-              `Think of a COMPLETELY DIFFERENT approach. Do NOT repeat this call.`,
+              `Think of a COMPLETELY DIFFERENT approach. Do NOT repeat this call.${specifics}`,
               functionName
             );
             continue;
@@ -408,12 +411,16 @@ export class CodingAgent {
           if (stuckError) {
             console.log(`  ⛔ Stuck detected: ${stuckError}`);
             this.blockedCalls.add(callKey);
+            const isPip = callKey.includes('pip install');
             this.conversation = this.conversation
               .removeLastAssistantTurn()
               .addSystemMessage(
                 `[RECOVERY] You were stuck: ${stuckError}. The last assistant turn has been undone. ` +
                 `Think carefully about what went wrong and try a COMPLETELY DIFFERENT approach. ` +
-                `Do NOT repeat the same tool call with identical arguments.`
+                `Do NOT repeat the same tool call with identical arguments.` +
+                (isPip
+                  ? ` If you were trying to install packages, STOP. Use code_get_diagnostics on the failing file instead, or simplify the implementation to use only stdlib modules.`
+                  : ` If the error involves a Python file, use code_get_diagnostics on it to check for issues before any other action.`)
               );
             break;
           }
