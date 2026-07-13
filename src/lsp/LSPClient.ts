@@ -16,6 +16,11 @@ export class LSPClient {
   /** Store pushed diagnostics per URI (textDocument/publishDiagnostics) */
   private diagnostics = new Map<string, any[]>();
 
+  /** Normalize URIs for consistent lookup (pyright URL-encodes the colon in drive letter) */
+  private normUri(uri: string): string {
+    return uri.replace(/^file:\/\/\/([a-zA-Z]):/, (_, l) => 'file:///' + l.toLowerCase() + '%3A');
+  }
+
   get ready(): boolean { return this._ready; }
   get serverCommand(): string { return this.command; }
   openDocCount = 0;
@@ -149,18 +154,27 @@ export class LSPClient {
 
     // Notification
     if (msg.method === 'textDocument/publishDiagnostics') {
-      this.diagnostics.set(msg.params.uri, msg.params.diagnostics);
-      this._onDiagnostics?.(msg.params.uri, msg.params.diagnostics);
+      const uri = this.normUri(msg.params.uri);
+      this.diagnostics.set(uri, msg.params.diagnostics);
+      this._onDiagnostics?.(uri, msg.params.diagnostics);
     }
   }
 
-  async request(method: string, params: unknown): Promise<unknown> {
+  async request(method: string, params: unknown, timeoutMs = 15000): Promise<unknown> {
     const id = ++this.msgId;
     const msg = { jsonrpc: '2.0', id, method, params };
 
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
       this.send(msg);
+      if (timeoutMs > 0) {
+        setTimeout(() => {
+          if (this.pending.has(id)) {
+            this.pending.delete(id);
+            reject(new Error(`LSP request "${method}" timed out after ${timeoutMs}ms`));
+          }
+        }, timeoutMs).unref();
+      }
     });
   }
 
@@ -221,7 +235,7 @@ export class LSPClient {
   }
 
   getStoredDiagnostics(uri: string): any[] | null {
-    return this.diagnostics.get(uri) || null;
+    return this.diagnostics.get(this.normUri(uri)) || null;
   }
 
   async getDiagnostics(uri: string): Promise<any> {
