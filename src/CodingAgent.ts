@@ -156,6 +156,10 @@ export class CodingAgent {
   /** Track how many times we auto-injected LSP diagnostics for the same file */
   private lspAutoCheckCount = new Map<string, number>();
   static readonly MAX_LSP_AUTO_CHECKS = 3;
+  /** Track if pip install has been attempted (block 2nd+ attempt) */
+  private pipAttempted = false;
+  /** Track written file content to detect duplicate writes */
+  private writtenFiles = new Map<string, string>();
 
   get planManager(): PlanManager | null {
     return this._planManager;
@@ -383,6 +387,43 @@ export class CodingAgent {
           console.log(`  🔧 ${callKey}`);
           totalToolCalls++;
 
+          // Pip install guard: block 2nd+ attempt to install packages
+          if (functionName === 'run_command') {
+            const cmd = functionArgs.command as string;
+            if (/pip\s+install/.test(cmd)) {
+              if (this.pipAttempted) {
+                console.log(`  ⛔ Pip install blocked (already attempted): ${cmd}`);
+                this.conversation = this.conversation.addToolResult(
+                  toolCall.id,
+                  `Error: pip install already attempted once and may cause loops. ` +
+                  `Do NOT run pip install again. Use stdlib modules or simplify the implementation instead.`,
+                  functionName
+                );
+                continue;
+              }
+              this.pipAttempted = true;
+            }
+          }
+
+          // Duplicate file write guard
+          if (['write_file', 'replace_in_file', 'append_file'].includes(functionName)) {
+            const fp = functionArgs.path as string;
+            const newContent = functionArgs.content as string || functionArgs.new_str as string || '';
+            if (fp && newContent) {
+              const prev = this.writtenFiles.get(fp);
+              if (prev === newContent) {
+                console.log(`  ⛔ Duplicate write skipped: ${fp} (content unchanged)`);
+                this.conversation = this.conversation.addToolResult(
+                  toolCall.id,
+                  `Warning: File "${fp}" already has this exact content. Skipping duplicate write.`,
+                  functionName
+                );
+                continue;
+              }
+              this.writtenFiles.set(fp, newContent);
+            }
+          }
+
           // Blocked calls: prevent re-executing the same call after stuck recovery
           if (this.blockedCalls.has(callKey)) {
             console.log(`  ⛔ Blocked (stuck recovery): ${callKey}`);
@@ -530,12 +571,10 @@ export class CodingAgent {
 
             this.callbacks?.onToolResult?.(functionName, content);
 
-            // Auto-inject LSP diagnostics when run_command/run_tests fails with code errors
-            const errorPatterns = ['ImportError', 'SyntaxError', 'TypeError', 'ModuleNotFoundError',
-              'FileNotFoundError', 'ReferenceError', 'ValueError', 'KeyError',
-              'AttributeError', 'IndentationError', 'NameError', 'OSError'];
+            // Auto-inject LSP diagnostics when run_command/run_tests fails
             if (['run_command', 'run_tests'].includes(functionName) &&
-                typeof content === 'string' && errorPatterns.some(p => content.includes(p))) {
+                typeof content === 'string' && content.startsWith('[Command Failed]')) {
+              // Extract file paths from error output (e.g. File "foo.py", line 10, or ImportError messages)
               const fileMatches = content.matchAll(/File\s+"([^"]+)"/g);
               const fpaths = [...new Set([...fileMatches].map(m => m[1]))];
               if (fpaths.length > 0) {
