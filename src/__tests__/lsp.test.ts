@@ -92,6 +92,47 @@ describe('LSP tool execution without server', () => {
   });
 });
 
+describe('executeLSPServerTool — argPath normalization', () => {
+  let origDir: string | undefined;
+
+  before(() => {
+    origDir = process.env.ALLOWED_DIR;
+    process.env.ALLOWED_DIR = '/tmp';
+  });
+
+  after(() => {
+    process.env.ALLOWED_DIR = origDir;
+  });
+
+  it('should return error when no file or path provided', async () => {
+    const { lspManager, executeLSPServerTool } = require('../lsp/index');
+    await lspManager.shutdown();
+
+    for (const tool of ['code_definition', 'code_references', 'code_hover', 'code_get_diagnostics']) {
+      const r = await executeLSPServerTool(tool, {});
+      assert(r.includes('Missing required path'), `${tool} should complain about missing path, got: ${r}`);
+    }
+  });
+
+  it('should accept "path" as alias for "file"', async () => {
+    const { lspManager, executeLSPServerTool } = require('../lsp/index');
+    await lspManager.shutdown();
+
+    const r = await executeLSPServerTool('code_get_diagnostics', { path: '/some/file.ts' });
+    // Should try to use the path (LSP not available since we shut it down, but no crash)
+    assert(!r.includes('paths['), `should not crash with paths[] error, got: ${r}`);
+    assert(r.includes('LSP not available') || r.includes('No diagnostics') || r.includes('Failed'));
+  });
+
+  it('should prefer "file" over "path" when both given', async () => {
+    const { lspManager, executeLSPServerTool } = require('../lsp/index');
+    await lspManager.shutdown();
+
+    const r = await executeLSPServerTool('code_get_diagnostics', { file: '/primary.ts', path: '/secondary.ts' });
+    assert(!r.includes('paths['), `should not crash, got: ${r}`);
+  });
+});
+
 describe('LSPManager - pattern matching', () => {
   let lspManager: any;
 
@@ -350,6 +391,51 @@ describe('LSPClient', () => {
     });
   });
 
+  it('should store and return push diagnostics', async () => {
+    const { LSPClient } = require('../lsp/LSPClient');
+    const client = new LSPClient(process.execPath, ['-e', `
+let buf = '';
+process.stdin.on('data', (chunk) => {
+  buf += chunk.toString();
+  while (true) {
+    const m = buf.match(/Content-Length: (\\d+)\\r\\n\\r\\n/);
+    if (!m) break;
+    const headerEnd = m.index + m[0].length;
+    const len = parseInt(m[1]);
+    if (buf.length < headerEnd + len) break;
+    const content = buf.slice(headerEnd, headerEnd + len);
+    buf = buf.slice(headerEnd + len);
+    const msg = JSON.parse(content);
+    if (msg.method === 'initialize') {
+      const resp = JSON.stringify({ jsonrpc: '2.0', id: msg.id, result: { capabilities: {} } });
+      process.stdout.write('Content-Length: ' + resp.length + '\\r\\n\\r\\n' + resp + '\\n');
+    } else {
+      // Always push diagnostics after any request
+      const diag = JSON.stringify({ jsonrpc: '2.0', method: 'textDocument/publishDiagnostics', params: { uri: 'file:///stored.ts', diagnostics: [{ message: 'stored diag', range: { start: {line:0,character:0}, end: {line:0,character:1} }, severity: 1 }] } });
+      process.stdout.write('Content-Length: ' + diag.length + '\\r\\n\\r\\n' + diag + '\\n');
+      const resp = JSON.stringify({ jsonrpc: '2.0', id: msg.id, result: null });
+      process.stdout.write('Content-Length: ' + resp.length + '\\r\\n\\r\\n' + resp + '\\n');
+    }
+  }
+});
+`], 'file:///test');
+    await client.start();
+    await client.request('test', {});
+    await new Promise(r => setTimeout(r, 50));
+
+    // getStoredDiagnostics should return the pushed diagnostics
+    const stored = client.getStoredDiagnostics('file:///stored.ts');
+    assert(stored, 'should have stored diagnostics');
+    assert.equal(stored.length, 1);
+    assert.equal(stored[0].message, 'stored diag');
+
+    // Unknown URI should return null
+    const missing = client.getStoredDiagnostics('file:///unknown.ts');
+    assert.equal(missing, null);
+
+    await client.shutdown();
+  });
+
   it('should handle diagnostics notification', async () => {
     const { LSPClient } = require('../lsp/LSPClient');
     let diagCalled = false;
@@ -455,6 +541,122 @@ process.stdin.on('data', (chunk) => {
     await client.start();
     await assert.rejects(client.request('bad/method', {}), /Method not found/);
     await client.shutdown();
+  });
+});
+
+describe('LSPManager — getFileDiagnostics with stored fallback', () => {
+  let tmpDir: string;
+
+  before(async () => {
+    tmpDir = path.join(os.tmpdir(), `lsp-diag-fallback-${Date.now()}`);
+    await fsp.mkdir(tmpDir, { recursive: true });
+  });
+
+  after(async () => {
+    await fsp.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it('should return pull diagnostics when server supports it', async () => {
+    const fp = path.join(tmpDir, 'pull.ts');
+    await fsp.writeFile(fp, 'const x = 1;\n');
+    const { LSPManager } = require('../lsp/LSPManager');
+    const manager = new LSPManager([
+      { command: process.execPath, args: ['-e', LSP_SERVER_SCRIPT], languageId: 'typescript', filePatterns: ['**/*.ts'] },
+    ]);
+    await manager.startForProject(tmpDir);
+    const result = await manager.getFileDiagnostics(fp);
+    assert(result.includes('test diagnostic'), `should contain test diagnostic, got: ${result}`);
+    assert(!result.includes('No diagnostics'), `should not be empty, got: ${result}`);
+    await manager.shutdown();
+  });
+
+  it('should fallback to stored push diagnostics when pull returns empty', async () => {
+    const fp = path.join(tmpDir, 'fallback.ts');
+    await fsp.writeFile(fp, 'x = 1;\n');
+    const { LSPManager } = require('../lsp/LSPManager');
+    // Server that returns empty from pull but pushes diagnostics
+    const fallbackScript = `
+let buf = '';
+process.stdin.on('data', (chunk) => {
+  buf += chunk.toString();
+  while (true) {
+    const m = buf.match(/Content-Length: (\\d+)\\r\\n\\r\\n/);
+    if (!m) break;
+    const headerEnd = m.index + m[0].length;
+    const len = parseInt(m[1]);
+    if (buf.length < headerEnd + len) break;
+    const content = buf.slice(headerEnd, headerEnd + len);
+    buf = buf.slice(headerEnd + len);
+    const msg = JSON.parse(content);
+    if (msg.method === 'initialize') {
+      send(msg.id, { capabilities: { textDocument: { diagnostic: true } } });
+    } else if (msg.method === 'textDocument/diagnostic') {
+      // Return empty array (pull returns nothing)
+      send(msg.id, { kind: 'full', items: [] });
+    } else if (msg.method === 'textDocument/didOpen') {
+      // Push a diagnostic after open
+      const diag = JSON.stringify({ jsonrpc: '2.0', method: 'textDocument/publishDiagnostics', params: { uri: msg.params.textDocument.uri, diagnostics: [{ message: 'push diagnostic', range: { start: {line:0,character:0}, end: {line:0,character:1} }, severity: 1 }] } });
+      process.stdout.write('Content-Length: ' + diag.length + '\\r\\n\\r\\n' + diag + '\\n');
+      send(msg.id, null);
+    } else if (msg.id != null) {
+      send(msg.id, null);
+    }
+  }
+});
+function send(id, result) {
+  const resp = JSON.stringify({ jsonrpc: '2.0', id, result });
+  process.stdout.write('Content-Length: ' + resp.length + '\\r\\n\\r\\n' + resp + '\\n');
+}
+`;
+    const manager = new LSPManager([
+      { command: process.execPath, args: ['-e', fallbackScript], languageId: 'typescript', filePatterns: ['**/*.ts'] },
+    ]);
+    await manager.startForProject(tmpDir);
+    // Give time for push diagnostics to arrive
+    await new Promise(r => setTimeout(r, 100));
+    const result = await manager.getFileDiagnostics(fp);
+    assert(result.includes('push diagnostic'), `should fallback to stored push diagnostic, got: ${result}`);
+    assert(!result.includes('No diagnostics'), `should not be empty, got: ${result}`);
+    await manager.shutdown();
+  });
+
+  it('should return "No diagnostics" when both pull and stored are empty', async () => {
+    const fp = path.join(tmpDir, 'clean.ts');
+    await fsp.writeFile(fp, 'const y = 2;\n');
+    const { LSPManager } = require('../lsp/LSPManager');
+    const manager = new LSPManager([
+      { command: process.execPath, args: ['-e', `
+let buf = '';
+process.stdin.on('data', (chunk) => {
+  buf += chunk.toString();
+  while (true) {
+    const m = buf.match(/Content-Length: (\\d+)\\r\\n\\r\\n/);
+    if (!m) break;
+    const headerEnd = m.index + m[0].length;
+    const len = parseInt(m[1]);
+    if (buf.length < headerEnd + len) break;
+    const content = buf.slice(headerEnd, headerEnd + len);
+    buf = buf.slice(headerEnd + len);
+    const msg = JSON.parse(content);
+    if (msg.method === 'initialize') {
+      send(msg.id, { capabilities: { textDocument: { diagnostic: true } } });
+    } else if (msg.method === 'textDocument/diagnostic') {
+      send(msg.id, { kind: 'full', items: [] });
+    } else if (msg.id != null) {
+      send(msg.id, null);
+    }
+  }
+});
+function send(id, result) {
+  const resp = JSON.stringify({ jsonrpc: '2.0', id, result });
+  process.stdout.write('Content-Length: ' + resp.length + '\\r\\n\\r\\n' + resp + '\\n');
+}
+`], languageId: 'typescript', filePatterns: ['**/*.ts'] },
+    ]);
+    await manager.startForProject(tmpDir);
+    const result = await manager.getFileDiagnostics(fp);
+    assert(result.includes('No diagnostics'), `should report no diagnostics, got: ${result}`);
+    await manager.shutdown();
   });
 });
 

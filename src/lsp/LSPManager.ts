@@ -225,8 +225,9 @@ export class LSPManager {
     // Try pull-based diagnostics first (textDocument/diagnostic)
     try {
       const result = await client.getDiagnostics(uri);
-      if (result && result.length > 0) {
-        return this._formatDiagnostics(result);
+      const items = this._extractDiagItems(result);
+      if (items && items.length > 0) {
+        return this._formatDiagnostics(items);
       }
     } catch { /* fall through to stored diagnostics */ }
 
@@ -237,6 +238,14 @@ export class LSPManager {
     }
 
     return 'No diagnostics';
+  }
+
+  /** Extract diagnostic items from either an array or a DocumentDiagnosticReport object */
+  private _extractDiagItems(result: any): any[] | null {
+    if (!result) return null;
+    if (Array.isArray(result)) return result;
+    if (result.items && Array.isArray(result.items)) return result.items;
+    return null;
   }
 
   private _formatDiagnostics(diags: any[]): string {
