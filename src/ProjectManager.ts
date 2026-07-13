@@ -3,6 +3,120 @@ import * as fsp from 'fs/promises';
 import * as fs from 'fs';
 import { PlanManager, PlanStep } from './PlanManager';
 
+/** Generate a PRD (Product Requirements Document) from project metadata */
+function generatePRD(title: string, description: string, planSteps: readonly PlanStep[]): string {
+  const reqs = planSteps.map((s, i) => `${i + 1}. **${s.description}**`).join('\n');
+  const now = new Date().toISOString().slice(0, 10);
+  return `# Product Requirements Document — ${title}
+
+**Date:** ${now}
+**Status:** Draft (review and approve before implementation)
+
+## 1. Purpose
+${description || 'No description provided.'}
+
+## 2. Target Users
+(Define who will use this project and their primary goals.)
+
+## 3. Core Requirements
+${reqs || '*(To be defined)*'}
+
+## 4. Success Criteria
+- All core requirements implemented and verified.
+- Code passes LSP diagnostics (no errors).
+- Tests pass (if applicable).
+
+---
+*This document serves as the reference specification for the project. Update it as requirements evolve.*
+`;
+}
+
+/** Generate a Technical Design Document */
+function generateTechDesign(title: string, planSteps: readonly PlanStep[]): string {
+  const files = planSteps
+    .filter(s => /file|create|write|implement/i.test(s.description))
+    .map((s, i) => `${i + 1}. \`${s.description}\``)
+    .join('\n');
+  return `# Technical Design — ${title}
+
+**Date:** ${new Date().toISOString().slice(0, 10)}
+**Status:** Draft
+
+## 1. Architecture Overview
+(Describe the high-level architecture, components, and how they interact.)
+
+## 2. File Structure
+${files || '*(To be defined during implementation)*'}
+
+## 3. Data Flow
+(Describe how data moves through the system — inputs, processing, outputs.)
+
+## 4. Key Technical Decisions
+(List important technology choices, libraries, patterns, and rationale.)
+
+## 5. Dependencies
+(List external libraries, services, or APIs required.)
+
+---
+*Update this document as the design evolves during implementation.*
+`;
+}
+
+/** Generate an API Specification */
+function generateAPISpec(title: string, planSteps: readonly PlanStep[]): string {
+  const endpoints = planSteps
+    .filter(s => /api|endpoint|route|function|method/i.test(s.description))
+    .map((s, i) => `- \`${s.description}\``)
+    .join('\n');
+  return `# API Specification — ${title}
+
+**Date:** ${new Date().toISOString().slice(0, 10)}
+**Status:** Draft
+
+## 1. Endpoints / Functions
+${endpoints || '*(To be defined during implementation)*'}
+
+## 2. Input / Output Formats
+(Specify request/response structures, parameters, and types.)
+
+## 3. Error Handling
+(Describe error codes, messages, and recovery strategies.)
+
+---
+*Keep this document in sync with the actual implementation.*
+`;
+}
+
+/** Generate a Test Plan */
+function generateTestPlan(title: string, planSteps: readonly PlanStep[]): string {
+  const cases = planSteps.map((s, i) =>
+    `- **TC-${i + 1}:** Verify "${s.description}"`
+  ).join('\n');
+  return `# Test Plan — ${title}
+
+**Date:** ${new Date().toISOString().slice(0, 10)}
+**Status:** Draft
+
+## 1. Test Strategy
+(Describe the testing approach — unit tests, integration tests, manual verification.)
+
+## 2. Test Cases
+${cases || '*(To be defined)*'}
+
+## 3. Expected Results
+- All test cases pass.
+- Edge cases handled (empty inputs, errors, boundary conditions).
+- Performance within acceptable limits (if applicable).
+
+---
+*Update this plan as new test cases are identified.*
+`;
+}
+
+export const DOC_FILES = ['prd.md', 'tech_design.md', 'api_spec.md', 'test_plan.md'] as const;
+export type DocType = typeof DOC_FILES[number];
+
+
 /** Atomic file write: write to .tmp then rename (atomic on same filesystem) */
 async function atomicWrite(filePath: string, data: string): Promise<void> {
   const tmpPath = filePath + '.tmp.' + process.pid;
@@ -94,7 +208,8 @@ export class ProjectManager {
     const id = `proj_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const num = await getNextNumber();
     const dirName = String(num);
-    await fsp.mkdir(projectDirPath(dirName), { recursive: true });
+    const projectDir = projectDirPath(dirName);
+    await fsp.mkdir(projectDir, { recursive: true });
     const now = new Date().toISOString();
     const data: ProjectData = {
       id,
@@ -109,6 +224,8 @@ export class ProjectManager {
     };
     this.projects.set(id, data);
     await this._save(id);
+    // Generate project documentation
+    await this.generateDocs(id, title, description, planManager.getSteps());
     return data;
   }
 
@@ -231,6 +348,128 @@ export class ProjectManager {
 
   listSummaries(): object[] {
     return this.getAll().map(p => this.toSummary(p.id)).filter((s): s is object => s !== null);
+  }
+
+  /** Generate all 4 doc files in the project's docs/ directory */
+  async generateDocs(id: string, title: string, description: string, planSteps: readonly PlanStep[]): Promise<{ [key: string]: string }> {
+    const docsDir = this.getDocsDir(id);
+    if (!docsDir) return {};
+    await fsp.mkdir(docsDir, { recursive: true });
+    const docs: { [key: string]: string } = {
+      'prd.md': generatePRD(title, description, planSteps),
+      'tech_design.md': generateTechDesign(title, planSteps),
+      'api_spec.md': generateAPISpec(title, planSteps),
+      'test_plan.md': generateTestPlan(title, planSteps),
+    };
+    for (const [file, content] of Object.entries(docs)) {
+      await atomicWrite(path.join(docsDir, file), content);
+    }
+    await this.touch(id);
+    return docs;
+  }
+
+  /** Get the docs directory path for a project */
+  getDocsDir(id: string): string | null {
+    const dir = this.getDir(id);
+    if (!dir) return null;
+    return path.join(dir, 'docs');
+  }
+
+  /** Read a specific doc file */
+  async readDoc(id: string, docFile: string): Promise<string | null> {
+    const docsDir = this.getDocsDir(id);
+    if (!docsDir) return null;
+    const filePath = path.join(docsDir, docFile);
+    try {
+      return await fsp.readFile(filePath, 'utf-8');
+    } catch {
+      return null;
+    }
+  }
+
+  /** List all doc files in the project */
+  async listDocs(id: string): Promise<string[]> {
+    const docsDir = this.getDocsDir(id);
+    if (!docsDir) return [];
+    try {
+      return (await fsp.readdir(docsDir)).filter(f => f.endsWith('.md')).sort();
+    } catch {
+      return [];
+    }
+  }
+
+  /** Get content of all docs as a single string (for injection) */
+  async getAllDocsContent(id: string): Promise<string | null> {
+    const docsDir = this.getDocsDir(id);
+    if (!docsDir) return null;
+    const files = DOC_FILES.filter(f => {
+      try { return fs.existsSync(path.join(docsDir, f)); } catch { return false; }
+    });
+    if (files.length === 0) return null;
+    const parts: string[] = [];
+    for (const f of files) {
+      const content = await this.readDoc(id, f);
+      if (content) {
+        parts.push(`## ${f}\n${content}`);
+      }
+    }
+    return parts.length > 0 ? parts.join('\n\n---\n\n') : null;
+  }
+
+  /** Verify project implementation against spec docs and plan */
+  async verifyAgainstSpec(id: string): Promise<string> {
+    const p = this.projects.get(id);
+    if (!p) return `⚠️ Project "${id}" not found.`;
+
+    const lines: string[] = [];
+    lines.push(`# Spec Verification Report — ${p.title}`);
+    lines.push(`**Status:** ${p.status}`);
+    lines.push(`**Files:** ${await this.listFiles(id).then(f => f.join(', ')) || '(none)'}`);
+    lines.push('');
+
+    // Plan step status
+    lines.push('## Plan Steps');
+    for (const step of p.planSteps) {
+      const icon = step.status === 'completed' ? '✅' : step.status === 'in_progress' ? '🔄' : '⬜';
+      lines.push(`${icon} [${step.status}] ${step.description}`);
+    }
+    lines.push('');
+
+    // Check if spec docs exist
+    const docsDir = this.getDocsDir(id);
+    let docsExist = false;
+    if (docsDir) {
+      try {
+        const docFiles = await fsp.readdir(docsDir);
+        docsExist = docFiles.length > 0;
+        lines.push(`## Specification Documents (${docFiles.length} file(s))`);
+        for (const f of docFiles.sort()) {
+          lines.push(`- \`docs/${f}\``);
+        }
+      } catch {
+        lines.push('## Specification Documents\n_(none)_');
+      }
+    }
+    lines.push('');
+
+    // Summary
+    const total = p.planSteps.length;
+    const done = p.planSteps.filter(s => s.status === 'completed').length;
+    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    lines.push(`## Summary\n- **Progress:** ${done}/${total} steps (${pct}%)`);
+    lines.push(`- **Docs present:** ${docsExist ? '✅ Yes' : '❌ No'}`);
+    lines.push(pct === 100 && docsExist
+      ? '\n✅ **All requirements met. Project is complete.**'
+      : `\n⚠️ **${total - done} step(s) remaining or docs missing.** Review and complete before closing.`);
+
+    return lines.join('\n');
+  }
+
+  private async touch(id: string): Promise<void> {
+    const p = this.projects.get(id);
+    if (!p) return;
+    p.updatedAt = new Date().toISOString();
+    await this._save(id);
   }
 
   private async _save(id: string): Promise<void> {

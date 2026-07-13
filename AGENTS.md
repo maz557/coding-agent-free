@@ -1,4 +1,4 @@
-# Coding Agent Free v1.27.0
+# Coding Agent Free v1.29.0
 
 This is the Coding Agent Free project itself.
 
@@ -17,11 +17,32 @@ This is the Coding Agent Free project itself.
 - `src/lsp/` — LSP support (LSPClient, LSPManager, tool definitions: code_definition/references/hover/lookup_symbol/get_diagnostics)
 - `src/persistence.ts` — multi-session persistence (sessions/ dir, auto-title, modelPreset)
 - `src/PlanManager.ts` — parse, track, and match plan steps; auto-progress injection
-- `src/ProjectManager.ts` — create/list/load/save/delete projects on disk, linked to PlanManager
-- `src/tools/governance.ts` — tool safety levels (safe/sensitive/dangerous), ApprovalStore for permanent allow/deny
+- `src/ProjectManager.ts` — create/list/load/save/delete projects on disk, linked to PlanManager; auto-generates spec docs (prd.md, tech_design.md, api_spec.md, test_plan.md)
 - `src/AgentMode.ts` — build/plan mode definitions, `switch_mode` tool definition, `detectIntent()`, `filterToolsForMode()`
 - `src/validation.ts` — Zod schemas for tool input/output validation
 - `scripts/setup.js` — interactive setup wizard
+
+## Tests
+- `npm run test:unit` — **359** unit tests (20 files, `--test-timeout=15000`)
+- `npm run test:integration` — 26 provider integration tests
+- `npm test` — 35 integration tests
+- CI: `.github/workflows/ci.yml` runs all tests on push/PR
+
+## v1.29.0 changes
+- **Blocked calls guard** 🛑 — after stuck detection fires, the exact `callKey` is added to a `blockedCalls` Set. If the model repeats the same tool call, it gets a hard error instead of executing. Prevents the agent from getting stuck in loops (e.g., repeated `flake8` calls).
+- **Project specification documents** 📋 — `create_project` auto-generates `docs/prd.md`, `docs/tech_design.md`, `docs/api_spec.md`, `docs/test_plan.md` with content from the plan. Presented to the user for review/approval before implementation begins.
+  - `read_project_docs` (new tool) — read spec docs during implementation
+  - `update_project_docs` (new tool) — update docs when requirements change
+  - `verify_project_spec` (new tool) — final evaluation comparing implementation against spec docs and plan steps; shows plan step status, file list, and completion percentage
+- **System prompt improvements**:
+  - "Make the MINIMAL change necessary — do NOT add new features, dependencies, or refactoring the user didn't ask for"
+  - "Do NOT create test files or write unit tests unless the user explicitly asks"
+  - "If you modify the same file more than 3 times, stop and reassess"
+  - "Always verify the LAST change before declaring done"
+  - "Remove unused imports and dead code"
+  - Docs workflow: present docs → get approval → read before changes → update on change → verify at end
+- **21 built-in tools** (was 20)
+- **359 unit tests** (19 → 20 files, +11 tests)
 
 ## Web UI features (public/index.html)
 - **Diff viewer** — line-level diffs (LCS) for write_file, replace_in_file, append_file
@@ -44,10 +65,26 @@ This is the Coding Agent Free project itself.
 - **Project panel** — sidebar with project list, detail view, progress bars, status management, create/delete
 
 ## Tests
-- `npm run test:unit` — **328** unit tests (18 files, `--test-timeout=15000`)
+- `npm run test:unit` — **359** unit tests (20 files, `--test-timeout=15000`)
 - `npm run test:integration` — 26 provider integration tests
 - `npm test` — 35 integration tests
 - CI: `.github/workflows/ci.yml` runs all tests on push/PR
+
+## v1.29.0 changes
+- **Blocked calls guard** 🛑 — after stuck detection fires, the exact `callKey` is added to a `blockedCalls` Set. If the model repeats the same tool call, it gets a hard error instead of executing. Prevents the agent from getting stuck in loops (e.g., repeated `flake8` calls).
+- **Project specification documents** 📋 — `create_project` auto-generates `docs/prd.md`, `docs/tech_design.md`, `docs/api_spec.md`, `docs/test_plan.md` with content from the plan. Presented to the user for review/approval before implementation begins.
+  - `read_project_docs` (new tool) — read spec docs during implementation
+  - `update_project_docs` (new tool) — update docs when requirements change
+  - `verify_project_spec` (new tool) — final evaluation comparing implementation against spec docs and plan steps; shows plan step status, file list, and completion percentage
+- **System prompt improvements**:
+  - "Make the MINIMAL change necessary — do NOT add new features, dependencies, or refactoring the user didn't ask for"
+  - "Do NOT create test files or write unit tests unless the user explicitly asks"
+  - "If you modify the same file more than 3 times, stop and reassess"
+  - "Always verify the LAST change before declaring done"
+  - "Remove unused imports and dead code"
+  - Docs workflow: present docs → get approval → read before changes → update on change → verify at end
+- **21 built-in tools** (was 20)
+- **359 unit tests** (19 → 20 files, +11 tests)
 
 ## Key modules
 - `src/mcp/` — MCP support (types, StdioTransport, HTTPTransport, MCPManager, config loader)

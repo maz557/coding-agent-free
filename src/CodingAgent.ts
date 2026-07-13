@@ -146,6 +146,7 @@ async function processStreamWithIdleTimeout(
 
 export class CodingAgent {
   private toolHistory: string[] = [];
+  private blockedCalls = new Set<string>();
   private readonly MAX_DEPTH = 20;
   private conversation: ConversationState;
   private _planManager: PlanManager | null = null;
@@ -381,6 +382,18 @@ export class CodingAgent {
           console.log(`  🔧 ${callKey}`);
           totalToolCalls++;
 
+          // Blocked calls: prevent re-executing the same call after stuck recovery
+          if (this.blockedCalls.has(callKey)) {
+            console.log(`  ⛔ Blocked (stuck recovery): ${callKey}`);
+            this.conversation = this.conversation.addToolResult(
+              toolCall.id,
+              `Error: This tool call "${callKey}" was blocked because it previously caused a stuck loop. ` +
+              `Think of a COMPLETELY DIFFERENT approach. Do NOT repeat this call.`,
+              functionName
+            );
+            continue;
+          }
+
           // Match tool call to plan step and track progress
           if (this._planManager.hasPlan()) {
             const stepIdx = this._planManager.matchToolToStep(functionName, functionArgs);
@@ -393,6 +406,7 @@ export class CodingAgent {
           const stuckError = this.detectStuckState();
           if (stuckError) {
             console.log(`  ⛔ Stuck detected: ${stuckError}`);
+            this.blockedCalls.add(callKey);
             this.conversation = this.conversation
               .removeLastAssistantTurn()
               .addSystemMessage(

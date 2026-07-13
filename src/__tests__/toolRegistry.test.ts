@@ -6,6 +6,7 @@ const builtinNames = [
   'delete_file', 'delete_folder', 'file_info', 'search_content',
   'replace_in_file', 'append_file', 'copy_file', 'move_file', 'run_command',
   'create_project', 'git_diff', 'git_commit', 'git_log', 'web_search', 'run_tests',
+  'read_project_docs', 'update_project_docs', 'verify_project_spec',
 ];
 
 describe('toolRegistry - toggles', () => {

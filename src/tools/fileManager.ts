@@ -146,6 +146,8 @@ interface GitLogArgs { maxCount?: number; }
 interface WebSearchArgs { query: string; }
 interface RunTestsArgs { directory?: string; }
 interface CreateProjectArgs { title: string; description?: string; sessionId?: string; }
+interface ReadProjectDocsArgs { projectId: string; docFile?: string; }
+interface UpdateProjectDocsArgs { projectId: string; docFile: string; content: string; }
 
 export type ToolArguments = 
   | ReadFileArgs 
@@ -725,9 +727,72 @@ async function createProject(args: CreateProjectArgs): Promise<string> {
     const data = await projectManager.create(pm, args.title, args.description || '', sessionId);
     if (onProjectCreated && sessionId) onProjectCreated(sessionId, data.id);
     const dir = projectManager.getDir(data.id);
-    return `✅ Project "${data.title}" created successfully.\nID: ${data.id}\nDirectory: ${dir}\nUse write_file with paths like "${data.directory}/welcome.html".`;
+    // Generate project documentation
+    const docs = await projectManager.generateDocs(data.id, data.title, data.description, pm.getSteps());
+    const docsSummary = Object.keys(docs).map(f => `  - \`docs/${f}\``).join('\n');
+    return `✅ Project "${data.title}" created successfully.
+ID: ${data.id}
+Directory: ${dir}
+Use write_file with paths like "${data.directory}/welcome.html".
+
+📋 Project specification documents generated in ${data.directory}/docs/:
+${docsSummary}
+
+Please review the documents below and request any changes. Once approved, the project will proceed based on these specifications.
+
+${Object.entries(docs).map(([file, content]) => `--- docs/${file} ---\n${content}`).join('\n\n')}`;
   } catch (err: any) {
     return `⚠️ Failed to create project: ${err.message}`;
+  }
+}
+
+async function readProjectDocs(args: ReadProjectDocsArgs): Promise<string> {
+  try {
+    const data = projectManager.get(args.projectId);
+    if (!data) return `⚠️ Project "${args.projectId}" not found.`;
+    if (args.docFile) {
+      const content = await projectManager.readDoc(args.projectId, args.docFile);
+      if (content === null) return `⚠️ Document "${args.docFile}" not found in project "${data.title}".`;
+      return `--- docs/${args.docFile} (${data.title}) ---\n${content}`;
+    }
+    const allContent = await projectManager.getAllDocsContent(args.projectId);
+    if (!allContent) return `⚠️ No documents found for project "${data.title}".`;
+    return allContent;
+  } catch (err: any) {
+    return `⚠️ Failed to read docs: ${err.message}`;
+  }
+}
+
+async function updateProjectDocs(args: UpdateProjectDocsArgs): Promise<string> {
+  try {
+    const data = projectManager.get(args.projectId);
+    if (!data) return `⚠️ Project "${args.projectId}" not found.`;
+    const docsDir = projectManager.getDocsDir(args.projectId);
+    if (!docsDir) return `⚠️ No docs directory for project "${data.title}".`;
+    const allowed = ['prd.md', 'tech_design.md', 'api_spec.md', 'test_plan.md'];
+    if (!allowed.includes(args.docFile)) {
+      return `⚠️ Invalid doc file "${args.docFile}". Must be one of: ${allowed.join(', ')}`;
+    }
+    const filePath = path.join(docsDir, args.docFile);
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    // Atomic write
+    const tmpPath = filePath + '.tmp.' + process.pid;
+    await fs.writeFile(tmpPath, args.content, 'utf-8');
+    await fs.rename(tmpPath, filePath);
+    return `✅ docs/${args.docFile} updated for project "${data.title}".`;
+  } catch (err: any) {
+    return `⚠️ Failed to update docs: ${err.message}`;
+  }
+}
+
+interface VerifyProjectSpecArgs { projectId: string; }
+async function verifyProjectSpec(args: VerifyProjectSpecArgs): Promise<string> {
+  try {
+    const data = projectManager.get(args.projectId);
+    if (!data) return `⚠️ Project "${args.projectId}" not found.`;
+    return await projectManager.verifyAgainstSpec(args.projectId);
+  } catch (err: any) {
+    return `⚠️ Verification failed: ${err.message}`;
   }
 }
 
@@ -1003,7 +1068,7 @@ export const tools = [
     type: 'function',
     function: {
       name: 'create_project',
-      description: 'Creates a new project with a numbered directory (e.g. 1/, 2/) under the workspace root. Registers the project and returns the directory number. Use this FIRST when the user asks to start a new project, then write all project files inside that directory.',
+      description: 'Creates a new project with a numbered directory (e.g. 1/, 2/) under the workspace root. Registers the project and returns the directory number. Automatically generates specification documents (docs/prd.md, docs/tech_design.md, docs/api_spec.md, docs/test_plan.md). Use this FIRST when the user asks to start a new project, then write all project files inside that directory.',
       parameters: {
         type: 'object',
         properties: {
@@ -1012,6 +1077,51 @@ export const tools = [
           sessionId: { type: 'string', description: 'Optional session ID to link to this project.' },
         },
         required: ['title'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'verify_project_spec',
+      description: 'Verifies the project implementation against the specification documents and plan. Shows plan step status, file list, and a summary of what is complete vs remaining. Call this at project completion or anytime to check alignment with the spec.',
+      parameters: {
+        type: 'object',
+        properties: {
+          projectId: { type: 'string', description: 'The project ID (e.g. "proj_...").' },
+        },
+        required: ['projectId'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'read_project_docs',
+      description: 'Read the specification documents for a project (prd.md, tech_design.md, api_spec.md, test_plan.md). Use this to review the project requirements, design, API, or test plan before making changes.',
+      parameters: {
+        type: 'object',
+        properties: {
+          projectId: { type: 'string', description: 'The project ID (e.g. "proj_...").' },
+          docFile: { type: 'string', description: 'Optional specific doc file to read (e.g. "prd.md"). If omitted, returns all docs.', enum: ['prd.md', 'tech_design.md', 'api_spec.md', 'test_plan.md', ''] },
+        },
+        required: ['projectId'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_project_docs',
+      description: 'Update a specification document for a project. Use this when requirements change, new files are added, or the design evolves.',
+      parameters: {
+        type: 'object',
+        properties: {
+          projectId: { type: 'string', description: 'The project ID (e.g. "proj_...").' },
+          docFile: { type: 'string', description: 'Which document to update.', enum: ['prd.md', 'tech_design.md', 'api_spec.md', 'test_plan.md'] },
+          content: { type: 'string', description: 'The full new content of the document (markdown). This REPLACES the entire document.' },
+        },
+        required: ['projectId', 'docFile', 'content'],
       },
     },
   },
@@ -1054,6 +1164,9 @@ export async function executeTool(name: string, args: ToolArguments): Promise<st
     case 'web_search':      result = await workspace.webSearch((args as WebSearchArgs).query); break;
     case 'run_tests':       result = await workspace.runTests((args as RunTestsArgs).directory); break;
     case 'create_project':  result = await createProject(args as CreateProjectArgs); break;
+    case 'read_project_docs': result = await readProjectDocs(args as ReadProjectDocsArgs); break;
+    case 'update_project_docs': result = await updateProjectDocs(args as UpdateProjectDocsArgs); break;
+    case 'verify_project_spec': result = await verifyProjectSpec(args as VerifyProjectSpecArgs); break;
     default:
       return `Error: Unknown tool "${name}"`;
   }

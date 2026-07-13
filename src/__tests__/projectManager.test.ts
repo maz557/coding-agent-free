@@ -185,4 +185,72 @@ describe('ProjectManager', () => {
     assert(loaded.sessionIds.includes('s1'));
     assert(!loaded.sessionIds.includes(''));
   });
+
+  it('should generate docs/ directory with 4 files on create', async () => {
+    pm = new ProjectManager();
+    const planManager = new PlanManager();
+    planManager.parsePlan('1. Build API endpoint\n2. Create database schema\n3. Write tests');
+    const data = await pm.create(planManager, 'Doc Test', 'Test documentation generation', 's1');
+    const docsDir = pm.getDocsDir(data.id);
+    assert(docsDir);
+    const exists = fs.existsSync(docsDir);
+    assert(exists);
+    const files = await fsp.readdir(docsDir!);
+    assert(files.includes('prd.md'));
+    assert(files.includes('tech_design.md'));
+    assert(files.includes('api_spec.md'));
+    assert(files.includes('test_plan.md'));
+  });
+
+  it('should read a specific doc file', async () => {
+    pm = new ProjectManager();
+    const planManager = new PlanManager();
+    planManager.parsePlan('1. Step one');
+    const data = await pm.create(planManager, 'Read Doc', '', 's1');
+    const prd = await pm.readDoc(data.id, 'prd.md');
+    assert(prd);
+    assert(prd.includes('Product Requirements Document'));
+    assert(prd.includes('Read Doc'));
+    const missing = await pm.readDoc(data.id, 'nonexistent.md');
+    assert.equal(missing, null);
+  });
+
+  it('should list doc files', async () => {
+    pm = new ProjectManager();
+    const planManager = new PlanManager();
+    planManager.parsePlan('1. Step');
+    const data = await pm.create(planManager, 'List Doc', '', 's1');
+    const docs = await pm.listDocs(data.id);
+    assert.equal(docs.length, 4);
+    assert(docs.includes('prd.md'));
+  });
+
+  it('should getAllDocsContent return combined content', async () => {
+    pm = new ProjectManager();
+    const planManager = new PlanManager();
+    planManager.parsePlan('1. Step');
+    const data = await pm.create(planManager, 'All Docs', '', 's1');
+    const content = await pm.getAllDocsContent(data.id);
+    assert(content);
+    assert(content.includes('prd.md'));
+    assert(content.includes('tech_design.md'));
+    assert(content.includes('api_spec.md'));
+    assert(content.includes('test_plan.md'));
+  });
+
+  it('should verifyAgainstSpec report plan progress', async () => {
+    pm = new ProjectManager();
+    const planManager = new PlanManager();
+    planManager.parsePlan('1. Setup\n2. Implement\n3. Test\n4. Deploy');
+    planManager.markCompleted(0);
+    planManager.markCompleted(2);
+    const data = await pm.create(planManager, 'Verify Test', '', 's1');
+    const report = await pm.verifyAgainstSpec(data.id);
+    assert(report.includes('Verify Test'));
+    assert(report.includes('✅'));
+    assert(report.includes('[completed]'));
+    assert(report.includes('[pending]'));
+    assert(report.includes('50%'));
+    assert(report.includes('prd.md'));
+  });
 });
