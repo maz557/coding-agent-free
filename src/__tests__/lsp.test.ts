@@ -118,7 +118,7 @@ describe('executeLSPServerTool — argPath normalization', () => {
     const { lspManager, executeLSPServerTool } = require('../lsp/index');
     await lspManager.shutdown();
 
-    const r = await executeLSPServerTool('code_get_diagnostics', { path: '/some/file.ts' });
+    const r = await executeLSPServerTool('code_get_diagnostics', { path: '/some/file.xyz' });
     // Should try to use the path (LSP not available since we shut it down, but no crash)
     assert(!r.includes('paths['), `should not crash with paths[] error, got: ${r}`);
     assert(r.includes('LSP not available') || r.includes('No diagnostics') || r.includes('Failed'));
@@ -128,7 +128,7 @@ describe('executeLSPServerTool — argPath normalization', () => {
     const { lspManager, executeLSPServerTool } = require('../lsp/index');
     await lspManager.shutdown();
 
-    const r = await executeLSPServerTool('code_get_diagnostics', { file: '/primary.ts', path: '/secondary.ts' });
+    const r = await executeLSPServerTool('code_get_diagnostics', { file: '/primary.xyz', path: '/secondary.xyz' });
     assert(!r.includes('paths['), `should not crash, got: ${r}`);
   });
 });
