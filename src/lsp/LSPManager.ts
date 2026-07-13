@@ -221,18 +221,30 @@ export class LSPManager {
     if (!client) return 'LSP not available for this file';
 
     const uri = pathToUri(filePath);
+
+    // Try pull-based diagnostics first (textDocument/diagnostic)
     try {
       const result = await client.getDiagnostics(uri);
-      if (!result || result.length === 0) return 'No diagnostics';
+      if (result && result.length > 0) {
+        return this._formatDiagnostics(result);
+      }
+    } catch { /* fall through to stored diagnostics */ }
 
-      return result.map((d: any) => {
-        const start = d.range?.start || { line: 0, character: 0 };
-        const sev = d.severity === 1 ? 'Error' : d.severity === 2 ? 'Warning' : 'Info';
-        return `  ${sev} at ${start.line + 1}:${start.character + 1} — ${d.message}`;
-      }).join('\n');
-    } catch (err: any) {
-      return `LSP error: ${err.message}`;
+    // Fallback to stored push diagnostics (textDocument/publishDiagnostics)
+    const stored = client.getStoredDiagnostics(uri);
+    if (stored && stored.length > 0) {
+      return this._formatDiagnostics(stored);
     }
+
+    return 'No diagnostics';
+  }
+
+  private _formatDiagnostics(diags: any[]): string {
+    return diags.map((d: any) => {
+      const start = d.range?.start || { line: 0, character: 0 };
+      const sev = d.severity === 1 ? 'Error' : d.severity === 2 ? 'Warning' : 'Info';
+      return `  ${sev} at ${start.line + 1}:${start.character + 1} — ${d.message}`;
+    }).join('\n');
   }
 
   getClientInfo(): { command: string; languageId: string; ready: boolean; openFiles: number }[] {

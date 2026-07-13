@@ -13,6 +13,8 @@ export class LSPClient {
   private _ready = false;
   private capabilities: Record<string, unknown> = {};
   private _onDiagnostics: ((uri: string, diagnostics: any[]) => void) | null = null;
+  /** Store pushed diagnostics per URI (textDocument/publishDiagnostics) */
+  private diagnostics = new Map<string, any[]>();
 
   get ready(): boolean { return this._ready; }
   get serverCommand(): string { return this.command; }
@@ -147,6 +149,7 @@ export class LSPClient {
 
     // Notification
     if (msg.method === 'textDocument/publishDiagnostics') {
+      this.diagnostics.set(msg.params.uri, msg.params.diagnostics);
       this._onDiagnostics?.(msg.params.uri, msg.params.diagnostics);
     }
   }
@@ -215,6 +218,10 @@ export class LSPClient {
       textDocument: { uri },
       position: { line, character },
     });
+  }
+
+  getStoredDiagnostics(uri: string): any[] | null {
+    return this.diagnostics.get(uri) || null;
   }
 
   async getDiagnostics(uri: string): Promise<any> {
