@@ -459,26 +459,34 @@ export class CodingAgent {
               }
             }
 
-            // Auto-install LSP server when writing a file that matches a known LSP type
+            // Auto-install LSP + run diagnostics on the written file immediately
             if (functionName === 'write_file') {
               const fp = functionArgs.path as string;
-              if (fp && !lspManager.getClientForFile(fp)) {
-                const cwd = process.cwd();
+              if (fp) {
+                const allowedDir = path.resolve(process.env.ALLOWED_DIR || './workspace');
+                const fullPath = path.resolve(allowedDir, fp);
                 try {
-                  const installResult = await lspManager.autoInstallAndStart(fp, cwd);
+                  const installResult = await lspManager.autoInstallAndStart(fullPath, process.cwd());
                   if (installResult.startsWith('✅') || installResult.startsWith('LSP for')) {
-                    // success — diagnostics will come via push
+                    // LSP ready — wait briefly for push diagnostics, then pull
+                    await new Promise(r => setTimeout(r, 1500));
+                    const diagResult = await lspManager.getFileDiagnostics(fullPath);
+                    if (diagResult && diagResult !== 'No diagnostics' && !diagResult.startsWith('LSP not available')) {
+                      this.conversation = this.conversation.addSystemMessage(
+                        `[LSP Diagnostics for ${fp}]\n${diagResult}\nFix every issue before proceeding.`
+                      );
+                      this.callbacks?.onStatus?.(`📋 Auto-checked ${fp} via LSP — issues found`);
+                    }
                   } else {
                     console.log(`  ${installResult}`);
-                    // LSP unavailable — ask agent to manually review
                     this.conversation = this.conversation.addSystemMessage(
                       `[LSP] ${installResult}. Manually review the code for syntax errors, type errors, undefined variables, missing imports, and logical bugs — fix any issues you find.`
                     );
                   }
                 } catch (err: any) {
-                  console.log(`  ⚠️ LSP auto-install error: ${err.message}`);
+                  console.log(`  ⚠️ LSP error: ${err.message}`);
                   this.conversation = this.conversation.addSystemMessage(
-                    `[LSP] Auto-install failed: ${err.message}. Manually review the code for errors and fix any issues.`
+                    `[LSP] Not available for ${fp}: ${err.message}. Manually review the code for errors and fix any issues.`
                   );
                 }
               }
