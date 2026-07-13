@@ -50,6 +50,7 @@ Rules:
   create_project automatically generates specification documents in the docs/ folder (prd.md, tech_design.md, api_spec.md, test_plan.md) based on the plan. The docs content is returned in the create_project result — PRESENT it to the user and ask for review/approval before starting implementation.
   Once the user approves the docs, they become the REFERENCE SPECIFICATION. Before every change, read the relevant docs (use read_project_docs) to ensure the implementation stays aligned with the spec.
   If requirements change during implementation, update the spec first (use update_project_docs), then implement the change. The spec must always reflect the current state of the project.
+  Only call read_project_docs, update_project_docs, or verify_project_spec on projects that were registered via create_project. These tools do NOT work with ad-hoc scripts or files outside a registered project.
   NEVER put user project files in public/, src/, or other application directories — those are for the coding-agent-free app itself, not for user projects.
   The workspace root is the designated location for all user project files.
 - Use run_command to execute shell commands.
