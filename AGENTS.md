@@ -23,7 +23,7 @@ This is the Coding Agent Free project itself.
 - `scripts/setup.js` — interactive setup wizard
 
 ## Tests
-- `npm run test:unit` — **359** unit tests (20 files, `--test-timeout=15000`)
+- `npm run test:unit` — **363** unit tests (20 files, `--test-timeout=15000`)
 - `npm run test:integration` — 26 provider integration tests
 - `npm test` — 35 integration tests
 - CI: `.github/workflows/ci.yml` runs all tests on push/PR
@@ -65,7 +65,7 @@ This is the Coding Agent Free project itself.
 - **Project panel** — sidebar with project list, detail view, progress bars, status management, create/delete
 
 ## Tests
-- `npm run test:unit` — **359** unit tests (20 files, `--test-timeout=15000`)
+- `npm run test:unit` — **363** unit tests (20 files, `--test-timeout=15000`)
 - `npm run test:integration` — 26 provider integration tests
 - `npm test` — 35 integration tests
 - CI: `.github/workflows/ci.yml` runs all tests on push/PR

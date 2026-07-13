@@ -430,4 +430,99 @@ describe('CodingAgent', () => {
       assert.deepEqual(config.fallbacks, ['fallback-1', 'fallback-2']);
     });
   });
+
+  describe('execution guards', () => {
+    function planOk() {
+      return mockStream([mockChunk({ content: '1. Do it', finishReason: 'stop' })]);
+    }
+
+    it('should block second pip install attempt', async () => {
+      const client = makeClient();
+      let callCount = 0;
+      client.chat.completions.create.mock.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return planOk();
+        if (callCount <= 3) {
+          return mockStream([
+            mockChunk({
+              toolCalls: [{ index: 0, id: `call_${callCount}`, name: 'run_command', args: '{"command":"pip install requests"}' }],
+            }),
+            mockChunk({ finishReason: 'stop' }),
+          ]);
+        }
+        return mockStream([mockChunk({ content: 'Done.', finishReason: 'stop' })]);
+      });
+      const agent = new CodingAgent(client, makeTools(), { provider: 'openrouter', primary: 'test-model', fallbacks: [] }, 'sys');
+      const result = await agent.execute('install requests');
+      assert.equal(result.toolCallsCount, 2);
+      const messages = agent.getConversationMessages();
+      const pipBlocked = messages.filter(m => m.role === 'tool' && m.content?.includes('pip install already attempted'));
+      assert.equal(pipBlocked.length, 1);
+    });
+
+    it('should block duplicate file write with same content', async () => {
+      const client = makeClient();
+      let callCount = 0;
+      client.chat.completions.create.mock.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return planOk();
+        if (callCount <= 3) {
+          return mockStream([
+            mockChunk({
+              toolCalls: [{ index: 0, id: `call_${callCount}`, name: 'write_file', args: '{"path":"test_guard.txt","content":"hello"}' }],
+            }),
+            mockChunk({ finishReason: 'stop' }),
+          ]);
+        }
+        return mockStream([mockChunk({ content: 'Done.', finishReason: 'stop' })]);
+      });
+      const agent = new CodingAgent(client, makeTools(), { provider: 'openrouter', primary: 'test-model', fallbacks: [] }, 'sys');
+      const result = await agent.execute('write file twice');
+      const messages = agent.getConversationMessages();
+      const toolResults = messages.filter(m => m.role === 'tool');
+      const duplicateMsg = toolResults.find(m => m.content?.includes('Skipping duplicate write'));
+      assert(duplicateMsg, 'Duplicate guard should fire on second identical write_file');
+    });
+
+    it('should block sys.path.append workaround in source code', async () => {
+      const client = makeClient();
+      let callCount = 0;
+      client.chat.completions.create.mock.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return planOk();
+        return mockStream([
+          mockChunk({
+            toolCalls: [{ index: 0, id: 'call_2', name: 'write_file', args: '{"path":"test_workaround.py","content":"import sys\\nsys.path.append(\\"/foo\\")\\nprint(\\"hi\\")"}' }],
+          }),
+          mockChunk({ finishReason: 'stop' }),
+        ]);
+      });
+      const agent = new CodingAgent(client, makeTools(), { provider: 'openrouter', primary: 'test-model', fallbacks: [] }, 'sys');
+      await agent.execute('write workaround');
+      const messages = agent.getConversationMessages();
+      const blockedMsg = messages.find(m => m.role === 'tool' && m.content?.includes('contains a Python path workaround'));
+      assert(blockedMsg, 'sys.path.append should be blocked');
+    });
+
+    it('should intercept question with tools in same turn', async () => {
+      const client = makeClient();
+      let callCount = 0;
+      client.chat.completions.create.mock.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) return planOk();
+        return mockStream([
+          mockChunk({ content: 'Should I proceed with this?' }),
+          mockChunk({
+            toolCalls: [{ index: 0, id: 'call_2', name: 'list_files', args: '{}' }],
+          }),
+          mockChunk({ finishReason: 'stop' }),
+        ]);
+      });
+      const agent = new CodingAgent(client, makeTools(), { provider: 'openrouter', primary: 'test-model', fallbacks: [] }, 'sys');
+      await agent.execute('proceed?');
+      const messages = agent.getConversationMessages();
+      const selfCorrect = messages.find(m => m.role === 'system' && m.content?.includes('[SELF-CORRECT]'));
+      assert(selfCorrect, 'Question+tools should trigger SELF-CORRECT');
+    });
+  });
 });
