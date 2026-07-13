@@ -459,8 +459,9 @@ export class CodingAgent {
               }
             }
 
-            // Auto-install LSP + run diagnostics on the written file immediately
-            if (functionName === 'write_file') {
+            // Auto-install LSP + run diagnostics on the written/modified file immediately
+            const writeTools = ['write_file', 'replace_in_file', 'append_file'];
+            if (writeTools.includes(functionName)) {
               const fp = functionArgs.path as string;
               if (fp) {
                 const allowedDir = path.resolve(process.env.ALLOWED_DIR || './workspace');
