@@ -464,9 +464,23 @@ export class CodingAgent {
               const fp = functionArgs.path as string;
               if (fp && !lspManager.getClientForFile(fp)) {
                 const cwd = process.cwd();
-                lspManager.autoInstallAndStart(fp, cwd)
-                  .then(r => { if (!r.startsWith('✅') && !r.startsWith('LSP for')) console.log(`  ${r}`); })
-                  .catch(() => {});
+                try {
+                  const installResult = await lspManager.autoInstallAndStart(fp, cwd);
+                  if (installResult.startsWith('✅') || installResult.startsWith('LSP for')) {
+                    // success — diagnostics will come via push
+                  } else {
+                    console.log(`  ${installResult}`);
+                    // LSP unavailable — ask agent to manually review
+                    this.conversation = this.conversation.addSystemMessage(
+                      `[LSP] ${installResult}. Manually review the code for syntax errors, type errors, undefined variables, missing imports, and logical bugs — fix any issues you find.`
+                    );
+                  }
+                } catch (err: any) {
+                  console.log(`  ⚠️ LSP auto-install error: ${err.message}`);
+                  this.conversation = this.conversation.addSystemMessage(
+                    `[LSP] Auto-install failed: ${err.message}. Manually review the code for errors and fix any issues.`
+                  );
+                }
               }
             }
 

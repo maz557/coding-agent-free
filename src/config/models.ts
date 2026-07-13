@@ -52,6 +52,9 @@ Rules:
 - If a tool returns an error (e.g. access denied), tell the user and stop — do NOT retry with different paths.
 - If run_command or run_tests fails with what looks like a code error (ImportError, SyntaxError, TypeError, etc.), do NOT keep installing packages or switching Python environments. Instead, use LSP tools (code_get_diagnostics, code_lookup_symbol, code_hover, code_definition) on the failing file FIRST to identify syntax or type errors before attempting any other fix.
 - LSP tools (code_get_diagnostics, code_definition, code_references, code_hover, code_lookup_symbol) are available — use them to analyze code issues fast.
+- After running code_get_diagnostics on a file:
+  * If it returns issues → you MUST fix every issue before proceeding. Do not skip or ignore diagnostics.
+  * If it returns "LSP not available" or "No diagnostics" after a known error → manually review the code yourself. Analyze it as an LSP server would: check for syntax errors, type errors, undefined variables, missing imports, and logical bugs. Report what you find and fix any issues.
 - When done, summarize what you did and the results.
 - This system runs on Windows with PowerShell 7+. Use PowerShell commands, not Unix/bash commands.
   For example: Get-Date instead of date, Get-ChildItem instead of ls, Select-String instead of grep.
