@@ -20,7 +20,7 @@ import {
   loadUserPresets, saveUserPresets,
 } from './persistence';
 import { getAllPresets, showModels } from './commands';
-import { discoverAllProviders, pickBestModel, runDiscovery as runModelDiscovery, clearCache as clearDiscoveryCache, loadBestModels } from './config/modelDiscovery';
+import { discoverAllProviders, discoverProviderModels, pickBestModel, runDiscovery as runModelDiscovery, clearCache as clearDiscoveryCache, loadBestModels, ProviderModel } from './config/modelDiscovery';
 import { estimateTotalTokens } from './tokenEstimator';
 import { OpenAITool } from './types';
 import { detectLocalModel } from './detectLocalModel';
@@ -114,7 +114,8 @@ async function startChat() {
   console.log('    /reset       Clear conversation history (start fresh)');
   console.log('    /list-providers  Show available providers');
   console.log('    /tools       List all available tools');
-  console.log('    /discover    Discover available models from providers');
+  console.log('    /discover    Discover best model from each provider');
+  console.log('    /<provider>  List all models for a provider (e.g. /openrouter, /mistral, /groq)');
   console.log('    /models      Show all presets');
   console.log('    /active      Show current active model');
     console.log('    /mcp list    Show connected MCP servers');
@@ -313,6 +314,51 @@ async function startChat() {
       }
       if (!found) console.log('  No models discovered (check API keys).');
       console.log('  💾 Best models saved to route-presets.json (_discovered)');
+      console.log('');
+      rl.prompt();
+      continue;
+    }
+
+    // Per-provider model listing (e.g., /openrouter, /mistral, /groq, ...)
+    const PROVIDER_COMMANDS: Record<string, string> = {
+      openrouter: 'openrouter', mistral: 'mistral', groq: 'groq',
+      google: 'google', xai: 'xai', cerebras: 'cerebras',
+      cohere: 'cohere', deepseek: 'deepseek', anthropic: 'anthropic',
+      together: 'together', perplexity: 'perplexity',
+    };
+    const cmd = input.toLowerCase().replace(/^\//, '');
+    const providerId = PROVIDER_COMMANDS[cmd];
+    if (providerId) {
+      const pInfo = PROVIDERS[providerId];
+      if (!pInfo) { console.log(`\n  ❌ Unknown provider: ${providerId}\n`); rl.prompt(); continue; }
+      if (pInfo.apiKeyEnv && !process.env[pInfo.apiKeyEnv]) {
+        console.log(`\n  ⚠️  No API key (${pInfo.apiKeyEnv}) for ${pInfo.name}. Set it in .env\n`);
+        rl.prompt();
+        continue;
+      }
+      console.log(`\n  🔍 Listing models from ${pInfo.name}...\n`);
+      clearDiscoveryCache();
+      const models = await discoverProviderModels(providerId);
+      if (models.length === 0) {
+        console.log(`  No models found for ${pInfo.name}.\n`);
+      } else {
+        console.log(`  ${pInfo.name}: ${models.length} model(s)`);
+        // For OpenRouter, separate free vs paid
+        if (providerId === 'openrouter') {
+          const freeModels = models.filter((m: ProviderModel) => m.id.endsWith(':free'));
+          const paidModels = models.filter((m: ProviderModel) => !m.id.endsWith(':free'));
+          if (freeModels.length > 0) {
+            console.log(`\n  🆓 Free models (${freeModels.length}):`);
+            for (const m of freeModels) console.log(`    ${m.id}`);
+          }
+          if (paidModels.length > 0) {
+            console.log(`\n  💰 Paid models (${paidModels.length}):`);
+            for (const m of paidModels) console.log(`    ${m.id}`);
+          }
+        } else {
+          for (const m of models) console.log(`    ${m.id}`);
+        }
+      }
       console.log('');
       rl.prompt();
       continue;

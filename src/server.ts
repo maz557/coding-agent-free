@@ -313,6 +313,23 @@ app.get('/api/models', (_req, res) => {
   res.json([...presets, ...providers]);
 });
 
+app.get('/api/models/:provider', async (req, res) => {
+  const { provider } = req.params;
+  if (!PROVIDERS[provider]) return res.status(404).json({ error: `Unknown provider: ${provider}` });
+  try {
+    const models = await discoverProviderModels(provider);
+    if (provider === 'openrouter') {
+      const free = models.filter(m => m.id.endsWith(':free')).map(m => m.id);
+      const paid = models.filter(m => !m.id.endsWith(':free')).map(m => m.id);
+      res.json({ provider, name: PROVIDERS[provider].name, free, paid });
+    } else {
+      res.json({ provider, name: PROVIDERS[provider].name, models: models.map(m => m.id) });
+    }
+  } catch {
+    res.status(500).json({ error: `Failed to discover models for ${provider}` });
+  }
+});
+
 app.post('/api/presets', express.json(), async (req, res) => {
   const { num, model } = req.body || {};
   if (!num || !model) return res.status(400).json({ error: 'Missing num or model' });
