@@ -117,7 +117,7 @@ This is the Coding Agent Free project itself.
 ## Known limitations
 - **Windows LSP binary spawn** — `spawn()` can't find global npm `.cmd` files; shell fallback sometimes causes exit race. Mitigated with `shell: true`. LSP works in tests (mock server) and on Linux/macOS.
 - **CI timeout** — `CodingAgent.test.ts`, `agent.test.ts`, `server.test.ts` use real API keys and can timeout in CI when rate-limited. Mitigated with `--test-timeout=15000`.
-- **Node 24 issue** — Node 24 test runner has IPC serialization issues with `ts-node/register` (`Unable to deserialize cloned data`). CI uses Node 22 only.
+- **Node 24 issue** — Node 24 test runner has IPC serialization issues with `ts-node/register` (`Unable to deserialize cloned data`). CI uses Node 22 only. **Note:** Still sometimes flakes on Node 22 too — rerun CI if that happens.
 - **Web session persistence** — sessions saved to `sessions/{uuid}.json` after each message. Empty sessions (0 user messages) are not persisted or listed.
 
 ## v1.19.0 changes
