@@ -13,7 +13,7 @@ import { loadLSPConfig } from './lsp/config';
 import { lspManager } from './lsp/index';
 import { PROVIDERS, FIXED_PRESETS, SYSTEM_PROMPT, ModelPreset } from './config/models';
 import { resolveRoute, isAutoRoute, getRouteLabel, listAutoRoutes } from './config/autoRouter';
-import { discoverProviderModels, discoverAllProviders, pickBestModel, runDiscovery as runModelDiscovery } from './config/modelDiscovery';
+import { discoverProviderModels, discoverAllProviders, pickBestModel, runDiscovery as runModelDiscovery, loadBestModels, saveBestModels } from './config/modelDiscovery';
 import { getUserConfig } from './config/userConfig';
 import { recordUsage, getAggregatedUsage } from './usageTracker';
 import * as path from 'path';
@@ -25,7 +25,8 @@ import { ChatMessage } from './types';
 
 dotenv.config();
 
-// Proactive model discovery: silently find best models for auto-routes
+// Load persisted discovered models, then silently find best models for auto-routes
+loadBestModels();
 runModelDiscovery().catch(() => {});
 
 const SUGGESTED_MODELS: Record<string, string> = {
@@ -562,6 +563,8 @@ app.get('/api/tools', (_req, res) => {
 
 app.get('/api/discover', async (_req, res) => {
   try {
+    // Re-run full discovery — updates bestModels + persists to route-presets.json _discovered
+    await runModelDiscovery();
     const all = await discoverAllProviders();
     const providers = [];
     for (const [provider, models] of Object.entries(all)) {

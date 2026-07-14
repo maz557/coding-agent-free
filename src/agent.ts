@@ -20,7 +20,7 @@ import {
   loadUserPresets, saveUserPresets,
 } from './persistence';
 import { getAllPresets, showModels } from './commands';
-import { discoverAllProviders, pickBestModel, runDiscovery as runModelDiscovery, clearCache as clearDiscoveryCache } from './config/modelDiscovery';
+import { discoverAllProviders, pickBestModel, runDiscovery as runModelDiscovery, clearCache as clearDiscoveryCache, loadBestModels } from './config/modelDiscovery';
 import { estimateTotalTokens } from './tokenEstimator';
 import { OpenAITool } from './types';
 import { detectLocalModel } from './detectLocalModel';
@@ -192,7 +192,8 @@ async function startChat() {
     }
   } catch { /* LSP is optional */ }
 
-  // Proactive model discovery: silently find best models for auto-routes
+  // Load persisted discovered models, then silently find best models for auto-routes
+  loadBestModels();
   runModelDiscovery().catch(() => {});
 
   const typedTools = getAllTools() as OpenAITool[];
@@ -297,6 +298,7 @@ async function startChat() {
     if (input.toLowerCase() === '/discover') {
       console.log('\n  🔍 Discovering available models from all providers...\n');
       clearDiscoveryCache();
+      await runModelDiscovery(); // populates bestModels + saves to route-presets.json
       const all = await discoverAllProviders();
       let found = false;
       for (const [provider, models] of Object.entries(all)) {
@@ -309,6 +311,7 @@ async function startChat() {
         console.log(`    Models: ${models.slice(0, 5).map(m => m.id).join(', ')}${models.length > 5 ? '...' : ''}`);
       }
       if (!found) console.log('  No models discovered (check API keys).');
+      console.log('  💾 Best models saved to route-presets.json (_discovered)');
       console.log('');
       rl.prompt();
       continue;

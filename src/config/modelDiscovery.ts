@@ -1,3 +1,5 @@
+import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { resolve } from 'path';
 import { PROVIDERS, ModelPreset } from './models';
 
 export interface ProviderModel {
@@ -12,6 +14,35 @@ interface DiscoveryCache {
 
 const cache = new Map<string, DiscoveryCache>();
 const CACHE_TTL = 3600_000; // 1 hour
+
+const ROUTE_PRESETS_PATH = resolve(process.cwd(), 'route-presets.json');
+
+export function loadBestModels(): void {
+  if (!existsSync(ROUTE_PRESETS_PATH)) return;
+  try {
+    const raw = readFileSync(ROUTE_PRESETS_PATH, 'utf-8');
+    const data = JSON.parse(raw);
+    if (data._discovered && typeof data._discovered === 'object') {
+      bestModels = { ...data._discovered };
+    }
+  } catch {
+    // ignore corrupt file
+  }
+}
+
+export function saveBestModels(): void {
+  try {
+    let data: Record<string, any> = {};
+    if (existsSync(ROUTE_PRESETS_PATH)) {
+      const raw = readFileSync(ROUTE_PRESETS_PATH, 'utf-8');
+      data = JSON.parse(raw);
+    }
+    data._discovered = { ...bestModels };
+    writeFileSync(ROUTE_PRESETS_PATH, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+  } catch {
+    // silently ignore write errors
+  }
+}
 
 const NON_CHAT_KEYWORDS = ['embed', 'tts', 'whisper', 'transcribe', 'voxtral', 'moderation', 'dall-e', 'stable-diffusion'];
 
@@ -262,6 +293,7 @@ export async function runDiscovery(): Promise<Record<string, string>> {
     if (best) results[provider] = best;
   }
   bestModels = results;
+  saveBestModels();
   return results;
 }
 
