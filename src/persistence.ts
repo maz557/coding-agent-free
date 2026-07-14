@@ -248,9 +248,9 @@ export async function loadUserPresets(): Promise<Record<string, ModelPreset>> {
     for (const key of Object.keys(parsed)) {
       const item = parsed[key] || {};
       normalized[key] = {
-        provider: String(item.provider ?? 'openrouter'),
-        primary: String(item.primary ?? ''),
-        fallbacks: Array.isArray(item.fallbacks) ? item.fallbacks.map(String) : [],
+        provider: String(item.provider ?? 'openrouter').toLowerCase(),
+        primary: String(item.primary ?? '').trim(),
+        fallbacks: Array.isArray(item.fallbacks) ? item.fallbacks.map((f: any) => String(f).trim()).filter(Boolean) : [],
       };
     }
     return normalized;
