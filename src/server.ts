@@ -92,7 +92,17 @@ async function saveSessionToDisk(id: string, s: SessionData): Promise<void> {
   const filePath = path.join(SESSIONS_DIR, `${id}.json`);
   const tmpPath = filePath + '.tmp.' + process.pid;
   await fsp.writeFile(tmpPath, JSON.stringify({ messages: filteredMsgs, meta, governance: governanceData, planSteps }, null, 2), 'utf-8');
-  await fsp.rename(tmpPath, filePath);
+  // Retry rename on Windows to mitigate EPERM race (antivirus/flush)
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      await fsp.rename(tmpPath, filePath);
+      break;
+    } catch (err: any) {
+      if (err.code !== 'EPERM') throw err;
+      if (attempt === 4) throw err;
+      await new Promise(r => setTimeout(r, 20 + attempt * 10));
+    }
+  }
 }
 
 async function deleteSessionFromDisk(id: string): Promise<void> {

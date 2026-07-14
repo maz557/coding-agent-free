@@ -125,7 +125,17 @@ export type DocType = typeof DOC_FILES[number];
 async function atomicWrite(filePath: string, data: string): Promise<void> {
   const tmpPath = filePath + '.tmp.' + process.pid;
   await fsp.writeFile(tmpPath, data, 'utf-8');
-  await fsp.rename(tmpPath, filePath);
+  // Retry rename on Windows to mitigate EPERM race (antivirus/flush)
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      await fsp.rename(tmpPath, filePath);
+      return;
+    } catch (err: any) {
+      if (err.code !== 'EPERM') throw err;
+      if (attempt === 4) throw err;
+      await new Promise(r => setTimeout(r, 20 + attempt * 10));
+    }
+  }
 }
 
 export function slugify(text: string): string {
