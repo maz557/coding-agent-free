@@ -30,7 +30,7 @@ const DEFAULT_ROUTES: Record<RouteType, RouteConfig> = {
     entries: [
       { provider: 'google', model: 'gemini-2.0-flash', quality: 'premium' },
       { provider: 'groq', model: 'llama-3.1-70b-versatile', quality: 'high' },
-      { provider: 'openrouter', model: 'openrouter/free', quality: 'medium' },
+      { provider: 'openrouter', model: 'google/gemma-4-31b-it:free', quality: 'medium' },
       { provider: 'xai', model: 'grok-beta', quality: 'high' },
       { provider: 'mistral', model: 'mistral-large-2512', quality: 'premium' },
     ],
@@ -40,7 +40,7 @@ const DEFAULT_ROUTES: Record<RouteType, RouteConfig> = {
   cheap: {
     entries: [
       { provider: 'google', model: 'gemini-2.0-flash', quality: 'premium' },
-      { provider: 'openrouter', model: 'openrouter/free', quality: 'medium' },
+      { provider: 'openrouter', model: 'google/gemma-4-31b-it:free', quality: 'medium' },
       { provider: 'groq', model: 'llama-3.1-70b-versatile', quality: 'high' },
       { provider: 'xai', model: 'grok-beta', quality: 'high' },
     ],

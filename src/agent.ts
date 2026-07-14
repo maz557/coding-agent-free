@@ -393,7 +393,7 @@ async function startChat() {
         console.log(`\n❌ No model to save. Send a message first.\n`);
       } else {
         const prov = PROVIDERS[activeModelConfig.provider]?.name ?? activeModelConfig.provider;
-        userPresets[num] = { provider: activeModelConfig.provider, primary: lastActualModel, fallbacks: ['openrouter/free'] };
+        userPresets[num] = { provider: activeModelConfig.provider, primary: lastActualModel, fallbacks: ['google/gemma-4-31b-it:free'] };
         await saveUserPresets(userPresets);
         console.log(`\n✅ Saved as preset ${num}: [${prov}] ${lastActualModel}\n`);
       }
@@ -431,7 +431,7 @@ async function startChat() {
         }
 
         const prov = PROVIDERS[providerId]?.name ?? providerId;
-        userPresets[num] = { provider: providerId, primary: modelId, fallbacks: ['openrouter/free'] };
+        userPresets[num] = { provider: providerId, primary: modelId, fallbacks: ['google/gemma-4-31b-it:free'] };
         await saveUserPresets(userPresets);
         console.log(`\n✅ Added preset ${num}: [${prov}] ${modelId}\n`);
       }

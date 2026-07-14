@@ -30,7 +30,7 @@ loadBestModels();
 runModelDiscovery().catch(() => {});
 
 const SUGGESTED_MODELS: Record<string, string> = {
-  openrouter: 'openrouter/free',
+  openrouter: 'google/gemma-4-31b-it:free',
   google: 'gemini-2.0-flash-exp',
   groq: 'llama3-70b-8192',
   deepseek: 'deepseek-chat',
@@ -328,7 +328,7 @@ app.post('/api/presets', express.json(), async (req, res) => {
     return res.status(400).json({ error: 'Format: provider:model (e.g. xai:grok-beta)' });
   }
   const presets = loadUserPresets();
-  presets[numStr] = { provider: providerId, primary: modelId, fallbacks: ['openrouter/free'] };
+  presets[numStr] = { provider: providerId, primary: modelId, fallbacks: ['google/gemma-4-31b-it:free'] };
   try { fs.writeFileSync(PRESETS_FILE, JSON.stringify(presets, null, 2), 'utf-8'); } catch {}
   res.json({ success: true, num: numStr, provider: providerId, model: modelId });
 });

@@ -15,14 +15,14 @@
       "cerebras:gpt-oss-120b",
       "google:gemini-2.0-flash",
       "groq:llama-3.1-70b-versatile",
-      "openrouter:openrouter/free",
+      "openrouter:google/gemma-4-31b-it:free",
       "mistral:mistral-large-2512"
     ],
     "minQuality": "medium"
   },
   "cheap": {
     "presets": [
-      "openrouter:openrouter/free",
+      "openrouter:google/gemma-4-31b-it:free",
       "google:gemini-2.0-flash",
       "cerebras:gpt-oss-120b",
       "groq:llama-3.1-70b-versatile"
@@ -56,6 +56,6 @@
     "openrouter": "arcee-ai/trinity-large-thinking",
     "google": "gemini-2.5-flash",
     "xai": "grok-3",
-    "cerebras": "zai-glm-4.7"
+    "cerebras": "gemma-4-31b"
   }
 }

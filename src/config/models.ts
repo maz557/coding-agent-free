@@ -82,7 +82,7 @@ export const FIXED_PRESETS: Record<string, ModelPreset> = {
   '1': { provider: 'mistral', primary: 'mistral-large-2512', fallbacks: ['mistral-medium-2604'], quality: 'premium' },
   '2': { provider: 'google', primary: 'gemini-2.0-flash', fallbacks: [], quality: 'premium' },
   '3': { provider: 'groq', primary: 'llama-3.1-70b-versatile', fallbacks: ['mixtral-8x7b-32768'], quality: 'high' },
-  '4': { provider: 'openrouter', primary: 'openai/gpt-oss-120b:free', fallbacks: ['openrouter/free'], quality: 'high' },
+  '4': { provider: 'openrouter', primary: 'openai/gpt-oss-120b:free', fallbacks: ['google/gemma-4-31b-it:free'], quality: 'high' },
   '5': { provider: 'xai', primary: 'grok-beta', fallbacks: [], quality: 'high' },
   '6': { provider: 'llamacpp', primary: 'ornith-agent', fallbacks: [], quality: 'medium' },
 };
