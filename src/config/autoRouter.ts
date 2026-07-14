@@ -168,6 +168,15 @@ function qualityToRank(q?: CodingQuality): number {
 }
 
 export function resolveRoute(route: string): { preset: ModelPreset | null; suggestion?: string } {
+  // Handle discovered:{provider} routes
+  if (route.startsWith('discovered:')) {
+    const provider = route.slice('discovered:'.length);
+    const model = bestModels[provider];
+    if (!model) return { preset: null, suggestion: `No discovered model for ${PROVIDERS[provider]?.name || provider}. Run /discover first.` };
+    if (!isProviderAvailable(provider)) return { preset: null, suggestion: `Provider ${PROVIDERS[provider]?.name || provider} is not configured.` };
+    return { preset: { provider, primary: model, fallbacks: [] } };
+  }
+
   const routeType = route.replace('auto/', '') as RouteType;
   const config = ROUTE_CONFIG[routeType];
   if (!config) return { preset: null };
@@ -191,15 +200,29 @@ export function resolveRoute(route: string): { preset: ModelPreset | null; sugge
 }
 
 export function getRouteLabel(route: string): string {
+  if (route.startsWith('discovered:')) {
+    const provider = route.slice('discovered:'.length);
+    const model = bestModels[provider];
+    const name = PROVIDERS[provider]?.name || provider;
+    return model ? `${name} — ${model}` : `${name} (no model)`;
+  }
   return ROUTE_LABELS[route] || route;
 }
 
 export function isAutoRoute(modelId: string): boolean {
-  return modelId.startsWith('auto/');
+  return modelId.startsWith('auto/') || modelId.startsWith('discovered:');
+}
+
+export function isDiscoveredRoute(modelId: string): boolean {
+  return modelId.startsWith('discovered:');
 }
 
 export function listAutoRoutes(): string[] {
-  return Object.keys(ROUTE_CONFIG).map(r => `auto/${r}`);
+  const routes = Object.keys(ROUTE_CONFIG).map(r => `auto/${r}`);
+  for (const [provider, model] of Object.entries(bestModels)) {
+    routes.push(`discovered:${provider}`);
+  }
+  return routes;
 }
 
 export function getRouteMinQuality(route: string): CodingQuality | null {
@@ -210,4 +233,13 @@ export function getRouteMinQuality(route: string): CodingQuality | null {
 export function getRouteEntries(route: string): RouteEntry[] | null {
   const routeType = route.replace('auto/', '') as RouteType;
   return ROUTE_CONFIG[routeType]?.entries ?? null;
+}
+
+export function getDiscoveredRoutes(): { id: string; label: string; provider: string; model: string }[] {
+  const result: { id: string; label: string; provider: string; model: string }[] = [];
+  for (const [provider, model] of Object.entries(bestModels)) {
+    const name = PROVIDERS[provider]?.name || provider;
+    result.push({ id: `discovered:${provider}`, label: `${name} — ${model}`, provider, model });
+  }
+  return result;
 }

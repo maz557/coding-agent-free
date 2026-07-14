@@ -104,6 +104,7 @@ async function startChat() {
   console.log('  Commands:');
   console.log('    /model <n>         Switch to preset n');
   console.log('    /model auto/<r>    Auto-route: coding, fast, cheap, reasoning, vision, offline');
+  console.log('    /model discovered:<p>  Use discovered model for <p> (e.g. discovered:google)');
   console.log('    /save <n>    Save last used model as preset n');
   console.log('    /add <n> <m> Manually add model m as preset n (provider:model)');
   console.log('    /remove <n>  Remove a user preset');
@@ -364,7 +365,7 @@ async function startChat() {
       continue;
     }
 
-    const routeMatch = input.match(/^\/model\s+(auto\/\w+)$/i);
+    const routeMatch = input.match(/^\/model\s+(auto\/\w+|discovered:\w+)$/i);
     if (routeMatch) {
       const route = routeMatch[1];
       const resolved = resolveRoute(route);
