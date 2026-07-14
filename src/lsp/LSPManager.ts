@@ -70,6 +70,17 @@ export class LSPManager {
     for (const config of this.configs) {
       const matches = files.filter(f => this.matchesPattern(f, config.filePatterns));
       if (matches.length === 0) continue;
+      const existing = this.entries.find(e => e.config.languageId === config.languageId);
+      if (existing?.client.ready) {
+        for (const file of matches.slice(0, 50)) {
+          const fileUri = pathToUri(file);
+          try {
+            const content = fs.readFileSync(file, 'utf-8');
+            await existing.client.openDocument(fileUri, config.languageId, content);
+          } catch { /* skip unreadable */ }
+        }
+        continue;
+      }
       const uri = pathToUri(projectRoot);
       try {
         const client = new LSPClient(config.command, config.args, uri);

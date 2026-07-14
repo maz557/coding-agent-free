@@ -53,8 +53,9 @@
     "minQuality": "low"
   },
   "_discovered": {
+    "openrouter": "arcee-ai/trinity-large-thinking",
     "google": "gemini-2.5-flash",
     "xai": "grok-3",
-    "cerebras": "gemma-4-31b"
+    "cerebras": "zai-glm-4.7"
   }
 }
