@@ -23,10 +23,11 @@ This is the Coding Agent Free project itself.
 - `scripts/setup.js` — interactive setup wizard
 
 ## Tests
-- `npm run test:unit` — **363** unit tests (20 files, `--test-timeout=15000`)
+- `npm run test:unit` — **357** unit tests (19 files, `--test-timeout=15000`)
 - `npm run test:integration` — 26 provider integration tests
 - `npm test` — 35 integration tests
 - CI: `.github/workflows/ci.yml` runs all tests on push/PR
+- **Note:** The `projectManager` atomic‑rename (`.tmp → .json`) test sometimes flakes with `EPERM` on Windows — rerun CI if that happens.
 
 ## v1.30.0 changes
 - **5 code-level guards** 🛡️ — enforced before tool execution (not just prompt):
@@ -76,12 +77,6 @@ This is the Coding Agent Free project itself.
 - **LSP toggle** — 🟢ON/⚫OFF status with active languages
 - **MCP toggle** — 🟢ON/⚫OFF status
 - **Project panel** — sidebar with project list, detail view, progress bars, status management, create/delete
-
-## Tests
-- `npm run test:unit` — **363** unit tests (20 files, `--test-timeout=15000`)
-- `npm run test:integration` — 26 provider integration tests
-- `npm test` — 35 integration tests
-- CI: `.github/workflows/ci.yml` runs all tests on push/PR
 
 ## v1.30.0 changes
 - **5 code-level guards** 🛡️ — enforced before tool execution (not just prompt):
