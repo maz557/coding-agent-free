@@ -30,7 +30,7 @@ This is the Coding Agent Free project itself.
 - **Note:** The `projectManager` atomic‑rename (`.tmp → .json`) test sometimes flakes with `EPERM` on Windows — rerun CI if that happens.
 
 ## v1.31.0 changes
-(no changes yet — stable release from v1.30.0)
+- **LSP duplicate fix** 🐛 — `startForProject` now reuses existing ready clients instead of creating duplicates when called after `startAllServers`. Fixes `LSP ready (typescript, python, typescript, python)`.
 - **CI green** ✅ — all 357 unit tests pass, IPC serialization flake documented
 - **LSPManager fix** — restored `startForProject` early return, added `startAllServers` for unconditional startup
 - **`/add` case‑insensitive** — model/provider matching now case‑insensitive with trimmed whitespace
