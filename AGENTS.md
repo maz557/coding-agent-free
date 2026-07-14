@@ -1,4 +1,4 @@
-# Coding Agent Free v1.30.0
+# Coding Agent Free v1.31.0
 
 This is the Coding Agent Free project itself.
 
@@ -29,6 +29,13 @@ This is the Coding Agent Free project itself.
 - CI: `.github/workflows/ci.yml` runs all tests on push/PR
 - **Note:** The `projectManager` atomic‑rename (`.tmp → .json`) test sometimes flakes with `EPERM` on Windows — rerun CI if that happens.
 
+## v1.31.0 changes
+(no changes yet — stable release from v1.30.0)
+- **CI green** ✅ — all 357 unit tests pass, IPC serialization flake documented
+- **LSPManager fix** — restored `startForProject` early return, added `startAllServers` for unconditional startup
+- **`/add` case‑insensitive** — model/provider matching now case‑insensitive with trimmed whitespace
+- **357 unit tests** (unchanged)
+
 ## v1.30.0 changes
 - **5 code-level guards** 🛡️ — enforced before tool execution (not just prompt):
   - `pipAttempted` flag — blocks 2nd+ `pip install`, suggests stdlib instead
@@ -40,7 +47,7 @@ This is the Coding Agent Free project itself.
 - **Doc generation improved** — tech design and API spec no longer filter steps; PRD auto-fills Target Users
 - **CI fixes** — 3 tests using `.ts` extension changed to `.xyz` to prevent `autoInstallAndStart` from launching real LSP server, causing timeouts in CI
 - **21 built-in tools** (unchanged)
-- **363 unit tests** (was 359, +4 new guard tests)
+- **357 unit tests** (was 359, -2 from LSPManager refactor) // Note: v1.30.0 release had 357 after CI stabilization
 
 ## v1.29.0 changes
 - **Blocked calls guard** 🛑 — after stuck detection fires, the exact `callKey` is added to a `blockedCalls` Set. If the model repeats the same tool call, it gets a hard error instead of executing. Prevents the agent from getting stuck in loops (e.g., repeated `flake8` calls).
@@ -77,35 +84,6 @@ This is the Coding Agent Free project itself.
 - **LSP toggle** — 🟢ON/⚫OFF status with active languages
 - **MCP toggle** — 🟢ON/⚫OFF status
 - **Project panel** — sidebar with project list, detail view, progress bars, status management, create/delete
-
-## v1.30.0 changes
-- **5 code-level guards** 🛡️ — enforced before tool execution (not just prompt):
-  - `pipAttempted` flag — blocks 2nd+ `pip install`, suggests stdlib instead
-  - `writtenFiles` Map — blocks `write_file`/`replace_in_file`/`append_file` with identical content
-  - Source-code workaround guard — blocks `.py` files containing `sys.path.append`/`sys.path.insert`
-  - Question + tools same-turn detection — if model asks a question AND calls tools, injects wait reminder
-  - Broadened auto-LSP — triggers on ANY `[Command Failed]`, not just Python tracebacks
-- **System prompt strengthened** — creation-first, wait-for-answer, mandatory LSP, requirements.txt edit limit
-- **Doc generation improved** — tech design and API spec no longer filter steps; PRD auto-fills Target Users
-- **CI fixes** — 3 tests using `.ts` extension changed to `.xyz` to prevent `autoInstallAndStart` from launching real LSP server, causing timeouts in CI
-- **21 built-in tools** (unchanged)
-- **363 unit tests** (was 359, +4 new guard tests)
-
-## v1.29.0 changes
-- **Blocked calls guard** 🛑 — after stuck detection fires, the exact `callKey` is added to a `blockedCalls` Set. If the model repeats the same tool call, it gets a hard error instead of executing. Prevents the agent from getting stuck in loops (e.g., repeated `flake8` calls).
-- **Project specification documents** 📋 — `create_project` auto-generates `docs/prd.md`, `docs/tech_design.md`, `docs/api_spec.md`, `docs/test_plan.md` with content from the plan. Presented to the user for review/approval before implementation begins.
-  - `read_project_docs` (new tool) — read spec docs during implementation
-  - `update_project_docs` (new tool) — update docs when requirements change
-  - `verify_project_spec` (new tool) — final evaluation comparing implementation against spec docs and plan steps; shows plan step status, file list, and completion percentage
-- **System prompt improvements**:
-  - "Make the MINIMAL change necessary — do NOT add new features, dependencies, or refactoring the user didn't ask for"
-  - "Do NOT create test files or write unit tests unless the user explicitly asks"
-  - "If you modify the same file more than 3 times, stop and reassess"
-  - "Always verify the LAST change before declaring done"
-  - "Remove unused imports and dead code"
-  - Docs workflow: present docs → get approval → read before changes → update on change → verify at end
-- **21 built-in tools** (was 20)
-- **359 unit tests** (19 → 20 files, +11 tests)
 
 ## Key modules
 - `src/mcp/` — MCP support (types, StdioTransport, HTTPTransport, MCPManager, config loader)
