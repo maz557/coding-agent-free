@@ -987,7 +987,8 @@ if (process.env.NODE_ENV !== 'test') {
         lspManager.addConfig(cfg);
       }
       const projectDir = path.resolve(__dirname, '..');
-      await lspManager.startForProject(projectDir);
+      await lspManager.startAllServers(projectDir);
+      await lspManager.startForProject(projectDir, true);
       if (lspManager.isAvailable()) {
         const langs = lspManager.getActiveLanguages().join(', ') || 'TypeScript';
         console.log(`   🔬 LSP ready (${langs}): code_definition, code_references, code_hover`);
