@@ -2,8 +2,8 @@
   "mcpServers": {},
   "lspServers": [
     {
-      "command": "npx",
-      "args": ["--yes", "pyright", "--language-server", "--stdio"],
+      "command": "node.exe",
+      "args": ["node_modules/pyright/langserver.index.js", "--stdio"],
       "languageId": "python",
       "filePatterns": ["**/*.py"]
     }
