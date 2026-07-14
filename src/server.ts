@@ -988,6 +988,11 @@ if (process.env.NODE_ENV !== 'test') {
       }
       const allowedDir = path.resolve(process.env.ALLOWED_DIR || './workspace');
       await lspManager.startForProject(allowedDir);
+      // Also start for the main project directory so TypeScript/other LSP is available
+      const projectDir = path.resolve(__dirname, '..');
+      if (projectDir !== allowedDir) {
+        await lspManager.startForProject(projectDir, true);
+      }
       if (lspManager.isAvailable()) {
         const langs = lspManager.getActiveLanguages().join(', ') || 'TypeScript';
         console.log(`   🔬 LSP ready (${langs}): code_definition, code_references, code_hover`);

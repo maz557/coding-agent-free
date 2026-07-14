@@ -54,9 +54,9 @@
   },
   "_discovered": {
     "mistral": "mistral-large-2512",
-    "openrouter": "arcee-ai/trinity-large-thinking",
+    "groq": "meta-llama/llama-4-scout-17b-16e-instruct",
     "google": "gemini-2.5-flash",
     "xai": "grok-3",
-    "cerebras": "gpt-oss-120b"
+    "cerebras": "gemma-4-31b"
   }
 }

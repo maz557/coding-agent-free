@@ -65,33 +65,29 @@ export class LSPManager {
 
   async startForProject(projectRoot: string, quiet?: boolean): Promise<void> {
     const files = this.findProjectFiles(projectRoot);
-    if (files.length === 0) return;
 
     for (const config of this.configs) {
       const matches = files.filter(f => this.matchesPattern(f, config.filePatterns));
-      if (matches.length > 0) {
-        const uri = pathToUri(projectRoot);
-        try {
-          const client = new LSPClient(config.command, config.args, uri);
-          client.onDiagnostics = (docUri: string, diagnostics: any[]) => {
-            if (diagnostics.length > 0) {
-              if (!quiet) console.log(`  📋 LSP diagnostics for ${path.basename(uriToPath(docUri))}: ${diagnostics.length} issue(s)`);
-            }
-          };
-          await client.start();
-          this.entries.push({ client, config });
-
-          for (const file of matches.slice(0, 50)) {
-            const fileUri = pathToUri(file);
-            const ext = path.extname(file).slice(1);
-            try {
-              const content = fs.readFileSync(file, 'utf-8');
-              await client.openDocument(fileUri, config.languageId, content);
-            } catch { /* skip unreadable */ }
+      const uri = pathToUri(projectRoot);
+      try {
+        const client = new LSPClient(config.command, config.args, uri);
+        client.onDiagnostics = (docUri: string, diagnostics: any[]) => {
+          if (diagnostics.length > 0) {
+            if (!quiet) console.log(`  📋 LSP diagnostics for ${path.basename(uriToPath(docUri))}: ${diagnostics.length} issue(s)`);
           }
-        } catch (err: any) {
-          if (!quiet) console.log(`  ⚠️  LSP "${config.command}" failed: ${err.message}`);
+        };
+        await client.start();
+        this.entries.push({ client, config });
+
+        for (const file of matches.slice(0, 50)) {
+          const fileUri = pathToUri(file);
+          try {
+            const content = fs.readFileSync(file, 'utf-8');
+            await client.openDocument(fileUri, config.languageId, content);
+          } catch { /* skip unreadable */ }
         }
+      } catch (err: any) {
+        if (!quiet) console.log(`  ⚠️  LSP "${config.command}" failed: ${err.message}`);
       }
     }
   }
