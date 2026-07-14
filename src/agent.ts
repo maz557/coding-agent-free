@@ -457,9 +457,15 @@ async function startChat() {
         const colon = raw.indexOf(':');
         let providerId: string;
         let modelId: string;
-        if (colon > 0 && PROVIDERS[raw.slice(0, colon)]) {
-          providerId = raw.slice(0, colon);
-          modelId = raw.slice(colon + 1);
+        if (colon > 0) {
+          const rawProvider = raw.slice(0, colon).toLowerCase();
+          if (PROVIDERS[rawProvider]) {
+            providerId = rawProvider;
+            modelId = raw.slice(colon + 1).trim();
+          } else {
+            providerId = activeModelConfig.provider;
+            modelId = raw;
+          }
         } else {
           providerId = activeModelConfig.provider;
           modelId = raw;

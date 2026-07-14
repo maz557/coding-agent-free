@@ -338,9 +338,13 @@ app.post('/api/presets', express.json(), async (req, res) => {
   const colon = model.indexOf(':');
   let providerId: string;
   let modelId: string;
-  if (colon > 0 && PROVIDERS[model.slice(0, colon)]) {
-    providerId = model.slice(0, colon);
-    modelId = model.slice(colon + 1);
+  if (colon > 0) {
+    const rawProvider = model.slice(0, colon).toLowerCase();
+    if (!PROVIDERS[rawProvider]) {
+      return res.status(400).json({ error: `Unknown provider "${rawProvider}". Use one of: ${Object.keys(PROVIDERS).join(', ')}` });
+    }
+    providerId = rawProvider;
+    modelId = model.slice(colon + 1).trim();
   } else {
     return res.status(400).json({ error: 'Format: provider:model (e.g. xai:grok-beta)' });
   }

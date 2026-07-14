@@ -13,3 +13,4 @@ projects/
 workspace/.env
 coding-agent.exe
 coding-agent-web.exe
+agent.exe
