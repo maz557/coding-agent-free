@@ -704,6 +704,58 @@ app.post('/api/chat/:sessionId', async (req: Request<{ sessionId: string }>, res
     return res.status(400).json({ error: 'message is required' });
   }
 
+  // Intercept per-provider model listing commands (e.g. /openrouter, /mistral, ...)
+  const PROVIDER_COMMANDS: Record<string, string> = {
+    openrouter: 'openrouter', mistral: 'mistral', groq: 'groq',
+    google: 'google', xai: 'xai', cerebras: 'cerebras',
+    cohere: 'cohere', deepseek: 'deepseek', anthropic: 'anthropic',
+    together: 'together', perplexity: 'perplexity',
+  };
+  const cmd = message.trim().toLowerCase().replace(/^\//, '');
+  const providerId = PROVIDER_COMMANDS[cmd];
+  if (providerId) {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    });
+    res.flushHeaders();
+    const send = (event: string, data: any) => {
+      if (res.destroyed) return;
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    };
+    const pInfo = PROVIDERS[providerId];
+    if (!pInfo) { send('token', { token: `❌ Unknown provider: ${providerId}` }); send('done', {}); res.end(); return; }
+    if (pInfo.apiKeyEnv && !process.env[pInfo.apiKeyEnv]) {
+      send('token', { token: `⚠️  No API key (${pInfo.apiKeyEnv}) for ${pInfo.name}. Set it in .env` });
+      send('done', {}); res.end(); return;
+    }
+    const models = await discoverProviderModels(providerId);
+    if (models.length === 0) {
+      send('token', { token: `No models found for ${pInfo.name}.` });
+    } else {
+      let text = `**${pInfo.name}: ${models.length} model(s)**\n\n`;
+      if (providerId === 'openrouter') {
+        const freeModels = models.filter((m: any) => m.id.endsWith(':free'));
+        const paidModels = models.filter((m: any) => !m.id.endsWith(':free'));
+        if (freeModels.length > 0) {
+          text += `🆓 **Free models (${freeModels.length}):**\n`;
+          for (const m of freeModels) text += `- \`${m.id}\`\n`;
+        }
+        if (paidModels.length > 0) {
+          text += `\n💰 **Paid models (${paidModels.length}):**\n`;
+          for (const m of paidModels) text += `- \`${m.id}\`\n`;
+        }
+      } else {
+        for (const m of models) text += `- \`${m.id}\`\n`;
+      }
+      send('token', { token: text });
+    }
+    send('done', {});
+    res.end();
+    return;
+  }
+
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
