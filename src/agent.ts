@@ -115,7 +115,7 @@ async function startChat() {
   console.log('    /list-providers  Show available providers');
   console.log('    /tools       List all available tools');
   console.log('    /discover    Discover best model from each provider');
-  console.log('    /<provider>  List all models for a provider (e.g. /openrouter, /mistral, /groq)');
+  console.log('    /openrouter  List all models for a provider (try /mistral, /groq, /google, /xai, ...)');
   console.log('    /models      Show all presets');
   console.log('    /active      Show current active model');
     console.log('    /mcp list    Show connected MCP servers');

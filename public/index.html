@@ -189,7 +189,7 @@
     <div id="project-detail-content"></div>
   </div>
 </div>
-<div id="chat"><div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands" dir="ltr"><span>/model 1</span><span>/add 7 xai:grok-beta</span><span>/safe</span><span>/tools</span><span>/discover</span><span>/reset</span><span>/active</span><span>/models</span><span>/help</span></div></div></div>
+<div id="chat"><div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands" dir="ltr"><span>/model 1</span><span>/add 7 xai:grok-beta</span><span>/safe</span><span>/tools</span><span>/discover</span><span>/openrouter</span><span>/reset</span><span>/active</span><span>/models</span><span>/help</span></div></div></div>
 <div id="toast-container"></div>
 <button id="auto-scroll-btn" title="Auto-scroll">⬇</button>
 <div id="status">Ready</div>
@@ -277,7 +277,8 @@
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/reset</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Clear conversation history</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/active</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Show current active model</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/tools</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">List all available tools</td></tr>
-      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/discover</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Discover available models from providers</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/discover</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Discover best model from each provider</td></tr>
+      <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/openrouter, /mistral, /groq, ...</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">List all models for a provider (free + paid for OpenRouter)</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/models</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">List all available presets</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/help</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">Open this help panel</td></tr>
       <tr><td style="padding:4px 8px;border-bottom:1px solid #21262d;font-family:monospace">/session list</td><td style="padding:4px 8px;border-bottom:1px solid #21262d">List all sessions</td></tr>
@@ -1101,7 +1102,7 @@ async function refreshSessionList() {
           if (res.ok) {
             if (id === sessionId) {
               sessionId = '';
-              chat.innerHTML = '<div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands" dir="ltr"><span>/model 1</span><span>/add 7 xai:grok-beta</span><span>/safe</span><span>/tools</span><span>/discover</span><span>/reset</span><span>/active</span><span>/models</span><span>/help</span></div></div>';
+              chat.innerHTML = '<div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands" dir="ltr"><span>/model 1</span><span>/add 7 xai:grok-beta</span><span>/safe</span><span>/tools</span><span>/discover</span><span>/openrouter</span><span>/reset</span><span>/active</span><span>/models</span><span>/help</span></div></div>';
             }
             refreshSessionList();
           }
@@ -1591,7 +1592,7 @@ document.getElementById('clear-sessions-btn').addEventListener('click', async ()
     const res = await fetch('/api/sessions', { method: 'DELETE' });
     if (res.ok) {
       sessionId = '';
-      chat.innerHTML = '<div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands" dir="ltr"><span>/model 1</span><span>/add 7 xai:grok-beta</span><span>/safe</span><span>/tools</span><span>/discover</span><span>/reset</span><span>/active</span><span>/models</span><span>/help</span></div></div>';
+      chat.innerHTML = '<div id="welcome"><h2>Coding Agent</h2><p>Type a message or use a slash command to get started</p><div class="commands" dir="ltr"><span>/model 1</span><span>/add 7 xai:grok-beta</span><span>/safe</span><span>/tools</span><span>/discover</span><span>/openrouter</span><span>/reset</span><span>/active</span><span>/models</span><span>/help</span></div></div>';
       await refreshSessionList();
     }
   } catch {}
